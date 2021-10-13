@@ -96,3 +96,7 @@ import * as babel from '@babel/core';
 
 babel.transform(someCode, { plugins: [makePlugin(loadTemplateCompiler)] });
 ```
+
+# Acknowledgement / History
+
+This repo derives from https://github.com/ember-cli/babel-plugin-htmlbars-inline-precompile
