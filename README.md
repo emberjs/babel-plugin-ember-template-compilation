@@ -8,6 +8,7 @@ Babel plugin that implements Ember's low-level template-compilation API.
 
 - Node 12+ (when used in Node, but we also support in-browser usage)
 - Babel 7
+- the output works with ember-source 3.27+. For older Ember versions, see [babel-plugin-htmlbars-inline-precompile](https://github.com/ember-cli/babel-plugin-htmlbars-inline-precompile) instead.
 
 ## Usage
 
