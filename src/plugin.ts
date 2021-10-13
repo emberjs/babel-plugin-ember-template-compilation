@@ -100,7 +100,7 @@ export default function makePlugin<O>(
         try {
           precompileResultString = precompile(template, options);
         } catch (error) {
-          target.replaceWith(runtimeErrorIIFE(babel, { ERROR_MESSAGE: error.message }));
+          target.replaceWith(runtimeErrorIIFE(babel, { ERROR_MESSAGE: (error as any).message }));
           return;
         }
       } else {
