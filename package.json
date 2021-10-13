@@ -65,9 +65,6 @@
   "engines": {
     "node": ">= 12.*"
   },
-  "publishConfig": {
-    "registry": "https://registry.npmjs.org"
-  },
   "release-it": {
     "plugins": {
       "release-it-lerna-changelog": {
