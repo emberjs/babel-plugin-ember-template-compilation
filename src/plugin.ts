@@ -107,9 +107,10 @@ export default function makePlugin<O>(
         precompileResultString = precompile(template, options);
       }
 
-      let precompileResultAST = babel.parse(
-        `var precompileResult = ${precompileResultString};`
-      ) as t.File;
+      let precompileResultAST = babel.parse(`var precompileResult = ${precompileResultString};`, {
+        babelrc: false,
+        configFile: false,
+      }) as t.File;
 
       let templateExpression = (precompileResultAST.program.body[0] as t.VariableDeclaration)
         .declarations[0].init as t.Expression;
