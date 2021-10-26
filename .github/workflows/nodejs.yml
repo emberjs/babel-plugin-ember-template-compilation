@@ -25,7 +25,7 @@ jobs:
       - name: install yarn
         run: npm install -g yarn
       - name: install dependencies
-        run: yarn install
+        run: yarn install --frozen-lockfile
       - name: linting
         run: yarn lint
 
@@ -45,7 +45,7 @@ jobs:
       - name: install yarn
         run: npm install -g yarn
       - name: install dependencies
-        run: yarn install
+        run: yarn install --frozen-lockfile
       - name: test
         run: yarn test
 
