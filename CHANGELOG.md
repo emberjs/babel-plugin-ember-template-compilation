@@ -1,3 +1,15 @@
+## v1.0.1 (2021-11-04)
+
+#### :bug: Bug Fix
+* [#1](https://github.com/emberjs/babel-plugin-ember-template-compilation/pull/1) Ensure babel.parse does not use top level babel config. ([@rwjblue](https://github.com/rwjblue))
+
+#### :house: Internal
+* [#2](https://github.com/emberjs/babel-plugin-ember-template-compilation/pull/2) Ensure `yarn.lock` is always in sync ([@rwjblue](https://github.com/rwjblue))
+
+#### Committers: 1
+- Robert Jackson ([@rwjblue](https://github.com/rwjblue))
+
+
 ## v5.3.0 (2021-04-12)
 
 #### :rocket: Enhancement
