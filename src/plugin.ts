@@ -3,6 +3,7 @@ import type * as Babel from '@babel/core';
 import type { types as t } from '@babel/core';
 import { ImportUtil } from 'babel-import-util';
 import { ExpressionParser } from './expression-parser';
+import { JSUtils } from './js-utils';
 
 export type EmberPrecompile = (templateString: string, options: Record<string, unknown>) => string;
 
@@ -77,6 +78,7 @@ interface State {
   util: ImportUtil;
   precompile: EmberPrecompile;
   templateFactory: { moduleName: string; exportName: string };
+  program: NodePath<t.Program>;
 }
 
 export default function makePlugin<O>(
@@ -87,12 +89,23 @@ export default function makePlugin<O>(
     let t = babel.types;
 
     function insertCompiledTemplate(
-      target: NodePath<t.Node>,
+      target: NodePath<t.Expression>,
       state: State,
       template: string,
       userTypedOptions: Record<string, unknown>
     ): void {
-      let options = Object.assign({ contents: template }, userTypedOptions);
+      if (!userTypedOptions.locals) {
+        userTypedOptions.locals = [];
+      }
+      let jsutils = new JSUtils(
+        babel,
+        state.program,
+        target,
+        userTypedOptions.locals as string[],
+        state.util
+      );
+      let meta = Object.assign({ jsutils }, userTypedOptions?.meta);
+      let options = Object.assign({}, userTypedOptions, { contents: template, meta });
       let precompile = state.precompile;
       let precompileResultString: string;
 
@@ -142,6 +155,7 @@ export default function makePlugin<O>(
               : { exportName, moduleName };
             state.util = new ImportUtil(t, path);
             state.precompile = loadPrecompiler(state.opts as O);
+            state.program = path;
           },
           exit(_path: NodePath<t.Program>, state: State) {
             for (let { moduleName, export: exportName } of configuredModules(state)) {

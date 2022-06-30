@@ -5,6 +5,8 @@ import TransformTemplateLiterals from '@babel/plugin-transform-template-literals
 import TransformModules from '@babel/plugin-transform-modules-amd';
 import TransformUnicodeEscapes from '@babel/plugin-transform-unicode-escapes';
 import { stripIndent } from 'common-tags';
+import { WithJSUtils } from '../src/js-utils';
+import type { ASTPluginBuilder, ASTPluginEnvironment } from '@glimmer/syntax';
 
 describe('htmlbars-inline-precompile', function () {
   let precompile: NonNullable<Options['precompile']>;
@@ -25,7 +27,8 @@ describe('htmlbars-inline-precompile', function () {
   beforeEach(function () {
     optionsReceived = undefined;
     precompile = (template, options) => {
-      optionsReceived = options;
+      optionsReceived = { ...options };
+      delete optionsReceived.meta;
       return `"precompiled(${template})"`;
     };
 
@@ -93,6 +96,7 @@ describe('htmlbars-inline-precompile', function () {
 
     expect(optionsReceived).toEqual({
       contents: source,
+      locals: [],
     });
   });
 
@@ -106,6 +110,7 @@ describe('htmlbars-inline-precompile', function () {
     expect(optionsReceived).toEqual({
       contents: source,
       isProduction: true,
+      locals: [],
     });
   });
 
@@ -117,6 +122,7 @@ describe('htmlbars-inline-precompile', function () {
 
     expect(optionsReceived).toEqual({
       contents: source,
+      locals: [],
     });
   });
 
@@ -159,6 +165,7 @@ describe('htmlbars-inline-precompile', function () {
       stringifiedThing: {
         foo: 'baz',
       },
+      locals: [],
     });
   });
 
@@ -244,6 +251,7 @@ describe('htmlbars-inline-precompile', function () {
 
     expect(optionsReceived).toEqual({
       contents: source,
+      locals: [],
     });
   });
 
@@ -570,13 +578,9 @@ describe('htmlbars-inline-precompile', function () {
     // eslint-disable-next-line @typescript-eslint/no-var-requires
     const compiler = require('ember-source/dist/ember-template-compiler');
 
-    beforeEach(function () {
-      precompile = (template, options) => {
-        return compiler.precompile(template, options);
-      };
-    });
-
     it('includes the original template content', function () {
+      precompile = (template, options) => compiler.precompile(template, options);
+
       let transformed = transform(stripIndent`
         import { precompileTemplate } from '@ember/template-compilation';
 
@@ -584,6 +588,143 @@ describe('htmlbars-inline-precompile', function () {
       `);
 
       expect(transformed).toContain(`hello {{firstName}}`);
+    });
+
+    it('allows AST transform to bind a JS expression', function () {
+      precompile = runASTTransform(compiler, function (env) {
+        return {
+          name: 'sample-transform',
+          visitor: {
+            PathExpression(node) {
+              if (node.original === 'onePlusOne') {
+                let name = env.meta.jsutils.bindValue('1+1', { nameHint: 'two' });
+                return env.syntax.builders.path(name);
+              }
+              return undefined;
+            },
+          },
+        };
+      });
+
+      let transformed = transform(stripIndent`
+        import { precompileTemplate } from '@ember/template-compilation';
+        const template = precompileTemplate('<Message @text={{onePlusOne}} />');
+      `);
+
+      expect(transformed).toContain(`@text={{two}}`);
+      expect(transformed).toContain(`locals: [two]`);
+      expect(transformed).toContain(`let two = 1 + 1`);
+    });
+
+    it('adds locals to the compiled output', function () {
+      precompile = compileASTTransform(compiler, function (env) {
+        return {
+          name: 'sample-transform',
+          visitor: {
+            PathExpression(node) {
+              if (node.original === 'onePlusOne') {
+                let name = env.meta.jsutils.bindValue('1+1', { nameHint: 'two' });
+                return env.syntax.builders.path(name);
+              }
+              return undefined;
+            },
+          },
+        };
+      });
+
+      let transformed = transform(stripIndent`
+      import { precompileTemplate } from '@ember/template-compilation';
+      const template = precompileTemplate('<Message @text={{onePlusOne}} />');
+    `);
+      expect(transformed).toContain(`"scope": () => [two]`);
+    });
+
+    it('allows AST transform to bind a JS import', function () {
+      precompile = runASTTransform(compiler, function (env) {
+        return {
+          name: 'sample-transform',
+          visitor: {
+            PathExpression(node) {
+              if (node.original === 'onePlusOne') {
+                let name = env.meta.jsutils.bindImport('my-library', 'default', {
+                  nameHint: 'two',
+                });
+                return env.syntax.builders.path(name);
+              }
+              return undefined;
+            },
+          },
+        };
+      });
+
+      let transformed = transform(stripIndent`
+        import { precompileTemplate } from '@ember/template-compilation';
+        const template = precompileTemplate('<Message @text={{onePlusOne}} />');
+      `);
+
+      expect(transformed).toContain(`@text={{two}}`);
+      expect(transformed).toContain(`locals: [two]`);
+      expect(transformed).toContain(`import two from "my-library"`);
+    });
+
+    it('does not smash existing binding for import', function () {
+      precompile = runASTTransform(compiler, function (env) {
+        return {
+          name: 'sample-transform',
+          visitor: {
+            PathExpression(node) {
+              if (node.original === 'onePlusOne') {
+                let name = env.meta.jsutils.bindImport('my-library', 'default', {
+                  nameHint: 'two',
+                });
+                return env.syntax.builders.path(name);
+              }
+              return undefined;
+            },
+          },
+        };
+      });
+
+      let transformed = transform(stripIndent`
+        import { precompileTemplate } from '@ember/template-compilation';
+        export function inner() {
+          let two = 'twice';
+          const template = precompileTemplate('<Message @text={{onePlusOne}} />');
+        }
+      `);
+
+      expect(transformed).toContain(`@text={{two0}}`);
+      expect(transformed).toContain(`locals: [two0]`);
+      expect(transformed).toContain(`import two0 from "my-library"`);
+    });
+
+    it('does not smash existing binding for expression', function () {
+      precompile = runASTTransform(compiler, function (env) {
+        return {
+          name: 'sample-transform',
+          visitor: {
+            PathExpression(node) {
+              if (node.original === 'onePlusOne') {
+                let name = env.meta.jsutils.bindValue('1+1', { nameHint: 'two' });
+                return env.syntax.builders.path(name);
+              }
+              return undefined;
+            },
+          },
+        };
+      });
+
+      let transformed = transform(stripIndent`
+        import { precompileTemplate } from '@ember/template-compilation';
+        export default function() {
+          let two = 'twice';
+          const template = precompileTemplate('<Message @text={{onePlusOne}} />');
+        }
+      `);
+
+      expect(transformed).toContain(`@text={{two0}}`);
+      expect(transformed).toContain(`locals: [two0]`);
+      expect(transformed).toContain(`let two0 = 1 + 1`);
     });
   });
 
@@ -663,3 +804,34 @@ describe('htmlbars-inline-precompile', function () {
     });
   });
 });
+
+function runASTTransform(
+  compiler: any,
+  customTransform: ASTPluginBuilder<WithJSUtils<ASTPluginEnvironment>>
+) {
+  return (template: string, options: Record<string, unknown>) => {
+    let ast = compiler._preprocess(template, {
+      ...options,
+      plugins: { ast: [customTransform] },
+    });
+    return (
+      '{ transformedHBS: `' +
+      compiler._print(ast) +
+      '`, locals: [' +
+      ((options.locals as string[]) ?? []).join(',') +
+      ']}'
+    );
+  };
+}
+
+function compileASTTransform(
+  compiler: any,
+  customTransform: ASTPluginBuilder<WithJSUtils<ASTPluginEnvironment>>
+) {
+  return (template: string, options: Record<string, unknown>) => {
+    return compiler.precompile(template, {
+      ...options,
+      plugins: { ast: [customTransform] },
+    });
+  };
+}
