@@ -77,6 +77,7 @@ interface NodeOptions extends Options {
   // Options handling rules:
   //
   //  - we add `content`, which is the original string form of the template
+  //  - we add `meta.jsutils: JSUtils`, which gives AST transform plugins access to methods for manipulating the outer Javascript scope. This only works in non-strict-mode templates on Ember 3.28+ because prior to that only strict-mode templates could use lexically scoped values.
   //  - we have special parsing for `scope` which becomes `locals` when passed
   //    to your precompile
   //  - anything else the user passes to `precompileTemplate` will be passed
