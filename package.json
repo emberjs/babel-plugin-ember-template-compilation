@@ -32,10 +32,7 @@
     "src/**/*.js.map"
   ],
   "dependencies": {
-    "babel-import-util": "^1.2.0",
-    "line-column": "^1.0.2",
-    "magic-string": "^0.26.0",
-    "string.prototype.matchall": "^4.0.5"
+    "babel-import-util": "^1.2.0"
   },
   "devDependencies": {
     "@babel/core": "^7.14.8",
@@ -46,8 +43,6 @@
     "@babel/traverse": "^7.14.5",
     "@types/babel__traverse": "^7.11.1",
     "@types/jest": "^26.0.23",
-    "@types/line-column": "^1.0.0",
-    "@types/string.prototype.matchall": "^4.0.0",
     "@typescript-eslint/eslint-plugin": "^4.28.4",
     "@typescript-eslint/parser": "^4.28.4",
     "common-tags": "^1.8.0",
