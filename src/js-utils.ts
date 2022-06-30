@@ -54,6 +54,7 @@ export class JSUtils {
     target: WalkerPath<ASTv1.Node>,
     opts?: { nameHint?: string }
   ): string {
+    // This will discover or create the local name for accessing the given import.
     let importedIdentifier = this.#importer.import(
       this.#template,
       moduleSpecifier,
@@ -61,13 +62,17 @@ export class JSUtils {
       opts?.nameHint
     );
 
-    // only need to check for collisions with HBS here, the JS collisions were
-    // handled for us by ImportUtil
     let identifier = unusedNameLike(importedIdentifier.name, (candidate) =>
       astNodeHasBinding(target, candidate)
     );
     if (identifier !== importedIdentifier.name) {
-      // The importedIdentifier
+      // The importedIdentifier that we have in Javascript is not usable within
+      // our HBS because it's shadowed by a block param. So we will introduce a
+      // second name via a variable declaration.
+      //
+      // The reason we don't force the import itself to have this name is that
+      // we might be re-using an existing import, and we don't want to go
+      // rewriting all of its callsites that are unrelated to us.
       let t = this.#babel.types;
       this.#program.unshiftContainer(
         'body',
