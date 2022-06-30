@@ -27,7 +27,7 @@ export class JSUtils {
     this.#importer = importer;
   }
 
-  bindValue(
+  bindExpression(
     expression: string,
     target: WalkerPath<ASTv1.Node>,
     opts?: { nameHint?: string }
@@ -67,6 +67,7 @@ export class JSUtils {
       astNodeHasBinding(target, candidate)
     );
     if (identifier !== importedIdentifier.name) {
+      // The importedIdentifier
       let t = this.#babel.types;
       this.#program.unshiftContainer(
         'body',
@@ -82,18 +83,20 @@ export class JSUtils {
   #parseExpression(expressionString: string): t.Expression {
     let parsed = this.#babel.parse(expressionString);
     if (!parsed) {
-      throw new Error(`JSUtils.bindValue could not understand the expression: ${expressionString}`);
+      throw new Error(
+        `JSUtils.bindExpression could not understand the expression: ${expressionString}`
+      );
     }
     let statements = body(parsed);
     if (statements.length !== 1) {
       throw new Error(
-        `JSUtils.bindValue expected to find exactly one expression but found ${statements.length} in: ${expressionString}`
+        `JSUtils.bindExpression expected to find exactly one expression but found ${statements.length} in: ${expressionString}`
       );
     }
     let statement = statements[0];
     if (statement.type !== 'ExpressionStatement') {
       throw new Error(
-        `JSUtils.bindValue expected to find an expression but found ${statement.type} in: ${expressionString}`
+        `JSUtils.bindExpression expected to find an expression but found ${statement.type} in: ${expressionString}`
       );
     }
     return statement.expression;

@@ -584,7 +584,7 @@ describe('htmlbars-inline-precompile', function () {
         visitor: {
           PathExpression(node, path) {
             if (node.original === 'onePlusOne') {
-              let name = env.meta.jsutils.bindValue('1+1', path, { nameHint: 'two' });
+              let name = env.meta.jsutils.bindExpression('1+1', path, { nameHint: 'two' });
               return env.syntax.builders.path(name);
             }
             return undefined;
