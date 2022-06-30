@@ -1,6 +1,7 @@
 import type { types as t } from '@babel/core';
 import type * as Babel from '@babel/core';
 import type { NodePath } from '@babel/traverse';
+import type { ASTv1, WalkerPath } from '@glimmer/syntax';
 import type { ImportUtil } from 'babel-import-util';
 
 // This exists to give AST plugins a controlled interface for influencing the
@@ -26,8 +27,16 @@ export class JSUtils {
     this.#importer = importer;
   }
 
-  bindValue(expression: string, opts?: { nameHint?: string }): string {
-    let name = this.#unusedNameLike(opts?.nameHint ?? 'a');
+  bindValue(
+    expression: string,
+    target: WalkerPath<ASTv1.Node>,
+    opts?: { nameHint?: string }
+  ): string {
+    let name = unusedNameLike(
+      opts?.nameHint ?? 'a',
+      (candidate) =>
+        this.#template.scope.hasBinding(candidate) || astNodeHasBinding(target, candidate)
+    );
     let t = this.#babel.types;
     this.#program.unshiftContainer(
       'body',
@@ -39,15 +48,35 @@ export class JSUtils {
     return name;
   }
 
-  bindImport(moduleSpecifier: string, exportedName: string, opts?: { nameHint?: string }): string {
-    let identifier = this.#importer.import(
+  bindImport(
+    moduleSpecifier: string,
+    exportedName: string,
+    target: WalkerPath<ASTv1.Node>,
+    opts?: { nameHint?: string }
+  ): string {
+    let importedIdentifier = this.#importer.import(
       this.#template,
       moduleSpecifier,
       exportedName,
       opts?.nameHint
     );
-    this.#locals.push(identifier.name);
-    return identifier.name;
+
+    // only need to check for collisions with HBS here, the JS collisions were
+    // handled for us by ImportUtil
+    let identifier = unusedNameLike(importedIdentifier.name, (candidate) =>
+      astNodeHasBinding(target, candidate)
+    );
+    if (identifier !== importedIdentifier.name) {
+      let t = this.#babel.types;
+      this.#program.unshiftContainer(
+        'body',
+        t.variableDeclaration('let', [
+          t.variableDeclarator(t.identifier(identifier), importedIdentifier),
+        ])
+      );
+    }
+    this.#locals.push(identifier);
+    return identifier;
   }
 
   #parseExpression(expressionString: string): t.Expression {
@@ -69,15 +98,42 @@ export class JSUtils {
     }
     return statement.expression;
   }
+}
 
-  #unusedNameLike(desiredName: string): string {
-    let candidate = desiredName;
-    let counter = 0;
-    while (this.#template.scope.hasBinding(candidate)) {
-      candidate = `${desiredName}${counter++}`;
-    }
-    return candidate;
+function unusedNameLike(desiredName: string, isUsed: (name: string) => boolean): string {
+  let candidate = desiredName;
+  let counter = 0;
+  while (isUsed(candidate)) {
+    candidate = `${desiredName}${counter++}`;
   }
+  return candidate;
+}
+
+function astNodeHasBinding(target: WalkerPath<ASTv1.Node>, name: string): boolean {
+  let cursor: WalkerPath<ASTv1.Node> | null = target;
+  while (cursor) {
+    let parentNode = cursor.parent?.node;
+    if (
+      parentNode?.type === 'ElementNode' &&
+      parentNode.blockParams.includes(name) &&
+      // an ElementNode's block params are valid only within its children
+      parentNode.children.includes(cursor.node as ASTv1.Statement)
+    ) {
+      return true;
+    }
+
+    if (
+      parentNode?.type === 'Block' &&
+      parentNode.blockParams.includes(name) &&
+      // a Block's blockParams are valid only within its body
+      parentNode.body.includes(cursor.node as ASTv1.Statement)
+    ) {
+      return true;
+    }
+
+    cursor = cursor.parent;
+  }
+  return false;
 }
 
 // This extends Glimmer's ASTPluginEnvironment type to put our jsutils into

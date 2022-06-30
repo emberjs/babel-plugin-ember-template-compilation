@@ -578,6 +578,38 @@ describe('htmlbars-inline-precompile', function () {
     // eslint-disable-next-line @typescript-eslint/no-var-requires
     const compiler = require('ember-source/dist/ember-template-compiler');
 
+    let expressionTransform: ASTPluginBuilder<WithJSUtils<ASTPluginEnvironment>> = (env) => {
+      return {
+        name: 'expression-transform',
+        visitor: {
+          PathExpression(node, path) {
+            if (node.original === 'onePlusOne') {
+              let name = env.meta.jsutils.bindValue('1+1', path, { nameHint: 'two' });
+              return env.syntax.builders.path(name);
+            }
+            return undefined;
+          },
+        },
+      };
+    };
+
+    let importTransform: ASTPluginBuilder<WithJSUtils<ASTPluginEnvironment>> = (env) => {
+      return {
+        name: 'import-transform',
+        visitor: {
+          PathExpression(node, path) {
+            if (node.original === 'onePlusOne') {
+              let name = env.meta.jsutils.bindImport('my-library', 'default', path, {
+                nameHint: 'two',
+              });
+              return env.syntax.builders.path(name);
+            }
+            return undefined;
+          },
+        },
+      };
+    };
+
     it('includes the original template content', function () {
       precompile = (template, options) => compiler.precompile(template, options);
 
@@ -591,20 +623,7 @@ describe('htmlbars-inline-precompile', function () {
     });
 
     it('allows AST transform to bind a JS expression', function () {
-      precompile = runASTTransform(compiler, function (env) {
-        return {
-          name: 'sample-transform',
-          visitor: {
-            PathExpression(node) {
-              if (node.original === 'onePlusOne') {
-                let name = env.meta.jsutils.bindValue('1+1', { nameHint: 'two' });
-                return env.syntax.builders.path(name);
-              }
-              return undefined;
-            },
-          },
-        };
-      });
+      precompile = runASTTransform(compiler, expressionTransform);
 
       let transformed = transform(stripIndent`
         import { precompileTemplate } from '@ember/template-compilation';
@@ -617,20 +636,7 @@ describe('htmlbars-inline-precompile', function () {
     });
 
     it('adds locals to the compiled output', function () {
-      precompile = compileASTTransform(compiler, function (env) {
-        return {
-          name: 'sample-transform',
-          visitor: {
-            PathExpression(node) {
-              if (node.original === 'onePlusOne') {
-                let name = env.meta.jsutils.bindValue('1+1', { nameHint: 'two' });
-                return env.syntax.builders.path(name);
-              }
-              return undefined;
-            },
-          },
-        };
-      });
+      precompile = compileASTTransform(compiler, expressionTransform);
 
       let transformed = transform(stripIndent`
       import { precompileTemplate } from '@ember/template-compilation';
@@ -640,22 +646,7 @@ describe('htmlbars-inline-precompile', function () {
     });
 
     it('allows AST transform to bind a JS import', function () {
-      precompile = runASTTransform(compiler, function (env) {
-        return {
-          name: 'sample-transform',
-          visitor: {
-            PathExpression(node) {
-              if (node.original === 'onePlusOne') {
-                let name = env.meta.jsutils.bindImport('my-library', 'default', {
-                  nameHint: 'two',
-                });
-                return env.syntax.builders.path(name);
-              }
-              return undefined;
-            },
-          },
-        };
-      });
+      precompile = runASTTransform(compiler, importTransform);
 
       let transformed = transform(stripIndent`
         import { precompileTemplate } from '@ember/template-compilation';
@@ -668,22 +659,7 @@ describe('htmlbars-inline-precompile', function () {
     });
 
     it('does not smash existing js binding for import', function () {
-      precompile = runASTTransform(compiler, function (env) {
-        return {
-          name: 'sample-transform',
-          visitor: {
-            PathExpression(node) {
-              if (node.original === 'onePlusOne') {
-                let name = env.meta.jsutils.bindImport('my-library', 'default', {
-                  nameHint: 'two',
-                });
-                return env.syntax.builders.path(name);
-              }
-              return undefined;
-            },
-          },
-        };
-      });
+      precompile = runASTTransform(compiler, importTransform);
 
       let transformed = transform(stripIndent`
         import { precompileTemplate } from '@ember/template-compilation';
@@ -699,22 +675,7 @@ describe('htmlbars-inline-precompile', function () {
     });
 
     it('does not smash existing hbs binding for import', function () {
-      precompile = runASTTransform(compiler, function (env) {
-        return {
-          name: 'sample-transform',
-          visitor: {
-            PathExpression(node) {
-              if (node.original === 'onePlusOne') {
-                let name = env.meta.jsutils.bindImport('my-library', 'default', {
-                  nameHint: 'two',
-                });
-                return env.syntax.builders.path(name);
-              }
-              return undefined;
-            },
-          },
-        };
-      });
+      precompile = runASTTransform(compiler, importTransform);
 
       let transformed = transform(stripIndent`
         import { precompileTemplate } from '@ember/template-compilation';
@@ -724,25 +685,13 @@ describe('htmlbars-inline-precompile', function () {
       `);
 
       expect(transformed).toContain(`@text={{two0}}`);
+      expect(transformed).toContain(`let two0 = two`);
       expect(transformed).toContain(`locals: [two0]`);
-      expect(transformed).toContain(`import two0 from "my-library"`);
+      expect(transformed).toContain(`import two from "my-library"`);
     });
 
     it('does not smash existing js binding for expression', function () {
-      precompile = runASTTransform(compiler, function (env) {
-        return {
-          name: 'sample-transform',
-          visitor: {
-            PathExpression(node) {
-              if (node.original === 'onePlusOne') {
-                let name = env.meta.jsutils.bindValue('1+1', { nameHint: 'two' });
-                return env.syntax.builders.path(name);
-              }
-              return undefined;
-            },
-          },
-        };
-      });
+      precompile = runASTTransform(compiler, expressionTransform);
 
       let transformed = transform(stripIndent`
         import { precompileTemplate } from '@ember/template-compilation';
@@ -757,21 +706,8 @@ describe('htmlbars-inline-precompile', function () {
       expect(transformed).toContain(`let two0 = 1 + 1`);
     });
 
-    it('does not smash existing hbs binding for expression', function () {
-      precompile = runASTTransform(compiler, function (env) {
-        return {
-          name: 'sample-transform',
-          visitor: {
-            PathExpression(node) {
-              if (node.original === 'onePlusOne') {
-                let name = env.meta.jsutils.bindValue('1+1', { nameHint: 'two' });
-                return env.syntax.builders.path(name);
-              }
-              return undefined;
-            },
-          },
-        };
-      });
+    it('does not smash existing hbs block binding for expression', function () {
+      precompile = runASTTransform(compiler, expressionTransform);
 
       let transformed = transform(stripIndent`
         import { precompileTemplate } from '@ember/template-compilation';
@@ -783,6 +719,36 @@ describe('htmlbars-inline-precompile', function () {
       expect(transformed).toContain(`@text={{two0}}`);
       expect(transformed).toContain(`locals: [two0]`);
       expect(transformed).toContain(`let two0 = 1 + 1`);
+    });
+
+    it('does not smash existing hbs element binding for expression', function () {
+      precompile = runASTTransform(compiler, expressionTransform);
+
+      let transformed = transform(stripIndent`
+        import { precompileTemplate } from '@ember/template-compilation';
+        export default function() {
+          const template = precompileTemplate('<Outer as |two|><Message @text={{onePlusOne}} /></Outer>');
+        }
+      `);
+
+      expect(transformed).toContain(`@text={{two0}}`);
+      expect(transformed).toContain(`locals: [two0]`);
+      expect(transformed).toContain(`let two0 = 1 + 1`);
+    });
+
+    it('understands that block params are only defined in the body, not the arguments, of an element', function () {
+      precompile = runASTTransform(compiler, expressionTransform);
+
+      let transformed = transform(stripIndent`
+        import { precompileTemplate } from '@ember/template-compilation';
+        export default function() {
+          const template = precompileTemplate('<Message @text={{onePlusOne}} as |two|>{{two}}</Message>');
+        }
+      `);
+
+      expect(transformed).toContain(`@text={{two}}`);
+      expect(transformed).toContain(`locals: [two]`);
+      expect(transformed).toContain(`let two = 1 + 1`);
     });
   });
 
