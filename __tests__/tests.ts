@@ -667,7 +667,7 @@ describe('htmlbars-inline-precompile', function () {
       expect(transformed).toContain(`import two from "my-library"`);
     });
 
-    it('does not smash existing binding for import', function () {
+    it('does not smash existing js binding for import', function () {
       precompile = runASTTransform(compiler, function (env) {
         return {
           name: 'sample-transform',
@@ -698,7 +698,37 @@ describe('htmlbars-inline-precompile', function () {
       expect(transformed).toContain(`import two0 from "my-library"`);
     });
 
-    it('does not smash existing binding for expression', function () {
+    it('does not smash existing hbs binding for import', function () {
+      precompile = runASTTransform(compiler, function (env) {
+        return {
+          name: 'sample-transform',
+          visitor: {
+            PathExpression(node) {
+              if (node.original === 'onePlusOne') {
+                let name = env.meta.jsutils.bindImport('my-library', 'default', {
+                  nameHint: 'two',
+                });
+                return env.syntax.builders.path(name);
+              }
+              return undefined;
+            },
+          },
+        };
+      });
+
+      let transformed = transform(stripIndent`
+        import { precompileTemplate } from '@ember/template-compilation';
+        export function inner() {
+          const template = precompileTemplate('{{#let "twice" as |two|}}<Message @text={{onePlusOne}} />{{/let}}');
+        }
+      `);
+
+      expect(transformed).toContain(`@text={{two0}}`);
+      expect(transformed).toContain(`locals: [two0]`);
+      expect(transformed).toContain(`import two0 from "my-library"`);
+    });
+
+    it('does not smash existing js binding for expression', function () {
       precompile = runASTTransform(compiler, function (env) {
         return {
           name: 'sample-transform',
@@ -719,6 +749,34 @@ describe('htmlbars-inline-precompile', function () {
         export default function() {
           let two = 'twice';
           const template = precompileTemplate('<Message @text={{onePlusOne}} />');
+        }
+      `);
+
+      expect(transformed).toContain(`@text={{two0}}`);
+      expect(transformed).toContain(`locals: [two0]`);
+      expect(transformed).toContain(`let two0 = 1 + 1`);
+    });
+
+    it('does not smash existing hbs binding for expression', function () {
+      precompile = runASTTransform(compiler, function (env) {
+        return {
+          name: 'sample-transform',
+          visitor: {
+            PathExpression(node) {
+              if (node.original === 'onePlusOne') {
+                let name = env.meta.jsutils.bindValue('1+1', { nameHint: 'two' });
+                return env.syntax.builders.path(name);
+              }
+              return undefined;
+            },
+          },
+        };
+      });
+
+      let transformed = transform(stripIndent`
+        import { precompileTemplate } from '@ember/template-compilation';
+        export default function() {
+          const template = precompileTemplate('{{#let "twice" as |two|}}<Message @text={{onePlusOne}} />{{/let}}');
         }
       `);
 
