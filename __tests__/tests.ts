@@ -303,6 +303,26 @@ describe('htmlbars-inline-precompile', function () {
     `);
   });
 
+  it('removes no-op imports from ember-cli-htmlbars', function () {
+    plugins = [
+      [
+        HTMLBarsInlinePrecompile,
+        buildOptions({
+          enableLegacyModules: ['ember-cli-htmlbars'],
+        }),
+      ],
+    ];
+
+    // This occurs with rollup builds when it does is import hoisting
+    // (which is done to improve overall speed of loading module graphs)
+    // Since this package shouldn't exist at runtime, it must be removed entirely
+    let transformed = transform("import 'ember-cli-htmlbars';\nlet hello = `world`;");
+
+    expect(transformed).toMatchInlineSnapshot(`
+      let hello = \`world\`;
+    `);
+  });
+
   it('leaves tagged template expressions alone when ember-cli-htmlbars is disabled', function () {
     let transformed = transform(
       "import { hbs as baz } from 'ember-cli-htmlbars';\nvar compiled = baz`hello`;"
