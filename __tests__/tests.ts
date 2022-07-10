@@ -318,9 +318,7 @@ describe('htmlbars-inline-precompile', function () {
     // Since this package shouldn't exist at runtime, it must be removed entirely
     let transformed = transform("import 'ember-cli-htmlbars';\nlet hello = `world`;");
 
-    expect(transformed).toMatchInlineSnapshot(`
-      let hello = \`world\`;
-    `);
+    expect(transformed).toMatchInlineSnapshot(`"let hello = \`world\`;"`);
   });
 
   it('leaves tagged template expressions alone when ember-cli-htmlbars is disabled', function () {

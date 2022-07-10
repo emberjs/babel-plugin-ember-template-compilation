@@ -150,6 +150,23 @@ export default function makePlugin<O>(
           },
         },
 
+        ImportDeclaration(path: NodePath<t.ImportDeclaration>, state: State) {
+          /**
+           * These modules don't actually exist, so if a build tool leaves them in
+           * (without specifiers), we need to remove those (otherwise the app/library
+           * author will run in to a runtime error due to the module not existing).
+           */
+          if (path.node.specifiers.length > 0) return;
+
+          let importPath = path.node.source.value;
+
+          for (let module of configuredModules(state)) {
+            if (importPath === module.moduleName) {
+              state.util.removeAllImports(importPath);
+            }
+          }
+        },
+
         TaggedTemplateExpression(path: NodePath<t.TaggedTemplateExpression>, state: State) {
           let tagPath = path.get('tag');
 
