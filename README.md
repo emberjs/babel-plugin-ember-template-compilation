@@ -77,7 +77,7 @@ interface NodeOptions extends Options {
   // Options handling rules:
   //
   //  - we add `content`, which is the original string form of the template
-  //  - we add `meta.jsutils: JSUtils`, which gives AST transform plugins access to methods for manipulating the outer Javascript scope. This only works in non-strict-mode templates on Ember 3.28+ because prior to that only strict-mode templates could use lexically scoped values.
+  //  - we add `meta.installJSUtils`, which gives AST transform plugins access to methods for manipulating the surrounding javascript scope.
   //  - we have special parsing for `scope` which becomes `locals` when passed
   //    to your precompile
   //  - anything else the user passes to `precompileTemplate` will be passed
@@ -98,6 +98,10 @@ import * as babel from '@babel/core';
 
 babel.transform(someCode, { plugins: [makePlugin(loadTemplateCompiler)] });
 ```
+
+# JSUtils: Manipulating Javascript from within AST transforms
+
+AST transforms are plugins for modifying HBS templates at build time. Because those templates are embedded in Javascript and can access the Javascript scope, an AST plugin may want to introduce some new things into Javascript scope. That is why babel-plugin-ember-template-compilation offers the `JSUtiles` API.
 
 # Acknowledgement / History
 
