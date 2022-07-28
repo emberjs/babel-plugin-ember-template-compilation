@@ -77,7 +77,7 @@ interface NodeOptions extends Options {
   // Options handling rules:
   //
   //  - we add `content`, which is the original string form of the template
-  //  - we add `meta.installJSUtils`, which gives AST transform plugins access to methods for manipulating the surrounding javascript scope.
+  //  - we add `meta.jsutils`, which gives AST transform plugins access to methods for manipulating the surrounding javascript scope. See "JSUtils" below.
   //  - we have special parsing for `scope` which becomes `locals` when passed
   //    to your precompile
   //  - anything else the user passes to `precompileTemplate` will be passed
@@ -101,7 +101,42 @@ babel.transform(someCode, { plugins: [makePlugin(loadTemplateCompiler)] });
 
 # JSUtils: Manipulating Javascript from within AST transforms
 
-AST transforms are plugins for modifying HBS templates at build time. Because those templates are embedded in Javascript and can access the Javascript scope, an AST plugin may want to introduce some new things into Javascript scope. That is why babel-plugin-ember-template-compilation offers the `JSUtiles` API.
+AST transforms are plugins for modifying HBS templates at build time. Because those templates are embedded in Javascript and can access the Javascript scope, an AST plugin may want to introduce some new things into Javascript scope.
+
+Your AST transform can access the JSUtils API via `env.meta.jsutils`. Here's an example transform.
+
+```js
+function myAstTransform(env) {
+  return {
+    name: 'my-ast-transform',
+    visitor: {
+      PathExpression(node, path) {
+        if (node.original === 'onePlusOne') {
+          let name = env.meta.jsutils.bindExpression('1+1', path, { nameHint: 'two' });
+          return env.syntax.builders.path(name);
+        }
+      },
+    },
+  };
+}
+```
+
+The example transform above would rewrite:
+
+```js
+import { precompileTemplate } from '@ember/template-compilation';
+precompileTemplate('<Counter @value={{onePlusOne}} />>');
+```
+
+To:
+
+```js
+import { precompileTemplate } from '@ember/template-compilation';
+let two = 1 + 1;
+precompileTemplate('<Counter @value={{two}} />', { scope: () => ({ two }) });
+```
+
+See the inline docs in js-utils.js for details on the methods available.
 
 # Acknowledgement / History
 

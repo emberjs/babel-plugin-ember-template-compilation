@@ -27,6 +27,20 @@ export class JSUtils {
     this.#importer = importer;
   }
 
+  /**
+   * Create a new binding that you can use in your template, initialized with
+   * the given Javascript expression.
+   *
+   * @param expression A javascript expression whose value will initialize your
+   * new binding.
+   * @param target The location within your template where the binding will be
+   * used. This matters so we can avoid naming collisions.
+   * @param opts.nameHint Optionally, provide a descriptive name for your new
+   * binding. We will mangle this name as needed to avoid collisions, but
+   * picking a good name here can aid in debugging.
+   *
+   * @return The name you can use in your template to access the binding.
+   */
   bindExpression(
     expression: string,
     target: WalkerPath<ASTv1.Node>,
@@ -48,6 +62,20 @@ export class JSUtils {
     return name;
   }
 
+  /**
+   * Gain access to an imported value within your template.
+   *
+   * @param moduleSpecifier The path to import from.
+   * @param exportedName The named export you wish to access, or "default" for
+   * the default export.
+   * @param target The location within your template where the binding will be
+   * used. This matters so we can avoid naming collisions.
+   * @param opts.nameHint Optionally, provide a descriptive name for your new
+   * binding. We will mangle this name as needed to avoid collisions, but
+   * picking a good name here can aid in debugging.
+   *
+   * @return The name you can use in your template to access the imported value.
+   */
   bindImport(
     moduleSpecifier: string,
     exportedName: string,
