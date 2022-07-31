@@ -101,7 +101,7 @@ babel.transform(someCode, { plugins: [makePlugin(loadTemplateCompiler)] });
 
 # JSUtils: Manipulating Javascript from within AST transforms
 
-AST transforms are plugins for modifying HBS templates at build time. Because those templates are embedded in Javascript and can access the Javascript scope, an AST plugin may want to introduce some new things into Javascript scope.
+AST transforms are plugins for modifying HBS templates at build time. Because those templates are embedded in Javascript and can access the Javascript scope, an AST plugin may want to introduce some new things into Javascript scope. That is what the JSUtils API is for.
 
 Your AST transform can access the JSUtils API via `env.meta.jsutils`. Here's an example transform.
 
@@ -136,7 +136,7 @@ let two = 1 + 1;
 precompileTemplate('<Counter @value={{two}} />', { scope: () => ({ two }) });
 ```
 
-See the inline docs in js-utils.js for details on the methods available.
+See the jsdoc comments in js-utils.js for details on the methods available.
 
 # Acknowledgement / History
 

@@ -750,6 +750,99 @@ describe('htmlbars-inline-precompile', function () {
       expect(transformed).toContain(`locals: [two]`);
       expect(transformed).toContain(`let two = 1 + 1`);
     });
+
+    it('can bind expressions that need imports', function () {
+      let nowTransform: ASTPluginBuilder<WithJSUtils<ASTPluginEnvironment>> = (env) => {
+        return {
+          name: 'now-transform',
+          visitor: {
+            PathExpression(node, path) {
+              if (node.original === 'now') {
+                let name = env.meta.jsutils.bindExpression(
+                  (context) => {
+                    let identifier = context.import('luxon', 'DateTime');
+                    return `${identifier}.now()`;
+                  },
+                  path,
+                  { nameHint: 'current' }
+                );
+                return env.syntax.builders.path(name);
+              }
+              return undefined;
+            },
+          },
+        };
+      };
+
+      precompile = runASTTransform(compiler, nowTransform);
+
+      let transformed = transform(stripIndent`
+        import { precompileTemplate } from '@ember/template-compilation';
+        export default function() {
+          const template = precompileTemplate('<Message @when={{now}} />');
+        }
+      `);
+
+      expect(transformed).toMatch(/let current = DateTime.now()/);
+      expect(transformed).toMatch(/import { DateTime } from "luxon"/);
+      expect(transformed).toContain('when={{current}}');
+    });
+
+    it('can emit side-effectful expression that need imports', function () {
+      let compatTransform: ASTPluginBuilder<WithJSUtils<ASTPluginEnvironment>> = (env) => {
+        return {
+          name: 'compat-transform',
+          visitor: {
+            ElementNode(node) {
+              if (node.tag === 'Thing') {
+                env.meta.jsutils.emitExpression((context) => {
+                  let identifier = context.import('ember-thing', '*', 'thing');
+                  return `window.define('my-app/components/thing', ${identifier})`;
+                });
+              }
+            },
+          },
+        };
+      };
+
+      precompile = runASTTransform(compiler, compatTransform);
+
+      let transformed = transform(stripIndent`
+      import { precompileTemplate } from '@ember/template-compilation';
+      export default function() {
+        const template = precompileTemplate('<Thing />');
+      }
+    `);
+
+      expect(transformed).toContain(`import * as thing from "ember-thing"`);
+      expect(transformed).toContain(`window.define('my-app/components/thing', thing)`);
+    });
+
+    it('can emit side-effectful import', function () {
+      let compatTransform: ASTPluginBuilder<WithJSUtils<ASTPluginEnvironment>> = (env) => {
+        return {
+          name: 'compat-transform',
+          visitor: {
+            ElementNode(node) {
+              if (node.tag === 'Thing') {
+                env.meta.jsutils.importForSideEffect('setup-the-things');
+              }
+            },
+          },
+        };
+      };
+
+      precompile = runASTTransform(compiler, compatTransform);
+
+      let transformed = transform(stripIndent`
+      import { precompileTemplate } from '@ember/template-compilation';
+      export default function() {
+        const template = precompileTemplate('<Thing />');
+      }
+    `);
+
+      expect(transformed).toContain(`import "setup-the-things"`);
+    });
   });
 
   describe('scope', function () {

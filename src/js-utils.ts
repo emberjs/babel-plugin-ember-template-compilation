@@ -12,6 +12,7 @@ export class JSUtils {
   #template: NodePath<t.Expression>;
   #locals: string[];
   #importer: ImportUtil;
+  #lastInsertedPath: NodePath<t.Node> | undefined;
 
   constructor(
     babel: typeof Babel,
@@ -31,8 +32,8 @@ export class JSUtils {
    * Create a new binding that you can use in your template, initialized with
    * the given Javascript expression.
    *
-   * @param expression A javascript expression whose value will initialize your
-   * new binding.
+   * @param { Expression } expression A javascript expression whose value will
+   * initialize your new binding. See docs on the Expression type for details.
    * @param target The location within your template where the binding will be
    * used. This matters so we can avoid naming collisions.
    * @param opts.nameHint Optionally, provide a descriptive name for your new
@@ -42,7 +43,7 @@ export class JSUtils {
    * @return The name you can use in your template to access the binding.
    */
   bindExpression(
-    expression: string,
+    expression: Expression,
     target: WalkerPath<ASTv1.Node>,
     opts?: { nameHint?: string }
   ): string {
@@ -52,14 +53,21 @@ export class JSUtils {
         this.#template.scope.hasBinding(candidate) || astNodeHasBinding(target, candidate)
     );
     let t = this.#babel.types;
-    this.#program.unshiftContainer(
-      'body',
+    this.#emitStatement(
       t.variableDeclaration('let', [
-        t.variableDeclarator(t.identifier(name), this.#parseExpression(expression)),
+        t.variableDeclarator(t.identifier(name), this.#parseExpression(this.#program, expression)),
       ])
     );
     this.#locals.push(name);
     return name;
+  }
+
+  #emitStatement(statement: t.Statement): void {
+    if (this.#lastInsertedPath) {
+      this.#lastInsertedPath.insertAfter(statement);
+    } else {
+      this.#lastInsertedPath = this.#program.unshiftContainer('body', statement)[0];
+    }
   }
 
   /**
@@ -67,7 +75,7 @@ export class JSUtils {
    *
    * @param moduleSpecifier The path to import from.
    * @param exportedName The named export you wish to access, or "default" for
-   * the default export.
+   * the default export, or "*" for the namespace export.
    * @param target The location within your template where the binding will be
    * used. This matters so we can avoid naming collisions.
    * @param opts.nameHint Optionally, provide a descriptive name for your new
@@ -102,8 +110,7 @@ export class JSUtils {
       // we might be re-using an existing import, and we don't want to go
       // rewriting all of its callsites that are unrelated to us.
       let t = this.#babel.types;
-      this.#program.unshiftContainer(
-        'body',
+      this.#emitStatement(
         t.variableDeclaration('let', [
           t.variableDeclarator(t.identifier(identifier), importedIdentifier),
         ])
@@ -113,7 +120,37 @@ export class JSUtils {
     return identifier;
   }
 
-  #parseExpression(expressionString: string): t.Expression {
+  /**
+   * Add an import statement purely for side effect.
+   *
+   * @param moduleSpecifier the module to import
+   */
+  importForSideEffect(moduleSpecifier: string): void {
+    this.#importer.importForSideEffect(moduleSpecifier);
+  }
+
+  /**
+   * Emit a javascript expresison for side-effect. This only accepts
+   * expressions, not statements, because you should not introduce new bindings.
+   * To introduce a binding see bindExpression or bindImport instead.
+   *
+   * @param { Expression } expression A javascript expression whose value will
+   * initialize your new binding. See docs on the Expression type below for
+   * details.
+   */
+  emitExpression(expression: Expression): void {
+    let t = this.#babel.types;
+    this.#emitStatement(t.expressionStatement(this.#parseExpression(this.#program, expression)));
+  }
+
+  #parseExpression(target: NodePath<t.Node>, expression: Expression): t.Expression {
+    let expressionString: string;
+    if (typeof expression === 'string') {
+      expressionString = expression;
+    } else {
+      expressionString = expression(new ExpressionContext(this.#importer, target));
+    }
+
     let parsed = this.#babel.parse(expressionString);
     if (!parsed) {
       throw new Error(
@@ -172,8 +209,9 @@ function astNodeHasBinding(target: WalkerPath<ASTv1.Node>, name: string): boolea
   return false;
 }
 
-// This extends Glimmer's ASTPluginEnvironment type to put our jsutils into
-// meta.
+/**
+ * This extends Glimmer's ASTPluginEnvironment type to put our jsutils into meta
+ */
 export type WithJSUtils<T extends { meta?: object }> = {
   meta: T['meta'] & { jsutils: JSUtils };
 } & T;
@@ -185,3 +223,48 @@ function body(node: t.Program | t.File) {
     return node.body;
   }
 }
+
+/**
+ * Allows you to construct an expression that relies on imported values.
+ */
+class ExpressionContext {
+  #importer: ImportUtil;
+  #target: NodePath<t.Node>;
+
+  constructor(importer: ImportUtil, target: NodePath<t.Node>) {
+    this.#importer = importer;
+    this.#target = target;
+  }
+
+  /**
+   * Find or create a local binding for the given import.
+   *
+   * @param moduleSpecifier The path to import from.
+   * @param exportedName The named export you wish to access, or "default" for
+   * the default export, or "*" for the namespace export.
+   * @param nameHint Optionally, provide a descriptive name for your new
+   * binding. We will mangle this name as needed to avoid collisions, but
+   * picking a good name here can aid in debugging.
+
+   * @return the local identifier for the imported value
+   */
+  import(moduleSpecifier: string, exportedName: string, nameHint?: string): string {
+    return this.#importer.import(this.#target, moduleSpecifier, exportedName, nameHint).name;
+  }
+}
+
+/**
+ * You can pass a Javascript expression as a string like:
+ *
+ *   "new Date()"
+ *
+ * Or as a function that returns a string:
+ *
+ *   () => "new Date()"
+ *
+ * When you use a function, it can use imported values:
+ *
+ *   (context) => `new ${context.import("luxon", "DateTime")}()`
+ *
+ */
+export type Expression = string | ((context: ExpressionContext) => string);
