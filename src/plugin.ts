@@ -88,61 +88,6 @@ export default function makePlugin<O>(
   return function htmlbarsInlinePrecompile(babel: typeof Babel): Babel.PluginObj<State> {
     let t = babel.types;
 
-    function insertCompiledTemplate(
-      target: NodePath<t.Expression>,
-      state: State,
-      template: string,
-      userTypedOptions: Record<string, unknown>
-    ): void {
-      if (!userTypedOptions.locals) {
-        userTypedOptions.locals = [];
-      }
-      let jsutils = new JSUtils(
-        babel,
-        state.program,
-        target,
-        userTypedOptions.locals as string[],
-        state.util
-      );
-      let meta = Object.assign({ jsutils }, userTypedOptions?.meta);
-      let options = Object.assign({}, userTypedOptions, { contents: template, meta });
-      let precompile = state.precompile;
-      let precompileResultString: string;
-
-      if (options.insertRuntimeErrors) {
-        try {
-          precompileResultString = precompile(template, options);
-        } catch (error) {
-          target.replaceWith(runtimeErrorIIFE(babel, { ERROR_MESSAGE: (error as any).message }));
-          return;
-        }
-      } else {
-        precompileResultString = precompile(template, options);
-      }
-
-      let precompileResultAST = babel.parse(`var precompileResult = ${precompileResultString};`, {
-        babelrc: false,
-        configFile: false,
-      }) as t.File;
-
-      let templateExpression = (precompileResultAST.program.body[0] as t.VariableDeclaration)
-        .declarations[0].init as t.Expression;
-
-      t.addComment(
-        templateExpression,
-        'leading',
-        `\n  ${template.replace(/\*\//g, '*\\/')}\n`,
-        /* line comment? */ false
-      );
-
-      let templateFactoryIdentifier = state.util.import(
-        target,
-        state.templateFactory.moduleName,
-        state.templateFactory.exportName
-      );
-      target.replaceWith(t.callExpression(templateFactoryIdentifier, [templateExpression]));
-    }
-
     return {
       visitor: {
         Program: {
@@ -188,7 +133,7 @@ export default function makePlugin<O>(
           }
 
           let template = path.node.quasi.quasis.map((quasi) => quasi.value.cooked).join('');
-          insertCompiledTemplate(path, state, template, {});
+          insertCompiledTemplate(babel, path, state, template, {});
         },
 
         CallExpression(path: NodePath<t.CallExpression>, state: State) {
@@ -251,7 +196,7 @@ export default function makePlugin<O>(
               `${calleePath.node.name} can only be invoked with 2 arguments: the template string, and any static options`
             );
           }
-          insertCompiledTemplate(path, state, template, userTypedOptions);
+          insertCompiledTemplate(babel, path, state, template, userTypedOptions);
         },
       },
     };
@@ -287,4 +232,62 @@ function runtimeErrorIIFE(babel: typeof Babel, replacements: { ERROR_MESSAGE: st
     replacements
   ) as t.ExpressionStatement;
   return statement.expression;
+}
+
+function insertCompiledTemplate(
+  babel: typeof Babel,
+  target: NodePath<t.Expression>,
+  state: State,
+  template: string,
+  userTypedOptions: Record<string, unknown>
+): void {
+  let t = babel.types;
+
+  if (!userTypedOptions.locals) {
+    userTypedOptions.locals = [];
+  }
+  let jsutils = new JSUtils(
+    babel,
+    state.program,
+    target,
+    userTypedOptions.locals as string[],
+    state.util
+  );
+  let meta = Object.assign({ jsutils }, userTypedOptions?.meta);
+  let options = Object.assign({}, userTypedOptions, { contents: template, meta });
+  let precompile = state.precompile;
+  let precompileResultString: string;
+
+  if (options.insertRuntimeErrors) {
+    try {
+      precompileResultString = precompile(template, options);
+    } catch (error) {
+      target.replaceWith(runtimeErrorIIFE(babel, { ERROR_MESSAGE: (error as any).message }));
+      return;
+    }
+  } else {
+    precompileResultString = precompile(template, options);
+  }
+
+  let precompileResultAST = babel.parse(`var precompileResult = ${precompileResultString};`, {
+    babelrc: false,
+    configFile: false,
+  }) as t.File;
+
+  let templateExpression = (precompileResultAST.program.body[0] as t.VariableDeclaration)
+    .declarations[0].init as t.Expression;
+
+  t.addComment(
+    templateExpression,
+    'leading',
+    `\n  ${template.replace(/\*\//g, '*\\/')}\n`,
+    /* line comment? */ false
+  );
+
+  let templateFactoryIdentifier = state.util.import(
+    target,
+    state.templateFactory.moduleName,
+    state.templateFactory.exportName
+  );
+  target.replaceWith(t.callExpression(templateFactoryIdentifier, [templateExpression]));
 }
