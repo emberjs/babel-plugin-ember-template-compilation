@@ -4,8 +4,7 @@ import type { types as t } from '@babel/core';
 import { ImportUtil } from 'babel-import-util';
 import { ExpressionParser } from './expression-parser';
 import { JSUtils } from './js-utils';
-
-export type EmberPrecompile = (templateString: string, options: Record<string, unknown>) => string;
+import type { EmberTemplateCompiler } from './ember-template-compiler';
 
 export type LegacyModuleName =
   | 'ember-cli-htmlbars'
@@ -76,14 +75,14 @@ export interface Options {
 interface State {
   opts: Options;
   util: ImportUtil;
-  precompile: EmberPrecompile;
+  compiler: EmberTemplateCompiler;
   templateFactory: { moduleName: string; exportName: string };
   program: NodePath<t.Program>;
 }
 
 export default function makePlugin<O>(
   // receives the Babel plugin options, returns Ember's precompiler
-  loadPrecompiler: (opts: O) => EmberPrecompile
+  loadCompiler: (opts: O) => EmberTemplateCompiler
 ) {
   return function htmlbarsInlinePrecompile(babel: typeof Babel): Babel.PluginObj<State> {
     let t = babel.types;
@@ -99,7 +98,7 @@ export default function makePlugin<O>(
               ? { exportName: overrides[0], moduleName: overrides[1] }
               : { exportName, moduleName };
             state.util = new ImportUtil(t, path);
-            state.precompile = loadPrecompiler(state.opts as O);
+            state.compiler = loadCompiler(state.opts as O);
             state.program = path;
           },
           exit(_path: NodePath<t.Program>, state: State) {
@@ -255,18 +254,17 @@ function insertCompiledTemplate(
   );
   let meta = Object.assign({ jsutils }, userTypedOptions?.meta);
   let options = Object.assign({}, userTypedOptions, { contents: template, meta });
-  let precompile = state.precompile;
   let precompileResultString: string;
 
   if (options.insertRuntimeErrors) {
     try {
-      precompileResultString = precompile(template, options);
+      precompileResultString = state.compiler.precompile(template, options);
     } catch (error) {
       target.replaceWith(runtimeErrorIIFE(babel, { ERROR_MESSAGE: (error as any).message }));
       return;
     }
   } else {
-    precompileResultString = precompile(template, options);
+    precompileResultString = state.compiler.precompile(template, options);
   }
 
   let precompileResultAST = babel.parse(`var precompileResult = ${precompileResultString};`, {
