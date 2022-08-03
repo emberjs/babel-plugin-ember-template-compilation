@@ -1003,10 +1003,92 @@ describe('htmlbars-inline-precompile', function () {
       `);
     });
 
-    it.todo(
-      'switches from legacy callExpressions to precompileTemplate when needed to support scope'
-    );
-    it.todo('switches from hbs backticks to precompileTemplate when needed to support scope');
+    it('switches from legacy callExpressions to precompileTemplate when needed to support scope', function () {
+      plugins = [
+        [
+          HTMLBarsInlinePrecompile,
+          {
+            compiler,
+            targetFormat: 'hbs',
+            transforms: [expressionTransform],
+            enableLegacyModules: ['ember-cli-htmlbars'],
+          },
+        ],
+      ];
+
+      let transformed = transform(stripIndent`
+        import { hbs } from 'ember-cli-htmlbars';
+        const template = hbs('<Message @text={{onePlusOne}} />');
+      `);
+
+      expect(transformed).toMatchInlineSnapshot(`
+        "import { precompileTemplate } from \\"@ember/template-compilation\\";
+        let two = 1 + 1;
+        const template = precompileTemplate(\\"<Message @text={{two}} />\\", {
+          scope: () => ({
+            two
+          })
+        });"
+      `);
+    });
+
+    it('switches from hbs backticks to precompileTemplate when needed to support scope', function () {
+      plugins = [
+        [
+          HTMLBarsInlinePrecompile,
+          {
+            compiler,
+            targetFormat: 'hbs',
+            transforms: [expressionTransform],
+            enableLegacyModules: ['ember-cli-htmlbars'],
+          },
+        ],
+      ];
+
+      let transformed = transform(
+        "import { hbs } from 'ember-cli-htmlbars'; const template = hbs`<Message @text={{onePlusOne}} />`;"
+      );
+
+      expect(transformed).toMatchInlineSnapshot(`
+        "import { precompileTemplate } from \\"@ember/template-compilation\\";
+        let two = 1 + 1;
+        const template = precompileTemplate(\\"<Message @text={{two}} />\\", {
+          scope: () => ({
+            two
+          })
+        });"
+      `);
+    });
+
+    it.skip('does not remove original import if there are still callsites using it', function () {
+      plugins = [
+        [
+          HTMLBarsInlinePrecompile,
+          {
+            compiler,
+            targetFormat: 'hbs',
+            transforms: [expressionTransform],
+            enableLegacyModules: ['ember-cli-htmlbars'],
+          },
+        ],
+      ];
+
+      let transformed = transform(
+        "import { hbs } from 'ember-cli-htmlbars'; const template = hbs`<Message @text={{onePlusOne}} />`; const other = hbs`hello`;"
+      );
+
+      expect(transformed).toMatchInlineSnapshot(`
+        "import { precompileTemplate } from \\"@ember/template-compilation\\";
+        let two = 1 + 1;
+        import { hbs } from 'ember-cli-htmlbars';
+        const template = precompileTemplate(\\"<Message @text={{two}} />\\", {
+          scope: () => ({
+            two
+          })
+        });
+        const other = hbs\`hello\`;"
+      `);
+    });
   });
 
   describe('scope', function () {

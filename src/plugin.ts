@@ -162,7 +162,7 @@ export default function makePlugin<EnvSpecificOptions>(
           if (state.normalizedOpts.targetFormat === 'wire') {
             insertCompiledTemplate(babel, state, template, path, {});
           } else {
-            insertTransformedTemplate(babel, state, template, path, {});
+            insertTransformedTemplate(babel, state, template, path, {}, options);
           }
         },
 
@@ -218,7 +218,7 @@ export default function makePlugin<EnvSpecificOptions>(
             userTypedOptions = new ExpressionParser(babel).parseObjectExpression(
               calleePath.node.name,
               secondArg,
-              true
+              options.enableScope
             );
           }
           if (restArgs.length > 0) {
@@ -229,7 +229,7 @@ export default function makePlugin<EnvSpecificOptions>(
           if (state.normalizedOpts.targetFormat === 'wire') {
             insertCompiledTemplate(babel, state, template, path, userTypedOptions);
           } else {
-            insertTransformedTemplate(babel, state, template, path, userTypedOptions);
+            insertTransformedTemplate(babel, state, template, path, userTypedOptions, options);
           }
         },
       },
@@ -355,7 +355,8 @@ function insertTransformedTemplate<EnvSpecificOptions>(
   state: State<EnvSpecificOptions>,
   template: string,
   target: NodePath<t.CallExpression> | NodePath<t.TaggedTemplateExpression>,
-  userTypedOptions: Record<string, unknown>
+  userTypedOptions: Record<string, unknown>,
+  formatOptions: ModuleConfig
 ) {
   let t = babel.types;
   let options = buildPrecompileOptions(babel, target, state, template, userTypedOptions);
@@ -364,33 +365,26 @@ function insertTransformedTemplate<EnvSpecificOptions>(
   if (target.isCallExpression()) {
     (target.get('arguments.0') as NodePath<t.Node>).replaceWith(t.stringLiteral(transformed));
     if (options.locals && options.locals.length > 0) {
-      let secondArg = target.get('arguments.1') as NodePath<t.ObjectExpression> | undefined;
-      if (secondArg) {
-        let scope = secondArg.get('properties').find((p) => {
-          let key = p.get('key') as NodePath<t.Node>;
-          return key.isIdentifier() && key.node.name === 'scope';
-        });
-        if (scope) {
-          scope.set('value', buildScope(babel, options.locals));
-        } else {
-          secondArg.pushContainer(
-            'properties',
-            t.objectProperty(t.identifier('scope'), buildScope(babel, options.locals))
-          );
-        }
-      } else {
-        target.pushContainer(
-          'arguments',
-          t.objectExpression([
-            t.objectProperty(t.identifier('scope'), buildScope(babel, options.locals)),
-          ])
-        );
+      if (!formatOptions.enableScope) {
+        target.set('callee', precompileTemplate(state.util, target));
+        maybePruneImport(state.util, formatOptions.moduleName, formatOptions.export);
       }
+      updateScope(babel, target, options.locals);
     }
   } else {
-    (target.get('quasi').get('quasis.0') as NodePath<t.TemplateElement>).replaceWith(
-      t.templateElement({ raw: transformed })
-    );
+    if (options.locals && options.locals.length > 0) {
+      // need to add scope, so need to replace the backticks form with a call
+      // expression to precompileTemplate
+      let newCall = target.replaceWith(
+        t.callExpression(precompileTemplate(state.util, target), [t.stringLiteral(transformed)])
+      )[0];
+      updateScope(babel, newCall, options.locals);
+      maybePruneImport(state.util, formatOptions.moduleName, formatOptions.export);
+    } else {
+      (target.get('quasi').get('quasis.0') as NodePath<t.TemplateElement>).replaceWith(
+        t.templateElement({ raw: transformed })
+      );
+    }
   }
 }
 
@@ -411,4 +405,36 @@ function buildScope(babel: typeof Babel, locals: string[]) {
       locals.map((name) => t.objectProperty(t.identifier(name), t.identifier(name), false, true))
     )
   );
+}
+function updateScope(babel: typeof Babel, target: NodePath<t.CallExpression>, locals: string[]) {
+  let t = babel.types;
+  let secondArg = target.get('arguments.1') as NodePath<t.ObjectExpression> | undefined;
+  if (secondArg) {
+    let scope = secondArg.get('properties').find((p) => {
+      let key = p.get('key') as NodePath<t.Node>;
+      return key.isIdentifier() && key.node.name === 'scope';
+    });
+    if (scope) {
+      scope.set('value', buildScope(babel, locals));
+    } else {
+      secondArg.pushContainer(
+        'properties',
+        t.objectProperty(t.identifier('scope'), buildScope(babel, locals))
+      );
+    }
+  } else {
+    target.pushContainer(
+      'arguments',
+      t.objectExpression([t.objectProperty(t.identifier('scope'), buildScope(babel, locals))])
+    );
+  }
+}
+
+function maybePruneImport(util: ImportUtil, moduleName: string, exportName: string) {
+  // TODO: count references and only remove if we're the last
+  util.removeImport(moduleName, exportName);
+}
+
+function precompileTemplate(util: ImportUtil, target: NodePath<t.Node>) {
+  return util.import(target, '@ember/template-compilation', 'precompileTemplate');
 }
