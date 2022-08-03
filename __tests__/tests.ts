@@ -1,19 +1,18 @@
 import path from 'path';
 import * as babel from '@babel/core';
-import HTMLBarsInlinePrecompile from '..';
+import HTMLBarsInlinePrecompile, { Options } from '..';
 import TransformTemplateLiterals from '@babel/plugin-transform-template-literals';
 import TransformModules from '@babel/plugin-transform-modules-amd';
 import TransformUnicodeEscapes from '@babel/plugin-transform-unicode-escapes';
 import { stripIndent } from 'common-tags';
-import { WithJSUtils } from '../src/js-utils';
-import type { ASTPluginBuilder, ASTPluginEnvironment } from '@glimmer/syntax';
-import { EmberTemplateCompiler } from '../src/ember-template-compiler';
+import { EmberTemplateCompiler, PreprocessOptions } from '../src/ember-template-compiler';
 import sinon from 'sinon';
+import { ExtendedPluginBuilder } from '../src/js-utils';
 
 describe('htmlbars-inline-precompile', function () {
   // eslint-disable-next-line @typescript-eslint/no-var-requires
   let compiler: EmberTemplateCompiler = { ...require('ember-source/dist/ember-template-compiler') };
-  let plugins: any[];
+  let plugins: ([typeof HTMLBarsInlinePrecompile, Options] | [unknown])[];
 
   function transform(code: string) {
     let x = babel
@@ -464,7 +463,7 @@ describe('htmlbars-inline-precompile', function () {
           enableLegacyModules: ['htmlbars-inline-precompile'],
         },
       ],
-      TransformTemplateLiterals,
+      [TransformTemplateLiterals],
     ];
 
     let transformed = transform(
@@ -586,7 +585,7 @@ describe('htmlbars-inline-precompile', function () {
     );
   });
 
-  let expressionTransform: ASTPluginBuilder<WithJSUtils<ASTPluginEnvironment>> = (env) => {
+  let expressionTransform: ExtendedPluginBuilder = (env) => {
     return {
       name: 'expression-transform',
       visitor: {
@@ -601,7 +600,7 @@ describe('htmlbars-inline-precompile', function () {
     };
   };
 
-  let importTransform: ASTPluginBuilder<WithJSUtils<ASTPluginEnvironment>> = (env) => {
+  let importTransform: ExtendedPluginBuilder = (env) => {
     return {
       name: 'import-transform',
       visitor: {
@@ -631,6 +630,14 @@ describe('htmlbars-inline-precompile', function () {
   it('allows AST transform to bind a JS expression', function () {
     sinon.replace(compiler, 'precompile', runASTTransform(compiler, expressionTransform));
 
+    // NEXT:
+    // plugins = [
+    //   [
+    //     HTMLBarsInlinePrecompile,
+    //     { compiler, targetFormat: 'hbs', transforms: [expressionTransform] },
+    //   ],
+    // ];
+
     let transformed = transform(stripIndent`
         import { precompileTemplate } from '@ember/template-compilation';
         const template = precompileTemplate('<Message @text={{onePlusOne}} />');
@@ -642,10 +649,15 @@ describe('htmlbars-inline-precompile', function () {
   });
 
   it('adds locals to the compiled output', function () {
-    let orig = compiler.precompile;
-    sinon.replace(compiler, 'precompile', (template, opts) =>
-      orig(template, { ...opts, plugins: { ast: [expressionTransform] } })
-    );
+    plugins = [
+      [
+        HTMLBarsInlinePrecompile,
+        {
+          compiler,
+          transforms: [expressionTransform],
+        },
+      ],
+    ];
 
     let transformed = transform(stripIndent`
       import { precompileTemplate } from '@ember/template-compilation';
@@ -761,7 +773,7 @@ describe('htmlbars-inline-precompile', function () {
   });
 
   it('can bind expressions that need imports', function () {
-    let nowTransform: ASTPluginBuilder<WithJSUtils<ASTPluginEnvironment>> = (env) => {
+    let nowTransform: ExtendedPluginBuilder = (env) => {
       return {
         name: 'now-transform',
         visitor: {
@@ -798,7 +810,7 @@ describe('htmlbars-inline-precompile', function () {
   });
 
   it('can emit side-effectful expression that need imports', function () {
-    let compatTransform: ASTPluginBuilder<WithJSUtils<ASTPluginEnvironment>> = (env) => {
+    let compatTransform: ExtendedPluginBuilder = (env) => {
       return {
         name: 'compat-transform',
         visitor: {
@@ -828,7 +840,7 @@ describe('htmlbars-inline-precompile', function () {
   });
 
   it('can emit side-effectful import', function () {
-    let compatTransform: ASTPluginBuilder<WithJSUtils<ASTPluginEnvironment>> = (env) => {
+    let compatTransform: ExtendedPluginBuilder = (env) => {
       return {
         name: 'compat-transform',
         visitor: {
@@ -851,6 +863,150 @@ describe('htmlbars-inline-precompile', function () {
     `);
 
     expect(transformed).toContain(`import "setup-the-things"`);
+  });
+
+  describe('source-to-source', function () {
+    const color: ExtendedPluginBuilder = (env) => {
+      return {
+        name: 'simple-transform',
+        visitor: {
+          PathExpression(node) {
+            if (node.original === 'red') {
+              return env.syntax.builders.string('#ff0000');
+            }
+            return undefined;
+          },
+        },
+      };
+    };
+
+    it('can run an ast transform inside precompileTemplate', function () {
+      plugins = [
+        [HTMLBarsInlinePrecompile, { compiler, targetFormat: 'hbs', transforms: [color] }],
+      ];
+
+      let transformed = transform(stripIndent`
+        import { precompileTemplate } from '@ember/template-compilation';
+        const template = precompileTemplate('<Message @color={{red}} />');
+      `);
+
+      expect(transformed).toMatchInlineSnapshot(`
+        "import { precompileTemplate } from '@ember/template-compilation';
+        const template = precompileTemplate(\\"<Message @color={{\\\\\\"#ff0000\\\\\\"}} />\\");"
+      `);
+    });
+
+    it('can run an ast transform inside hbs backticks', function () {
+      plugins = [
+        [
+          HTMLBarsInlinePrecompile,
+          {
+            compiler,
+            targetFormat: 'hbs',
+            transforms: [color],
+            enableLegacyModules: ['ember-cli-htmlbars'],
+          },
+        ],
+      ];
+
+      let transformed = transform(
+        "import { hbs } from 'ember-cli-htmlbars'; const template = hbs`<Message @color={{red}} />`;"
+      );
+
+      expect(transformed).toMatchInlineSnapshot(`
+        "import { hbs } from 'ember-cli-htmlbars';
+        const template = hbs\`<Message @color={{\\"#ff0000\\"}} />\`;"
+      `);
+    });
+
+    it('can create the options object for precompileTemplate', function () {
+      plugins = [
+        [
+          HTMLBarsInlinePrecompile,
+          { compiler, targetFormat: 'hbs', transforms: [expressionTransform] },
+        ],
+      ];
+
+      let transformed = transform(stripIndent`
+        import { precompileTemplate } from '@ember/template-compilation';
+        const template = precompileTemplate('<Message @text={{onePlusOne}} />');
+      `);
+
+      expect(transformed).toMatchInlineSnapshot(`
+        "let two = 1 + 1;
+        import { precompileTemplate } from '@ember/template-compilation';
+        const template = precompileTemplate(\\"<Message @text={{two}} />\\", {
+          scope: () => ({
+            two
+          })
+        });"
+      `);
+    });
+
+    it('adds scope to existing options object', function () {
+      plugins = [
+        [
+          HTMLBarsInlinePrecompile,
+          { compiler, targetFormat: 'hbs', transforms: [expressionTransform] },
+        ],
+      ];
+
+      let transformed = transform(stripIndent`
+        import { precompileTemplate } from '@ember/template-compilation';
+        import Message from 'message';
+        const template = precompileTemplate('<Message @text={{onePlusOne}} />', {
+          moduleName: 'customModuleName'
+        });
+      `);
+
+      expect(transformed).toMatchInlineSnapshot(`
+        "let two = 1 + 1;
+        import { precompileTemplate } from '@ember/template-compilation';
+        import Message from 'message';
+        const template = precompileTemplate(\\"<Message @text={{two}} />\\", {
+          moduleName: 'customModuleName',
+          scope: () => ({
+            two
+          })
+        });"
+      `);
+    });
+
+    it('adds new locals to preexisting scope', function () {
+      plugins = [
+        [
+          HTMLBarsInlinePrecompile,
+          { compiler, targetFormat: 'hbs', transforms: [expressionTransform] },
+        ],
+      ];
+
+      let transformed = transform(stripIndent`
+        import { precompileTemplate } from '@ember/template-compilation';
+        import Message from 'message';
+        const template = precompileTemplate('<Message @text={{onePlusOne}} />', {
+          scope: () => ({
+            Message
+          })
+        });
+      `);
+
+      expect(transformed).toMatchInlineSnapshot(`
+        "let two = 1 + 1;
+        import { precompileTemplate } from '@ember/template-compilation';
+        import Message from 'message';
+        const template = precompileTemplate(\\"<Message @text={{two}} />\\", {
+          scope: () => ({
+            Message,
+            two
+          })
+        });"
+      `);
+    });
+
+    it.todo(
+      'switches from legacy callExpressions to precompileTemplate when needed to support scope'
+    );
+    it.todo('switches from hbs backticks to precompileTemplate when needed to support scope');
   });
 
   describe('scope', function () {
@@ -928,11 +1084,8 @@ describe('htmlbars-inline-precompile', function () {
   });
 });
 
-function runASTTransform(
-  compiler: any,
-  customTransform: ASTPluginBuilder<WithJSUtils<ASTPluginEnvironment>>
-) {
-  return (template: string, options: Record<string, unknown>) => {
+function runASTTransform(compiler: any, customTransform: ExtendedPluginBuilder) {
+  return (template: string, options: PreprocessOptions) => {
     let ast = compiler._preprocess(template, {
       ...options,
       plugins: { ast: [customTransform] },

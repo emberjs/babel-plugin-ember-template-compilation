@@ -1,7 +1,7 @@
 import type { types as t } from '@babel/core';
 import type * as Babel from '@babel/core';
 import type { NodePath } from '@babel/traverse';
-import type { ASTv1, WalkerPath } from '@glimmer/syntax';
+import type { ASTPluginBuilder, ASTPluginEnvironment, ASTv1, WalkerPath } from '@glimmer/syntax';
 import type { ImportUtil } from 'babel-import-util';
 
 // This exists to give AST plugins a controlled interface for influencing the
@@ -215,6 +215,8 @@ function astNodeHasBinding(target: WalkerPath<ASTv1.Node>, name: string): boolea
 export type WithJSUtils<T extends { meta?: object }> = {
   meta: T['meta'] & { jsutils: JSUtils };
 } & T;
+
+export type ExtendedPluginBuilder = ASTPluginBuilder<WithJSUtils<ASTPluginEnvironment>>;
 
 function body(node: t.Program | t.File) {
   if (node.type === 'File') {

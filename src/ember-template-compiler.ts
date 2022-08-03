@@ -1,17 +1,18 @@
-import { ASTPluginBuilder, ASTv1 } from '@glimmer/syntax';
+import { ASTv1 } from '@glimmer/syntax';
+import { ExtendedPluginBuilder } from './js-utils';
 
 // The interface we use from ember-template-compiler.js
 export interface EmberTemplateCompiler {
-  precompile(templateString: string, options: Record<string, unknown>): string;
+  precompile(templateString: string, options: PreprocessOptions): string;
   _buildCompileOptions(options: PreprocessOptions): PreprocessOptions;
   _print(ast: ASTv1.Template, options?: { entityEncoding?: 'transformed' | 'raw' }): string;
   _preprocess(src: string, options?: PreprocessOptions): ASTv1.Template;
 }
 
-interface PreprocessOptions {
+export interface PreprocessOptions {
   contents: string;
   moduleName: string;
-  plugins?: { ast?: ASTPluginBuilder[] };
+  plugins?: { ast?: ExtendedPluginBuilder[] };
   filename?: string;
   parseOptions?: {
     srcName?: string;
