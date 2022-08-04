@@ -5,7 +5,7 @@ import TransformTemplateLiterals from '@babel/plugin-transform-template-literals
 import TransformModules from '@babel/plugin-transform-modules-amd';
 import TransformUnicodeEscapes from '@babel/plugin-transform-unicode-escapes';
 import { stripIndent } from 'common-tags';
-import { EmberTemplateCompiler, PreprocessOptions } from '../src/ember-template-compiler';
+import { EmberTemplateCompiler } from '../src/ember-template-compiler';
 import sinon from 'sinon';
 import { ExtendedPluginBuilder } from '../src/js-utils';
 
@@ -628,24 +628,27 @@ describe('htmlbars-inline-precompile', function () {
   });
 
   it('allows AST transform to bind a JS expression', function () {
-    sinon.replace(compiler, 'precompile', runASTTransform(compiler, expressionTransform));
-
-    // NEXT:
-    // plugins = [
-    //   [
-    //     HTMLBarsInlinePrecompile,
-    //     { compiler, targetFormat: 'hbs', transforms: [expressionTransform] },
-    //   ],
-    // ];
+    plugins = [
+      [
+        HTMLBarsInlinePrecompile,
+        { compiler, targetFormat: 'hbs', transforms: [expressionTransform] },
+      ],
+    ];
 
     let transformed = transform(stripIndent`
         import { precompileTemplate } from '@ember/template-compilation';
         const template = precompileTemplate('<Message @text={{onePlusOne}} />');
       `);
 
-    expect(transformed).toContain(`@text={{two}}`);
-    expect(transformed).toContain(`locals: [two]`);
-    expect(transformed).toContain(`let two = 1 + 1`);
+    expect(transformed).toMatchInlineSnapshot(`
+      "let two = 1 + 1;
+      import { precompileTemplate } from '@ember/template-compilation';
+      const template = precompileTemplate(\\"<Message @text={{two}} />\\", {
+        scope: () => ({
+          two
+        })
+      });"
+    `);
   });
 
   it('adds locals to the compiled output', function () {
@@ -663,24 +666,50 @@ describe('htmlbars-inline-precompile', function () {
       import { precompileTemplate } from '@ember/template-compilation';
       const template = precompileTemplate('<Message @text={{onePlusOne}} />');
     `);
+    expect(transformed).toMatchInlineSnapshot(`
+      "import { createTemplateFactory } from \\"@ember/template-factory\\";
+      let two = 1 + 1;
+      const template = createTemplateFactory(
+      /*
+        <Message @text={{onePlusOne}} />
+      */
+      {
+        \\"id\\": \\"DTxNS4zF\\",
+        \\"block\\": \\"[[[8,[39,0],null,[[\\\\\\"@text\\\\\\"],[[32,0]]],null]],[],false,[\\\\\\"message\\\\\\"]]\\",
+        \\"moduleName\\": \\"/Users/edward/hacking/babel-plugin-ember-template-compilation/foo-bar.js\\",
+        \\"scope\\": () => [two],
+        \\"isStrictMode\\": false
+      });"
+    `);
+
     expect(transformed).toContain(`"scope": () => [two]`);
   });
 
   it('allows AST transform to bind a JS import', function () {
-    sinon.replace(compiler, 'precompile', runASTTransform(compiler, importTransform));
+    plugins = [
+      [HTMLBarsInlinePrecompile, { compiler, targetFormat: 'hbs', transforms: [importTransform] }],
+    ];
 
     let transformed = transform(stripIndent`
         import { precompileTemplate } from '@ember/template-compilation';
         const template = precompileTemplate('<Message @text={{onePlusOne}} />');
       `);
 
-    expect(transformed).toContain(`@text={{two}}`);
-    expect(transformed).toContain(`locals: [two]`);
-    expect(transformed).toContain(`import two from "my-library"`);
+    expect(transformed).toMatchInlineSnapshot(`
+      "import two from \\"my-library\\";
+      import { precompileTemplate } from '@ember/template-compilation';
+      const template = precompileTemplate(\\"<Message @text={{two}} />\\", {
+        scope: () => ({
+          two
+        })
+      });"
+    `);
   });
 
   it('does not smash existing js binding for import', function () {
-    sinon.replace(compiler, 'precompile', runASTTransform(compiler, importTransform));
+    plugins = [
+      [HTMLBarsInlinePrecompile, { compiler, targetFormat: 'hbs', transforms: [importTransform] }],
+    ];
 
     let transformed = transform(stripIndent`
         import { precompileTemplate } from '@ember/template-compilation';
@@ -690,13 +719,24 @@ describe('htmlbars-inline-precompile', function () {
         }
       `);
 
-    expect(transformed).toContain(`@text={{two0}}`);
-    expect(transformed).toContain(`locals: [two0]`);
-    expect(transformed).toContain(`import two0 from "my-library"`);
+    expect(transformed).toMatchInlineSnapshot(`
+      "import two0 from \\"my-library\\";
+      import { precompileTemplate } from '@ember/template-compilation';
+      export function inner() {
+        let two = 'twice';
+        const template = precompileTemplate(\\"<Message @text={{two0}} />\\", {
+          scope: () => ({
+            two0
+          })
+        });
+      }"
+    `);
   });
 
   it('does not smash existing hbs binding for import', function () {
-    sinon.replace(compiler, 'precompile', runASTTransform(compiler, importTransform));
+    plugins = [
+      [HTMLBarsInlinePrecompile, { compiler, targetFormat: 'hbs', transforms: [importTransform] }],
+    ];
 
     let transformed = transform(stripIndent`
         import { precompileTemplate } from '@ember/template-compilation';
@@ -705,14 +745,27 @@ describe('htmlbars-inline-precompile', function () {
         }
       `);
 
-    expect(transformed).toContain(`@text={{two0}}`);
-    expect(transformed).toContain(`let two0 = two`);
-    expect(transformed).toContain(`locals: [two0]`);
-    expect(transformed).toContain(`import two from "my-library"`);
+    expect(transformed).toMatchInlineSnapshot(`
+      "let two0 = two;
+      import two from \\"my-library\\";
+      import { precompileTemplate } from '@ember/template-compilation';
+      export function inner() {
+        const template = precompileTemplate(\\"{{#let \\\\\\"twice\\\\\\" as |two|}}<Message @text={{two0}} />{{/let}}\\", {
+          scope: () => ({
+            two0
+          })
+        });
+      }"
+    `);
   });
 
   it('does not smash existing js binding for expression', function () {
-    sinon.replace(compiler, 'precompile', runASTTransform(compiler, expressionTransform));
+    plugins = [
+      [
+        HTMLBarsInlinePrecompile,
+        { compiler, targetFormat: 'hbs', transforms: [expressionTransform] },
+      ],
+    ];
 
     let transformed = transform(stripIndent`
         import { precompileTemplate } from '@ember/template-compilation';
@@ -722,13 +775,68 @@ describe('htmlbars-inline-precompile', function () {
         }
       `);
 
-    expect(transformed).toContain(`@text={{two0}}`);
-    expect(transformed).toContain(`locals: [two0]`);
-    expect(transformed).toContain(`let two0 = 1 + 1`);
+    expect(transformed).toMatchInlineSnapshot(`
+      "let two0 = 1 + 1;
+      import { precompileTemplate } from '@ember/template-compilation';
+      export default function () {
+        let two = 'twice';
+        const template = precompileTemplate(\\"<Message @text={{two0}} />\\", {
+          scope: () => ({
+            two0
+          })
+        });
+      }"
+    `);
+  });
+
+  it.skip('does not smash own newly-created js binding for expression', function () {
+    plugins = [
+      [
+        HTMLBarsInlinePrecompile,
+        { compiler, targetFormat: 'hbs', transforms: [expressionTransform] },
+      ],
+    ];
+
+    let transformed = transform(stripIndent`
+        import { precompileTemplate } from '@ember/template-compilation';
+        export default function() {
+          const template1 = precompileTemplate('<Message @text={{onePlusOne}} />');
+          const template2 = precompileTemplate('<Other @text={{onePlusOne}} />');
+        }
+      `);
+
+    expect(transformed).toMatchInlineSnapshot(`
+      "let two = 1 + 1;
+      import { createTemplateFactory } from \\"@ember/template-factory\\";
+      let two0 = 1 + 1;
+      export default function () {
+        const template1 = createTemplateFactory(
+        /*
+          <Message @text={{onePlusOne}} />
+        */
+        {
+          transformedHBS: \`<Message @text={{two}} />\`,
+          locals: [two]
+        });
+        const template2 = createTemplateFactory(
+        /*
+          <Other @text={{onePlusOne}} />
+        */
+        {
+          transformedHBS: \`<Other @text={{two0}} />\`,
+          locals: [two0]
+        });
+      }"
+    `);
   });
 
   it('does not smash existing hbs block binding for expression', function () {
-    sinon.replace(compiler, 'precompile', runASTTransform(compiler, expressionTransform));
+    plugins = [
+      [
+        HTMLBarsInlinePrecompile,
+        { compiler, targetFormat: 'hbs', transforms: [expressionTransform] },
+      ],
+    ];
 
     let transformed = transform(stripIndent`
         import { precompileTemplate } from '@ember/template-compilation';
@@ -737,13 +845,26 @@ describe('htmlbars-inline-precompile', function () {
         }
       `);
 
-    expect(transformed).toContain(`@text={{two0}}`);
-    expect(transformed).toContain(`locals: [two0]`);
-    expect(transformed).toContain(`let two0 = 1 + 1`);
+    expect(transformed).toMatchInlineSnapshot(`
+      "let two0 = 1 + 1;
+      import { precompileTemplate } from '@ember/template-compilation';
+      export default function () {
+        const template = precompileTemplate(\\"{{#let \\\\\\"twice\\\\\\" as |two|}}<Message @text={{two0}} />{{/let}}\\", {
+          scope: () => ({
+            two0
+          })
+        });
+      }"
+    `);
   });
 
   it('does not smash existing hbs element binding for expression', function () {
-    sinon.replace(compiler, 'precompile', runASTTransform(compiler, expressionTransform));
+    plugins = [
+      [
+        HTMLBarsInlinePrecompile,
+        { compiler, targetFormat: 'hbs', transforms: [expressionTransform] },
+      ],
+    ];
 
     let transformed = transform(stripIndent`
         import { precompileTemplate } from '@ember/template-compilation';
@@ -752,13 +873,26 @@ describe('htmlbars-inline-precompile', function () {
         }
       `);
 
-    expect(transformed).toContain(`@text={{two0}}`);
-    expect(transformed).toContain(`locals: [two0]`);
-    expect(transformed).toContain(`let two0 = 1 + 1`);
+    expect(transformed).toMatchInlineSnapshot(`
+      "let two0 = 1 + 1;
+      import { precompileTemplate } from '@ember/template-compilation';
+      export default function () {
+        const template = precompileTemplate(\\"<Outer as |two|><Message @text={{two0}} /></Outer>\\", {
+          scope: () => ({
+            two0
+          })
+        });
+      }"
+    `);
   });
 
   it('understands that block params are only defined in the body, not the arguments, of an element', function () {
-    sinon.replace(compiler, 'precompile', runASTTransform(compiler, expressionTransform));
+    plugins = [
+      [
+        HTMLBarsInlinePrecompile,
+        { compiler, targetFormat: 'hbs', transforms: [expressionTransform] },
+      ],
+    ];
 
     let transformed = transform(stripIndent`
         import { precompileTemplate } from '@ember/template-compilation';
@@ -767,9 +901,17 @@ describe('htmlbars-inline-precompile', function () {
         }
       `);
 
-    expect(transformed).toContain(`@text={{two}}`);
-    expect(transformed).toContain(`locals: [two]`);
-    expect(transformed).toContain(`let two = 1 + 1`);
+    expect(transformed).toMatchInlineSnapshot(`
+      "let two = 1 + 1;
+      import { precompileTemplate } from '@ember/template-compilation';
+      export default function () {
+        const template = precompileTemplate(\\"<Message @text={{two}} as |two|>{{two}}</Message>\\", {
+          scope: () => ({
+            two
+          })
+        });
+      }"
+    `);
   });
 
   it('can bind expressions that need imports', function () {
@@ -795,7 +937,9 @@ describe('htmlbars-inline-precompile', function () {
       };
     };
 
-    sinon.replace(compiler, 'precompile', runASTTransform(compiler, nowTransform));
+    plugins = [
+      [HTMLBarsInlinePrecompile, { compiler, targetFormat: 'hbs', transforms: [nowTransform] }],
+    ];
 
     let transformed = transform(stripIndent`
         import { precompileTemplate } from '@ember/template-compilation';
@@ -826,7 +970,9 @@ describe('htmlbars-inline-precompile', function () {
       };
     };
 
-    sinon.replace(compiler, 'precompile', runASTTransform(compiler, compatTransform));
+    plugins = [
+      [HTMLBarsInlinePrecompile, { compiler, targetFormat: 'hbs', transforms: [compatTransform] }],
+    ];
 
     let transformed = transform(stripIndent`
       import { precompileTemplate } from '@ember/template-compilation';
@@ -853,7 +999,9 @@ describe('htmlbars-inline-precompile', function () {
       };
     };
 
-    sinon.replace(compiler, 'precompile', runASTTransform(compiler, compatTransform));
+    plugins = [
+      [HTMLBarsInlinePrecompile, { compiler, targetFormat: 'hbs', transforms: [compatTransform] }],
+    ];
 
     let transformed = transform(stripIndent`
       import { precompileTemplate } from '@ember/template-compilation';
@@ -1199,19 +1347,3 @@ describe('htmlbars-inline-precompile', function () {
     });
   });
 });
-
-function runASTTransform(compiler: any, customTransform: ExtendedPluginBuilder) {
-  return (template: string, options: PreprocessOptions) => {
-    let ast = compiler._preprocess(template, {
-      ...options,
-      plugins: { ast: [customTransform] },
-    });
-    return (
-      '{ transformedHBS: `' +
-      compiler._print(ast) +
-      '`, locals: [' +
-      ((options.locals as string[]) ?? []).join(',') +
-      ']}'
-    );
-  };
-}
