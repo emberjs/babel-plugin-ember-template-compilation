@@ -366,8 +366,8 @@ function insertTransformedTemplate<EnvSpecificOptions>(
     (target.get('arguments.0') as NodePath<t.Node>).replaceWith(t.stringLiteral(transformed));
     if (options.locals && options.locals.length > 0) {
       if (!formatOptions.enableScope) {
+        maybePruneImport(state.util, target.get('callee'));
         target.set('callee', precompileTemplate(state.util, target));
-        maybePruneImport(state.util, formatOptions.moduleName, formatOptions.export);
       }
       updateScope(babel, target, options.locals);
     }
@@ -375,11 +375,11 @@ function insertTransformedTemplate<EnvSpecificOptions>(
     if (options.locals && options.locals.length > 0) {
       // need to add scope, so need to replace the backticks form with a call
       // expression to precompileTemplate
+      maybePruneImport(state.util, target.get('tag'));
       let newCall = target.replaceWith(
         t.callExpression(precompileTemplate(state.util, target), [t.stringLiteral(transformed)])
       )[0];
       updateScope(babel, newCall, options.locals);
-      maybePruneImport(state.util, formatOptions.moduleName, formatOptions.export);
     } else {
       (target.get('quasi').get('quasis.0') as NodePath<t.TemplateElement>).replaceWith(
         t.templateElement({ raw: transformed })
@@ -430,11 +430,33 @@ function updateScope(babel: typeof Babel, target: NodePath<t.CallExpression>, lo
   }
 }
 
-function maybePruneImport(util: ImportUtil, moduleName: string, exportName: string) {
-  // TODO: count references and only remove if we're the last
-  util.removeImport(moduleName, exportName);
+function maybePruneImport(
+  util: ImportUtil,
+  identifier: NodePath<t.Expression | t.V8IntrinsicIdentifier>
+) {
+  if (!identifier.isIdentifier()) {
+    return;
+  }
+  let binding = identifier.scope.getBinding(identifier.node.name);
+  // this checks if the identifier (that we're about to remove) is used in
+  // exactly one place.
+  if (binding?.references === 1) {
+    let specifier = binding.path;
+    if (specifier.isImportSpecifier()) {
+      let declaration = specifier.parentPath as NodePath<t.ImportDeclaration>;
+      util.removeImport(declaration.node.source.value, name(specifier.node.imported));
+    }
+  }
 }
 
 function precompileTemplate(util: ImportUtil, target: NodePath<t.Node>) {
   return util.import(target, '@ember/template-compilation', 'precompileTemplate');
+}
+
+function name(node: t.StringLiteral | t.Identifier) {
+  if (node.type === 'StringLiteral') {
+    return node.value;
+  } else {
+    return node.name;
+  }
 }

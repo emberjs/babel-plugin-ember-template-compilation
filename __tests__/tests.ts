@@ -1060,7 +1060,7 @@ describe('htmlbars-inline-precompile', function () {
       `);
     });
 
-    it.skip('does not remove original import if there are still callsites using it', function () {
+    it('does not remove original import if there are still callsites using it', function () {
       plugins = [
         [
           HTMLBarsInlinePrecompile,
@@ -1089,6 +1089,40 @@ describe('htmlbars-inline-precompile', function () {
         const other = hbs\`hello\`;"
       `);
     });
+  });
+
+  it.skip('removes original import when there are multiple callsites that all needed replacement', function () {
+    plugins = [
+      [
+        HTMLBarsInlinePrecompile,
+        {
+          compiler,
+          targetFormat: 'hbs',
+          transforms: [expressionTransform],
+          enableLegacyModules: ['ember-cli-htmlbars'],
+        },
+      ],
+    ];
+
+    let transformed = transform(
+      "import { hbs } from 'ember-cli-htmlbars'; const template = hbs`<Message @text={{onePlusOne}} />`; const other = hbs`{{onePlusOne}}`;"
+    );
+
+    expect(transformed).toMatchInlineSnapshot(`
+      import { precompileTemplate } from \\"@ember/template-compilation\\";
+      let two = 1 + 1;
+      let two0 = 1 + 1;
+      const template = precompileTemplate(\\"<Message @text={{two}} />\\", {
+        scope: () => ({
+          two
+        })
+      });
+      const other = precompileTemplate(\\"{{two0}}\\", {
+        scope: () => ({
+          two0
+        })
+      });"
+    `);
   });
 
   describe('scope', function () {
