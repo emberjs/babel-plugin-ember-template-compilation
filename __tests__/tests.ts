@@ -666,22 +666,6 @@ describe('htmlbars-inline-precompile', function () {
       import { precompileTemplate } from '@ember/template-compilation';
       const template = precompileTemplate('<Message @text={{onePlusOne}} />');
     `);
-    expect(transformed).toMatchInlineSnapshot(`
-      "import { createTemplateFactory } from \\"@ember/template-factory\\";
-      let two = 1 + 1;
-      const template = createTemplateFactory(
-      /*
-        <Message @text={{onePlusOne}} />
-      */
-      {
-        \\"id\\": \\"DTxNS4zF\\",
-        \\"block\\": \\"[[[8,[39,0],null,[[\\\\\\"@text\\\\\\"],[[32,0]]],null]],[],false,[\\\\\\"message\\\\\\"]]\\",
-        \\"moduleName\\": \\"/Users/edward/hacking/babel-plugin-ember-template-compilation/foo-bar.js\\",
-        \\"scope\\": () => [two],
-        \\"isStrictMode\\": false
-      });"
-    `);
-
     expect(transformed).toContain(`"scope": () => [two]`);
   });
 
