@@ -96,6 +96,7 @@ export interface State<EnvSpecificOptions> {
   util: ImportUtil;
   templateFactory: { moduleName: string; exportName: string };
   program: NodePath<t.Program>;
+  lastInsertedPath: NodePath<t.Statement> | undefined;
   filename: string;
 }
 
@@ -278,13 +279,7 @@ function buildPrecompileOptions<EnvSpecificOptions>(
   if (!userTypedOptions.locals) {
     userTypedOptions.locals = [];
   }
-  let jsutils = new JSUtils(
-    babel,
-    state.program,
-    target,
-    userTypedOptions.locals as string[],
-    state.util
-  );
+  let jsutils = new JSUtils(babel, state, target, userTypedOptions.locals as string[], state.util);
   let meta = Object.assign({ jsutils }, userTypedOptions?.meta);
   return Object.assign(
     {
@@ -440,13 +435,16 @@ function maybePruneImport(
   let binding = identifier.scope.getBinding(identifier.node.name);
   // this checks if the identifier (that we're about to remove) is used in
   // exactly one place.
-  if (binding?.references === 1) {
+  if (
+    binding?.referencePaths.reduce((count, path) => (path.removed ? count : count + 1), 0) === 1
+  ) {
     let specifier = binding.path;
     if (specifier.isImportSpecifier()) {
       let declaration = specifier.parentPath as NodePath<t.ImportDeclaration>;
       util.removeImport(declaration.node.source.value, name(specifier.node.imported));
     }
   }
+  identifier.removed = true;
 }
 
 function precompileTemplate(util: ImportUtil, target: NodePath<t.Node>) {

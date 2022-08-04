@@ -3,26 +3,26 @@ import type * as Babel from '@babel/core';
 import type { NodePath } from '@babel/traverse';
 import type { ASTPluginBuilder, ASTPluginEnvironment, ASTv1, WalkerPath } from '@glimmer/syntax';
 import type { ImportUtil } from 'babel-import-util';
+import type { State } from './plugin';
 
 // This exists to give AST plugins a controlled interface for influencing the
 // surrounding Javascript scope
 export class JSUtils {
   #babel: typeof Babel;
-  #program: NodePath<t.Program>;
+  #state: State<unknown>;
   #template: NodePath<t.Expression>;
   #locals: string[];
   #importer: ImportUtil;
-  #lastInsertedPath: NodePath<t.Node> | undefined;
 
   constructor(
     babel: typeof Babel,
-    program: NodePath<t.Program>,
+    state: State<unknown>,
     template: NodePath<t.Expression>,
     locals: string[],
     importer: ImportUtil
   ) {
     this.#babel = babel;
-    this.#program = program;
+    this.#state = state;
     this.#template = template;
     this.#locals = locals;
     this.#importer = importer;
@@ -53,21 +53,26 @@ export class JSUtils {
         this.#template.scope.hasBinding(candidate) || astNodeHasBinding(target, candidate)
     );
     let t = this.#babel.types;
-    this.#emitStatement(
+    let declaration: NodePath<t.VariableDeclaration> = this.#emitStatement(
       t.variableDeclaration('let', [
-        t.variableDeclarator(t.identifier(name), this.#parseExpression(this.#program, expression)),
+        t.variableDeclarator(
+          t.identifier(name),
+          this.#parseExpression(this.#state.program, expression)
+        ),
       ])
     );
+    declaration.scope.registerBinding('module', declaration.get('declarations.0') as NodePath);
     this.#locals.push(name);
     return name;
   }
 
-  #emitStatement(statement: t.Statement): void {
-    if (this.#lastInsertedPath) {
-      this.#lastInsertedPath.insertAfter(statement);
+  #emitStatement<T extends t.Statement>(statement: T): NodePath<T> {
+    if (this.#state.lastInsertedPath) {
+      this.#state.lastInsertedPath = this.#state.lastInsertedPath.insertAfter(statement)[0];
     } else {
-      this.#lastInsertedPath = this.#program.unshiftContainer('body', statement)[0];
+      this.#state.lastInsertedPath = this.#state.program.unshiftContainer('body', statement)[0];
     }
+    return this.#state.lastInsertedPath as NodePath<T>;
   }
 
   /**
@@ -140,7 +145,9 @@ export class JSUtils {
    */
   emitExpression(expression: Expression): void {
     let t = this.#babel.types;
-    this.#emitStatement(t.expressionStatement(this.#parseExpression(this.#program, expression)));
+    this.#emitStatement(
+      t.expressionStatement(this.#parseExpression(this.#state.program, expression))
+    );
   }
 
   #parseExpression(target: NodePath<t.Node>, expression: Expression): t.Expression {

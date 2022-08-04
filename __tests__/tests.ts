@@ -789,7 +789,7 @@ describe('htmlbars-inline-precompile', function () {
     `);
   });
 
-  it.skip('does not smash own newly-created js binding for expression', function () {
+  it('does not smash own newly-created js binding for expression', function () {
     plugins = [
       [
         HTMLBarsInlinePrecompile,
@@ -807,24 +807,18 @@ describe('htmlbars-inline-precompile', function () {
 
     expect(transformed).toMatchInlineSnapshot(`
       "let two = 1 + 1;
-      import { createTemplateFactory } from \\"@ember/template-factory\\";
       let two0 = 1 + 1;
+      import { precompileTemplate } from '@ember/template-compilation';
       export default function () {
-        const template1 = createTemplateFactory(
-        /*
-          <Message @text={{onePlusOne}} />
-        */
-        {
-          transformedHBS: \`<Message @text={{two}} />\`,
-          locals: [two]
+        const template1 = precompileTemplate(\\"<Message @text={{two}} />\\", {
+          scope: () => ({
+            two
+          })
         });
-        const template2 = createTemplateFactory(
-        /*
-          <Other @text={{onePlusOne}} />
-        */
-        {
-          transformedHBS: \`<Other @text={{two0}} />\`,
-          locals: [two0]
+        const template2 = precompileTemplate(\\"<Other @text={{two0}} />\\", {
+          scope: () => ({
+            two0
+          })
         });
       }"
     `);
@@ -1239,7 +1233,7 @@ describe('htmlbars-inline-precompile', function () {
     });
   });
 
-  it.skip('removes original import when there are multiple callsites that all needed replacement', function () {
+  it('removes original import when there are multiple callsites that all needed replacement', function () {
     plugins = [
       [
         HTMLBarsInlinePrecompile,
@@ -1257,7 +1251,7 @@ describe('htmlbars-inline-precompile', function () {
     );
 
     expect(transformed).toMatchInlineSnapshot(`
-      import { precompileTemplate } from \\"@ember/template-compilation\\";
+      "import { precompileTemplate } from \\"@ember/template-compilation\\";
       let two = 1 + 1;
       let two0 = 1 + 1;
       const template = precompileTemplate(\\"<Message @text={{two}} />\\", {
