@@ -24,7 +24,9 @@
     ".": {
       "browser": "./src/plugin.js",
       "default": "./src/node-main.js"
-    }
+    },
+    "./browser": "./src/plugin.js",
+    "./node": "./src/node-main.js"
   },
   "files": [
     "src/**/*.js",
