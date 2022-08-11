@@ -751,6 +751,22 @@ describe('htmlbars-inline-precompile', function () {
       expect(transformed).toContain(`let two = 1 + 1`);
     });
 
+    it('does not smash other previously-bound expressions with new ones', () => {
+      precompile = runASTTransform(compiler, expressionTransform);
+
+      let transformed = transform(stripIndent`
+        import { precompileTemplate } from '@ember/template-compilation';
+        export default function() {
+          const template = precompileTemplate('{{onePlusOne}}{{onePlusOne}}');
+        }
+      `);
+
+      expect(transformed).toContain(`{{two}}{{two0}}`);
+      expect(transformed).toContain(`locals: [two, two0]`);
+      expect(transformed).toContain(`let two = 1 + 1`);
+      expect(transformed).toContain(`let two0 = 1 + 1`);
+    });
+
     it('can bind expressions that need imports', function () {
       let nowTransform: ASTPluginBuilder<WithJSUtils<ASTPluginEnvironment>> = (env) => {
         return {
