@@ -105,8 +105,19 @@ export class JSUtils {
       opts?.nameHint
     );
 
-    let identifier = unusedNameLike(importedIdentifier.name, (candidate) =>
-      astNodeHasBinding(target, candidate)
+    // If we're already referencing the imported name from the outer scope and
+    // it's not shadowed at our target location in the template, we can reuse
+    // the existing import.
+    if (
+      this.#locals.includes(importedIdentifier.name) &&
+      !astNodeHasBinding(target, importedIdentifier.name)
+    ) {
+      return importedIdentifier.name;
+    }
+
+    let identifier = unusedNameLike(
+      importedIdentifier.name,
+      (candidate) => this.#locals.includes(candidate) || astNodeHasBinding(target, candidate)
     );
     if (identifier !== importedIdentifier.name) {
       // The importedIdentifier that we have in Javascript is not usable within

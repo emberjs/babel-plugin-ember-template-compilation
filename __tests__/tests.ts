@@ -773,6 +773,41 @@ describe('htmlbars-inline-precompile', function () {
     `);
   });
 
+  it('reuses existing imports when possible', () => {
+    plugins = [
+      [HTMLBarsInlinePrecompile, { compiler, targetFormat: 'hbs', transforms: [importTransform] }],
+    ];
+
+    let transformed = transform(stripIndent`
+      import { precompileTemplate } from '@ember/template-compilation';
+      export default function() {
+        const template = precompileTemplate('{{onePlusOne}}{{onePlusOne}}');
+      }
+    `);
+
+    expect(transformed).toContain(`{{two}}{{two}}`);
+    expect(transformed).toContain(`locals: [two]`);
+    expect(transformed).toContain(`import two from "my-library"`);
+  });
+
+  it('rebinds existing imports when necessary', () => {
+    plugins = [
+      [HTMLBarsInlinePrecompile, { compiler, targetFormat: 'hbs', transforms: [importTransform] }],
+    ];
+
+    let transformed = transform(stripIndent`
+      import { precompileTemplate } from '@ember/template-compilation';
+      export default function() {
+        const template = precompileTemplate('{{onePlusOne}}{{#let "twice" as |two|}}{{onePlusOne}}{{/let}}');
+      }
+    `);
+
+    expect(transformed).toContain(`{{two}}{{#let "twice" as |two|}}{{two0}}{{/let}}`);
+    expect(transformed).toContain(`locals: [two, two0]`);
+    expect(transformed).toContain(`import two from "my-library"`);
+    expect(transformed).toContain('let two0 = two');
+  });
+
   it('does not smash own newly-created js binding for expression', function () {
     plugins = [
       [
