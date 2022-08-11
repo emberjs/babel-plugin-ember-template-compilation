@@ -50,7 +50,9 @@ export class JSUtils {
     let name = unusedNameLike(
       opts?.nameHint ?? 'a',
       (candidate) =>
-        this.#template.scope.hasBinding(candidate) || astNodeHasBinding(target, candidate)
+        this.#template.scope.hasBinding(candidate) ||
+        this.#locals.includes(candidate) ||
+        astNodeHasBinding(target, candidate)
     );
     let t = this.#babel.types;
     let declaration: NodePath<t.VariableDeclaration> = this.#emitStatement(
