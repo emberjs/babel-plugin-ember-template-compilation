@@ -100,9 +100,7 @@ export interface State<EnvSpecificOptions> {
   filename: string;
 }
 
-export default function makePlugin<EnvSpecificOptions>(
-  loadOptions: (opts: EnvSpecificOptions) => Options
-) {
+export function makePlugin<EnvSpecificOptions>(loadOptions: (opts: EnvSpecificOptions) => Options) {
   return function htmlbarsInlinePrecompile(
     babel: typeof Babel
   ): Babel.PluginObj<State<EnvSpecificOptions>> {
@@ -458,3 +456,6 @@ function name(node: t.StringLiteral | t.Identifier) {
     return node.name;
   }
 }
+
+export default makePlugin<Options>((options) => options);
+export type { JSUtils, WithJSUtils } from './js-utils';

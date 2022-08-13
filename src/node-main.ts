@@ -1,5 +1,5 @@
 import { resolve } from 'path';
-import makePlugin from './plugin';
+import { makePlugin } from './plugin';
 
 import { Options as SharedOptions } from './plugin';
 import { assertTemplateCompiler, EmberTemplateCompiler } from './ember-template-compiler';
@@ -60,3 +60,5 @@ export default htmlbarsInlinePrecompile as typeof htmlbarsInlinePrecompile & {
   baseDir(): string;
   _parallelBabel: { requireFile: string };
 };
+
+export type { JSUtils, WithJSUtils } from './plugin';
