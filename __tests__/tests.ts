@@ -786,7 +786,9 @@ describe('htmlbars-inline-precompile', function () {
     `);
 
     expect(transformed).toContain(`{{two}}{{two}}`);
-    expect(transformed).toContain(`locals: [two]`);
+    expect(transformed).toContain(`scope: () => ({
+      two
+    })`);
     expect(transformed).toContain(`import two from "my-library"`);
   });
 
@@ -802,8 +804,12 @@ describe('htmlbars-inline-precompile', function () {
       }
     `);
 
-    expect(transformed).toContain(`{{two}}{{#let "twice" as |two|}}{{two0}}{{/let}}`);
-    expect(transformed).toContain(`locals: [two, two0]`);
+    //expect(transformed).toContain(`{{two}}{{#let "twice" as |two|}}{{two0}}{{/let}}`);
+    expect(transformed).toContain(`{{two}}{{#let \\"twice\\" as |two|}}{{two0}}{{/let}}`);
+    expect(transformed).toContain(`scope: () => ({
+      two,
+      two0
+    })`);
     expect(transformed).toContain(`import two from "my-library"`);
     expect(transformed).toContain('let two0 = two');
   });
@@ -943,7 +949,10 @@ describe('htmlbars-inline-precompile', function () {
     `);
 
     expect(transformed).toContain(`{{two}}{{two0}}`);
-    expect(transformed).toContain(`locals: [two, two0]`);
+    expect(transformed).toContain(`scope: () => ({
+      two,
+      two0
+    })`);
     expect(transformed).toContain(`let two = 1 + 1`);
     expect(transformed).toContain(`let two0 = 1 + 1`);
   });
