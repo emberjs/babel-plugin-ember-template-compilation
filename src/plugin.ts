@@ -3,9 +3,8 @@ import type * as Babel from '@babel/core';
 import type { types as t } from '@babel/core';
 import { ImportUtil } from 'babel-import-util';
 import { ExpressionParser } from './expression-parser';
-import { JSUtils } from './js-utils';
-
-export type EmberPrecompile = (templateString: string, options: Record<string, unknown>) => string;
+import { JSUtils, ExtendedPluginBuilder } from './js-utils';
+import type { EmberTemplateCompiler, PreprocessOptions } from './ember-template-compiler';
 
 export type LegacyModuleName =
   | 'ember-cli-htmlbars'
@@ -49,6 +48,9 @@ const INLINE_PRECOMPILE_MODULES: ModuleConfig[] = [
 ];
 
 export interface Options {
+  // The ember-template-compiler.js module that ships within your ember-source version.
+  compiler: EmberTemplateCompiler;
+
   // Allows you to remap what imports will be emitted in our compiled output. By
   // example:
   //
@@ -71,100 +73,68 @@ export interface Options {
   // use, and we can enable those too by including their module names in this
   // list.
   enableLegacyModules?: LegacyModuleName[];
+
+  // Controls the output format.
+  //
+  //  "wire": The default. In the output, your templates are ready to execute in
+  //  the most performant way.
+  //
+  //  "hbs": In the output, your templates will still be in HBS format.
+  //  Generally this means they will still need further processing before
+  //  they're ready to execute. The purpose of this mode is to support things
+  //  like codemods and pre-publication transformations in libraries.
+  targetFormat?: 'wire' | 'hbs';
+
+  // Optional list of custom transforms to apply to the handlebars AST before
+  // compilation.
+  transforms?: ExtendedPluginBuilder[];
 }
 
-interface State {
-  opts: Options;
+export interface State<EnvSpecificOptions> {
+  opts: EnvSpecificOptions;
+  normalizedOpts: Required<Options>;
   util: ImportUtil;
-  precompile: EmberPrecompile;
   templateFactory: { moduleName: string; exportName: string };
   program: NodePath<t.Program>;
+  lastInsertedPath: NodePath<t.Statement> | undefined;
+  filename: string;
 }
 
-export default function makePlugin<O>(
-  // receives the Babel plugin options, returns Ember's precompiler
-  loadPrecompiler: (opts: O) => EmberPrecompile
-) {
-  return function htmlbarsInlinePrecompile(babel: typeof Babel): Babel.PluginObj<State> {
+export function makePlugin<EnvSpecificOptions>(loadOptions: (opts: EnvSpecificOptions) => Options) {
+  return function htmlbarsInlinePrecompile(
+    babel: typeof Babel
+  ): Babel.PluginObj<State<EnvSpecificOptions>> {
     let t = babel.types;
-
-    function insertCompiledTemplate(
-      target: NodePath<t.Expression>,
-      state: State,
-      template: string,
-      userTypedOptions: Record<string, unknown>
-    ): void {
-      if (!userTypedOptions.locals) {
-        userTypedOptions.locals = [];
-      }
-      let jsutils = new JSUtils(
-        babel,
-        state.program,
-        target,
-        userTypedOptions.locals as string[],
-        state.util
-      );
-      let meta = Object.assign({ jsutils }, userTypedOptions?.meta);
-      let options = Object.assign({}, userTypedOptions, { contents: template, meta });
-      let precompile = state.precompile;
-      let precompileResultString: string;
-
-      if (options.insertRuntimeErrors) {
-        try {
-          precompileResultString = precompile(template, options);
-        } catch (error) {
-          target.replaceWith(runtimeErrorIIFE(babel, { ERROR_MESSAGE: (error as any).message }));
-          return;
-        }
-      } else {
-        precompileResultString = precompile(template, options);
-      }
-
-      let precompileResultAST = babel.parse(`var precompileResult = ${precompileResultString};`, {
-        babelrc: false,
-        configFile: false,
-      }) as t.File;
-
-      let templateExpression = (precompileResultAST.program.body[0] as t.VariableDeclaration)
-        .declarations[0].init as t.Expression;
-
-      t.addComment(
-        templateExpression,
-        'leading',
-        `\n  ${template.replace(/\*\//g, '*\\/')}\n`,
-        /* line comment? */ false
-      );
-
-      let templateFactoryIdentifier = state.util.import(
-        target,
-        state.templateFactory.moduleName,
-        state.templateFactory.exportName
-      );
-      target.replaceWith(t.callExpression(templateFactoryIdentifier, [templateExpression]));
-    }
 
     return {
       visitor: {
         Program: {
-          enter(path: NodePath<t.Program>, state: State) {
-            let moduleName = '@ember/template-factory';
-            let exportName = 'createTemplateFactory';
-            let overrides = state.opts.outputModuleOverrides?.[moduleName]?.[exportName];
-            state.templateFactory = overrides
-              ? { exportName: overrides[0], moduleName: overrides[1] }
-              : { exportName, moduleName };
+          enter(path: NodePath<t.Program>, state: State<EnvSpecificOptions>) {
+            state.normalizedOpts = {
+              targetFormat: 'wire',
+              outputModuleOverrides: {},
+              enableLegacyModules: [],
+              transforms: [],
+              ...loadOptions(state.opts),
+            };
+
+            state.templateFactory = templateFactoryConfig(state.normalizedOpts);
             state.util = new ImportUtil(t, path);
-            state.precompile = loadPrecompiler(state.opts as O);
             state.program = path;
           },
-          exit(_path: NodePath<t.Program>, state: State) {
-            for (let { moduleName, export: exportName } of configuredModules(state)) {
-              state.util.removeImport(moduleName, exportName);
+          exit(_path: NodePath<t.Program>, state: State<EnvSpecificOptions>) {
+            if (state.normalizedOpts.targetFormat === 'wire') {
+              for (let { moduleName, export: exportName } of configuredModules(state)) {
+                state.util.removeImport(moduleName, exportName);
+              }
             }
           },
         },
 
-        TaggedTemplateExpression(path: NodePath<t.TaggedTemplateExpression>, state: State) {
+        TaggedTemplateExpression(
+          path: NodePath<t.TaggedTemplateExpression>,
+          state: State<EnvSpecificOptions>
+        ) {
           let tagPath = path.get('tag');
 
           if (!tagPath.isIdentifier()) {
@@ -188,10 +158,14 @@ export default function makePlugin<O>(
           }
 
           let template = path.node.quasi.quasis.map((quasi) => quasi.value.cooked).join('');
-          insertCompiledTemplate(path, state, template, {});
+          if (state.normalizedOpts.targetFormat === 'wire') {
+            insertCompiledTemplate(babel, state, template, path, {});
+          } else {
+            insertTransformedTemplate(babel, state, template, path, {}, options);
+          }
         },
 
-        CallExpression(path: NodePath<t.CallExpression>, state: State) {
+        CallExpression(path: NodePath<t.CallExpression>, state: State<EnvSpecificOptions>) {
           let calleePath = path.get('callee');
 
           if (!calleePath.isIdentifier()) {
@@ -243,7 +217,7 @@ export default function makePlugin<O>(
             userTypedOptions = new ExpressionParser(babel).parseObjectExpression(
               calleePath.node.name,
               secondArg,
-              true
+              options.enableScope
             );
           }
           if (restArgs.length > 0) {
@@ -251,18 +225,22 @@ export default function makePlugin<O>(
               `${calleePath.node.name} can only be invoked with 2 arguments: the template string, and any static options`
             );
           }
-          insertCompiledTemplate(path, state, template, userTypedOptions);
+          if (state.normalizedOpts.targetFormat === 'wire') {
+            insertCompiledTemplate(babel, state, template, path, userTypedOptions);
+          } else {
+            insertTransformedTemplate(babel, state, template, path, userTypedOptions, options);
+          }
         },
       },
     };
   };
 }
 
-function* configuredModules(state: State) {
+function* configuredModules<EnvSpecificOptions>(state: State<EnvSpecificOptions>) {
   for (let moduleConfig of INLINE_PRECOMPILE_MODULES) {
     if (
       moduleConfig.moduleName !== '@ember/template-compilation' &&
-      !state.opts.enableLegacyModules?.includes(moduleConfig.moduleName)
+      !state.normalizedOpts.enableLegacyModules.includes(moduleConfig.moduleName)
     ) {
       continue;
     }
@@ -270,9 +248,9 @@ function* configuredModules(state: State) {
   }
 }
 
-function referencesInlineCompiler(
+function referencesInlineCompiler<EnvSpecificOptions>(
   path: NodePath<t.Identifier>,
-  state: State
+  state: State<EnvSpecificOptions>
 ): ModuleConfig | undefined {
   for (let moduleConfig of configuredModules(state)) {
     if (path.referencesImport(moduleConfig.moduleName, moduleConfig.export)) {
@@ -288,3 +266,196 @@ function runtimeErrorIIFE(babel: typeof Babel, replacements: { ERROR_MESSAGE: st
   ) as t.ExpressionStatement;
   return statement.expression;
 }
+
+function buildPrecompileOptions<EnvSpecificOptions>(
+  babel: typeof Babel,
+  target: NodePath<t.Expression>,
+  state: State<EnvSpecificOptions>,
+  template: string,
+  userTypedOptions: Record<string, unknown>
+): PreprocessOptions & Record<string, unknown> {
+  if (!userTypedOptions.locals) {
+    userTypedOptions.locals = [];
+  }
+  let jsutils = new JSUtils(babel, state, target, userTypedOptions.locals as string[], state.util);
+  let meta = Object.assign({ jsutils }, userTypedOptions?.meta);
+  return Object.assign(
+    {
+      contents: template,
+      meta,
+
+      // TODO: embroider's template-compiler allows this to be overriden to get
+      // backward-compatible module names that don't match the real name of the
+      // on-disk file. What's our plan for migrating people away from that?
+      moduleName: state.filename,
+
+      plugins: {
+        ast: state.normalizedOpts.transforms,
+      },
+    },
+    userTypedOptions
+  );
+}
+
+function insertCompiledTemplate<EnvSpecificOptions>(
+  babel: typeof Babel,
+  state: State<EnvSpecificOptions>,
+  template: string,
+  target: NodePath<t.Expression>,
+  userTypedOptions: Record<string, unknown>
+) {
+  let t = babel.types;
+  let options = buildPrecompileOptions(babel, target, state, template, userTypedOptions);
+
+  let precompileResultString: string;
+
+  if (options.insertRuntimeErrors) {
+    try {
+      precompileResultString = state.normalizedOpts.compiler.precompile(template, options);
+    } catch (error) {
+      target.replaceWith(runtimeErrorIIFE(babel, { ERROR_MESSAGE: (error as any).message }));
+      return;
+    }
+  } else {
+    precompileResultString = state.normalizedOpts.compiler.precompile(template, options);
+  }
+
+  let precompileResultAST = babel.parse(`var precompileResult = ${precompileResultString};`, {
+    babelrc: false,
+    configFile: false,
+  }) as t.File;
+
+  let templateExpression = (precompileResultAST.program.body[0] as t.VariableDeclaration)
+    .declarations[0].init as t.Expression;
+
+  t.addComment(
+    templateExpression,
+    'leading',
+    `\n  ${template.replace(/\*\//g, '*\\/')}\n`,
+    /* line comment? */ false
+  );
+
+  let templateFactoryIdentifier = state.util.import(
+    target,
+    state.templateFactory.moduleName,
+    state.templateFactory.exportName
+  );
+  target.replaceWith(t.callExpression(templateFactoryIdentifier, [templateExpression]));
+}
+
+function insertTransformedTemplate<EnvSpecificOptions>(
+  babel: typeof Babel,
+  state: State<EnvSpecificOptions>,
+  template: string,
+  target: NodePath<t.CallExpression> | NodePath<t.TaggedTemplateExpression>,
+  userTypedOptions: Record<string, unknown>,
+  formatOptions: ModuleConfig
+) {
+  let t = babel.types;
+  let options = buildPrecompileOptions(babel, target, state, template, userTypedOptions);
+  let ast = state.normalizedOpts.compiler._preprocess(template, { ...options, mode: 'codemod' });
+  let transformed = state.normalizedOpts.compiler._print(ast);
+  if (target.isCallExpression()) {
+    (target.get('arguments.0') as NodePath<t.Node>).replaceWith(t.stringLiteral(transformed));
+    if (options.locals && options.locals.length > 0) {
+      if (!formatOptions.enableScope) {
+        maybePruneImport(state.util, target.get('callee'));
+        target.set('callee', precompileTemplate(state.util, target));
+      }
+      updateScope(babel, target, options.locals);
+    }
+  } else {
+    if (options.locals && options.locals.length > 0) {
+      // need to add scope, so need to replace the backticks form with a call
+      // expression to precompileTemplate
+      maybePruneImport(state.util, target.get('tag'));
+      let newCall = target.replaceWith(
+        t.callExpression(precompileTemplate(state.util, target), [t.stringLiteral(transformed)])
+      )[0];
+      updateScope(babel, newCall, options.locals);
+    } else {
+      (target.get('quasi').get('quasis.0') as NodePath<t.TemplateElement>).replaceWith(
+        t.templateElement({ raw: transformed })
+      );
+    }
+  }
+}
+
+function templateFactoryConfig(opts: Required<Options>) {
+  let moduleName = '@ember/template-factory';
+  let exportName = 'createTemplateFactory';
+  let overrides = opts.outputModuleOverrides[moduleName]?.[exportName];
+  return overrides
+    ? { exportName: overrides[0], moduleName: overrides[1] }
+    : { exportName, moduleName };
+}
+
+function buildScope(babel: typeof Babel, locals: string[]) {
+  let t = babel.types;
+  return t.arrowFunctionExpression(
+    [],
+    t.objectExpression(
+      locals.map((name) => t.objectProperty(t.identifier(name), t.identifier(name), false, true))
+    )
+  );
+}
+function updateScope(babel: typeof Babel, target: NodePath<t.CallExpression>, locals: string[]) {
+  let t = babel.types;
+  let secondArg = target.get('arguments.1') as NodePath<t.ObjectExpression> | undefined;
+  if (secondArg) {
+    let scope = secondArg.get('properties').find((p) => {
+      let key = p.get('key') as NodePath<t.Node>;
+      return key.isIdentifier() && key.node.name === 'scope';
+    });
+    if (scope) {
+      scope.set('value', buildScope(babel, locals));
+    } else {
+      secondArg.pushContainer(
+        'properties',
+        t.objectProperty(t.identifier('scope'), buildScope(babel, locals))
+      );
+    }
+  } else {
+    target.pushContainer(
+      'arguments',
+      t.objectExpression([t.objectProperty(t.identifier('scope'), buildScope(babel, locals))])
+    );
+  }
+}
+
+function maybePruneImport(
+  util: ImportUtil,
+  identifier: NodePath<t.Expression | t.V8IntrinsicIdentifier>
+) {
+  if (!identifier.isIdentifier()) {
+    return;
+  }
+  let binding = identifier.scope.getBinding(identifier.node.name);
+  // this checks if the identifier (that we're about to remove) is used in
+  // exactly one place.
+  if (
+    binding?.referencePaths.reduce((count, path) => (path.removed ? count : count + 1), 0) === 1
+  ) {
+    let specifier = binding.path;
+    if (specifier.isImportSpecifier()) {
+      let declaration = specifier.parentPath as NodePath<t.ImportDeclaration>;
+      util.removeImport(declaration.node.source.value, name(specifier.node.imported));
+    }
+  }
+  identifier.removed = true;
+}
+
+function precompileTemplate(util: ImportUtil, target: NodePath<t.Node>) {
+  return util.import(target, '@ember/template-compilation', 'precompileTemplate');
+}
+
+function name(node: t.StringLiteral | t.Identifier) {
+  if (node.type === 'StringLiteral') {
+    return node.value;
+  } else {
+    return node.name;
+  }
+}
+
+export default makePlugin<Options>((options) => options);
+export type { JSUtils, WithJSUtils } from './js-utils';
