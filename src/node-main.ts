@@ -19,11 +19,15 @@ export type Options = Omit<SharedOptions, 'transforms' | 'compiler'> & {
   transforms?: (ExtendedPluginBuilder | string)[];
 };
 
+function cwdRequire(moduleName: string) {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  return require(require.resolve(moduleName, { paths: [process.cwd()] }));
+}
+
 function handleNodeSpecificOptions(opts: Options): SharedOptions {
   let compiler: EmberTemplateCompiler;
   if (opts.compilerPath) {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    let mod: any = require(opts.compilerPath);
+    let mod: any = cwdRequire(opts.compilerPath);
     assertTemplateCompiler(mod);
     compiler = mod;
   } else if (opts.compiler) {
@@ -37,7 +41,7 @@ function handleNodeSpecificOptions(opts: Options): SharedOptions {
   if (opts.transforms) {
     transforms = opts.transforms.map((t) => {
       if (typeof t === 'string') {
-        return require(t);
+        return cwdRequire(t);
       } else {
         return t;
       }
