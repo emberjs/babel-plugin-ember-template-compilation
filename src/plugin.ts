@@ -289,6 +289,11 @@ function buildPrecompileOptions<EnvSpecificOptions>(
       // on-disk file. What's our plan for migrating people away from that?
       moduleName: state.filename,
 
+      // This is here so it's *always* the real filename. Historically, there is
+      // also `moduleName` but that did not match the real on-disk filename, it
+      // was the notional runtime module name from classic ember builds.
+      filename: state.filename,
+
       plugins: {
         ast: state.normalizedOpts.transforms,
       },
