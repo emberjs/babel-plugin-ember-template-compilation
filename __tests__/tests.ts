@@ -641,8 +641,8 @@ describe('htmlbars-inline-precompile', function () {
       `);
 
     expect(transformed).toMatchInlineSnapshot(`
-      "let two = 1 + 1;
-      import { precompileTemplate } from '@ember/template-compilation';
+      "import { precompileTemplate } from '@ember/template-compilation';
+      let two = 1 + 1;
       const template = precompileTemplate(\\"<Message @text={{two}} />\\", {
         scope: () => ({
           two
@@ -730,9 +730,9 @@ describe('htmlbars-inline-precompile', function () {
       `);
 
     expect(transformed).toMatchInlineSnapshot(`
-      "let two0 = two;
-      import two from \\"my-library\\";
+      "import two from \\"my-library\\";
       import { precompileTemplate } from '@ember/template-compilation';
+      let two0 = two;
       export function inner() {
         const template = precompileTemplate(\\"{{#let \\\\\\"twice\\\\\\" as |two|}}<Message @text={{two0}} />{{/let}}\\", {
           scope: () => ({
@@ -760,8 +760,8 @@ describe('htmlbars-inline-precompile', function () {
       `);
 
     expect(transformed).toMatchInlineSnapshot(`
-      "let two0 = 1 + 1;
-      import { precompileTemplate } from '@ember/template-compilation';
+      "import { precompileTemplate } from '@ember/template-compilation';
+      let two0 = 1 + 1;
       export default function () {
         let two = 'twice';
         const template = precompileTemplate(\\"<Message @text={{two0}} />\\", {
@@ -831,9 +831,9 @@ describe('htmlbars-inline-precompile', function () {
       `);
 
     expect(transformed).toMatchInlineSnapshot(`
-      "let two = 1 + 1;
+      "import { precompileTemplate } from '@ember/template-compilation';
+      let two = 1 + 1;
       let two0 = 1 + 1;
-      import { precompileTemplate } from '@ember/template-compilation';
       export default function () {
         const template1 = precompileTemplate(\\"<Message @text={{two}} />\\", {
           scope: () => ({
@@ -865,8 +865,8 @@ describe('htmlbars-inline-precompile', function () {
       `);
 
     expect(transformed).toMatchInlineSnapshot(`
-      "let two0 = 1 + 1;
-      import { precompileTemplate } from '@ember/template-compilation';
+      "import { precompileTemplate } from '@ember/template-compilation';
+      let two0 = 1 + 1;
       export default function () {
         const template = precompileTemplate(\\"{{#let \\\\\\"twice\\\\\\" as |two|}}<Message @text={{two0}} />{{/let}}\\", {
           scope: () => ({
@@ -893,8 +893,8 @@ describe('htmlbars-inline-precompile', function () {
       `);
 
     expect(transformed).toMatchInlineSnapshot(`
-      "let two0 = 1 + 1;
-      import { precompileTemplate } from '@ember/template-compilation';
+      "import { precompileTemplate } from '@ember/template-compilation';
+      let two0 = 1 + 1;
       export default function () {
         const template = precompileTemplate(\\"<Outer as |two|><Message @text={{two0}} /></Outer>\\", {
           scope: () => ({
@@ -921,8 +921,8 @@ describe('htmlbars-inline-precompile', function () {
       `);
 
     expect(transformed).toMatchInlineSnapshot(`
-      "let two = 1 + 1;
-      import { precompileTemplate } from '@ember/template-compilation';
+      "import { precompileTemplate } from '@ember/template-compilation';
+      let two = 1 + 1;
       export default function () {
         const template = precompileTemplate(\\"<Message @text={{two}} as |two|>{{two}}</Message>\\", {
           scope: () => ({
@@ -1124,8 +1124,8 @@ describe('htmlbars-inline-precompile', function () {
       `);
 
       expect(transformed).toMatchInlineSnapshot(`
-        "let two = 1 + 1;
-        import { precompileTemplate } from '@ember/template-compilation';
+        "import { precompileTemplate } from '@ember/template-compilation';
+        let two = 1 + 1;
         const template = precompileTemplate(\\"<Message @text={{two}} />\\", {
           scope: () => ({
             two
@@ -1151,9 +1151,9 @@ describe('htmlbars-inline-precompile', function () {
       `);
 
       expect(transformed).toMatchInlineSnapshot(`
-        "let two = 1 + 1;
-        import { precompileTemplate } from '@ember/template-compilation';
+        "import { precompileTemplate } from '@ember/template-compilation';
         import Message from 'message';
+        let two = 1 + 1;
         const template = precompileTemplate(\\"<Message @text={{two}} />\\", {
           moduleName: 'customModuleName',
           scope: () => ({
@@ -1182,9 +1182,9 @@ describe('htmlbars-inline-precompile', function () {
       `);
 
       expect(transformed).toMatchInlineSnapshot(`
-        "let two = 1 + 1;
-        import { precompileTemplate } from '@ember/template-compilation';
+        "import { precompileTemplate } from '@ember/template-compilation';
         import Message from 'message';
+        let two = 1 + 1;
         const template = precompileTemplate(\\"<Message @text={{two}} />\\", {
           scope: () => ({
             Message,
@@ -1270,8 +1270,8 @@ describe('htmlbars-inline-precompile', function () {
 
       expect(transformed).toMatchInlineSnapshot(`
         "import { precompileTemplate } from \\"@ember/template-compilation\\";
-        let two = 1 + 1;
         import { hbs } from 'ember-cli-htmlbars';
+        let two = 1 + 1;
         const template = precompileTemplate(\\"<Message @text={{two}} />\\", {
           scope: () => ({
             two

@@ -3,20 +3,24 @@ import type * as Babel from '@babel/core';
 import type { NodePath } from '@babel/traverse';
 import type { ASTPluginBuilder, ASTPluginEnvironment, ASTv1, WalkerPath } from '@glimmer/syntax';
 import type { ImportUtil } from 'babel-import-util';
-import type { State } from './plugin';
+
+interface State {
+  program: NodePath<Babel.types.Program>;
+  lastInsertedPath: NodePath<Babel.types.Statement> | undefined;
+}
 
 // This exists to give AST plugins a controlled interface for influencing the
 // surrounding Javascript scope
 export class JSUtils {
   #babel: typeof Babel;
-  #state: State<unknown>;
+  #state: State;
   #template: NodePath<t.Expression>;
   #locals: string[];
   #importer: ImportUtil;
 
   constructor(
     babel: typeof Babel,
-    state: State<unknown>,
+    state: State,
     template: NodePath<t.Expression>,
     locals: string[],
     importer: ImportUtil
@@ -26,6 +30,19 @@ export class JSUtils {
     this.#template = template;
     this.#locals = locals;
     this.#importer = importer;
+
+    if (!this.#state.lastInsertedPath) {
+      let target: NodePath<t.Statement> | undefined;
+      for (let statement of this.#state.program.get('body')) {
+        if (!statement.isImportDeclaration()) {
+          break;
+        }
+        target = statement;
+      }
+      if (target) {
+        this.#state.lastInsertedPath = target;
+      }
+    }
   }
 
   /**
