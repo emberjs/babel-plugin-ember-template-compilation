@@ -5,6 +5,10 @@ import { Options as SharedOptions } from './plugin';
 import { assertTemplateCompiler, EmberTemplateCompiler } from './ember-template-compiler';
 import { ExtendedPluginBuilder } from './js-utils';
 
+export * from './public-types';
+
+export type Transform = ExtendedPluginBuilder | string | [string, unknown];
+
 export type Options = Omit<SharedOptions, 'transforms' | 'compiler'> & {
   // The on-disk path to the ember-template-comipler.js module for our current
   // ember version. You need to either set `compilerPath` or set `compiler`.
@@ -15,8 +19,13 @@ export type Options = Omit<SharedOptions, 'transforms' | 'compiler'> & {
   compiler?: EmberTemplateCompiler;
 
   // List of custom transformations to apply to the handlebars AST before
-  // compilation. These can be the actual functions or resolvable module names.
-  transforms?: (ExtendedPluginBuilder | string)[];
+  // compilation. These can be
+  //   - the actual functions
+  //   - resolvable module names
+  //   - pairs of [resolvableModuleName, options], in which case we will invoke
+  //     the default export of the module with the options as argument, and the
+  //     actual ast transform function should be returned.
+  transforms?: Transform[];
 };
 
 function cwdRequire(moduleName: string) {
@@ -41,7 +50,9 @@ function handleNodeSpecificOptions(opts: Options): SharedOptions {
   if (opts.transforms) {
     transforms = opts.transforms.map((t) => {
       if (typeof t === 'string') {
-        return cwdRequire(t);
+        return cwdRequire(t).default;
+      } else if (Array.isArray(t) && typeof t[0] === 'string') {
+        return cwdRequire(t[0]).default.call(undefined, t[1]);
       } else {
         return t;
       }
@@ -64,5 +75,3 @@ export default htmlbarsInlinePrecompile as typeof htmlbarsInlinePrecompile & {
   baseDir(): string;
   _parallelBabel: { requireFile: string };
 };
-
-export type { JSUtils, WithJSUtils } from './plugin';

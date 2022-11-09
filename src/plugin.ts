@@ -5,11 +5,9 @@ import { ImportUtil } from 'babel-import-util';
 import { ExpressionParser } from './expression-parser';
 import { JSUtils, ExtendedPluginBuilder } from './js-utils';
 import type { EmberTemplateCompiler, PreprocessOptions } from './ember-template-compiler';
+import { LegacyModuleName } from './public-types';
 
-export type LegacyModuleName =
-  | 'ember-cli-htmlbars'
-  | 'ember-cli-htmlbars-inline-precompile'
-  | 'htmlbars-inline-precompile';
+export * from './public-types';
 
 type ModuleName = LegacyModuleName | '@ember/template-compilation';
 
@@ -90,7 +88,7 @@ export interface Options {
   transforms?: ExtendedPluginBuilder[];
 }
 
-export interface State<EnvSpecificOptions> {
+interface State<EnvSpecificOptions> {
   opts: EnvSpecificOptions;
   normalizedOpts: Required<Options>;
   util: ImportUtil;
@@ -233,7 +231,7 @@ export function makePlugin<EnvSpecificOptions>(loadOptions: (opts: EnvSpecificOp
         },
       },
     };
-  };
+  } as (babel: typeof Babel) => Babel.PluginObj<unknown>;
 }
 
 function* configuredModules<EnvSpecificOptions>(state: State<EnvSpecificOptions>) {
@@ -463,4 +461,3 @@ function name(node: t.StringLiteral | t.Identifier) {
 }
 
 export default makePlugin<Options>((options) => options);
-export type { JSUtils, WithJSUtils } from './js-utils';
