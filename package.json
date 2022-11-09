@@ -34,7 +34,7 @@
     "src/**/*.js.map"
   ],
   "dependencies": {
-    "babel-import-util": "^1.2.0"
+    "babel-import-util": "^1.3.0"
   },
   "devDependencies": {
     "@babel/core": "^7.14.8",
