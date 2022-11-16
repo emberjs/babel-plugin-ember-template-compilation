@@ -50,9 +50,9 @@ function handleNodeSpecificOptions(opts: Options): SharedOptions {
   if (opts.transforms) {
     transforms = opts.transforms.map((t) => {
       if (typeof t === 'string') {
-        return cwdRequire(t).default;
+        return esCompat(cwdRequire(t)).default;
       } else if (Array.isArray(t) && typeof t[0] === 'string') {
-        return cwdRequire(t[0]).default.call(undefined, t[1]);
+        return esCompat(cwdRequire(t[0])).default.call(undefined, t[1]);
       } else {
         return t;
       }
@@ -75,3 +75,7 @@ export default htmlbarsInlinePrecompile as typeof htmlbarsInlinePrecompile & {
   baseDir(): string;
   _parallelBabel: { requireFile: string };
 };
+
+function esCompat(m: Record<string, any>) {
+  return m?.__esModule ? m : { default: m };
+}
