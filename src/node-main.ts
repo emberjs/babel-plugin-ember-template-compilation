@@ -1,46 +1,81 @@
 import { resolve } from 'path';
-import makePlugin from './plugin';
-import type * as Babel from '@babel/core';
+import { makePlugin } from './plugin';
 
-import { Options as PluginOptions, EmberPrecompile } from './plugin';
+import { Options as SharedOptions } from './plugin';
+import { assertTemplateCompiler, EmberTemplateCompiler } from './ember-template-compiler';
+import { ExtendedPluginBuilder } from './js-utils';
 
-export interface Options extends PluginOptions {
-  // The on-disk path to a module that provides a `precompile` function as
-  // defined below. You need to either set `precompilePath` or set `precompile`.
-  precompilerPath?: string;
+export * from './public-types';
 
-  // A precompile function that invokes Ember's template compiler.
-  //
-  // Options handling rules:
-  //
-  //  - we add `content`, which is the original string form of the template
-  //  - we have special parsing for `scope` which becomes `locals` when passed
-  //    to your precompile
-  //  - anything else the user passes to `precompileTemplate` will be passed
-  //    through to your `precompile`.
-  precompile?: EmberPrecompile;
-}
+export type Transform = ExtendedPluginBuilder | string | [string, unknown];
 
-const htmlbarsInlinePrecompile = makePlugin(function (opts: Options) {
-  if (opts.precompilerPath) {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    let mod: any = require(opts.precompilerPath);
-    return mod.precompile;
-  } else if (opts.precompile) {
-    return opts.precompile;
-  }
-}) as {
-  (babel: typeof Babel): Babel.PluginObj<Options>;
-  _parallelBabel: { requireFile: string };
-  baseDir(): string;
+export type Options = Omit<SharedOptions, 'transforms' | 'compiler'> & {
+  // The on-disk path to the ember-template-comipler.js module for our current
+  // ember version. You need to either set `compilerPath` or set `compiler`.
+  compilerPath?: string;
+
+  // The ember-template-compiler.js module that ships within your ember-source
+  // version. You need to set either `compilerPath` or `compiler`.
+  compiler?: EmberTemplateCompiler;
+
+  // List of custom transformations to apply to the handlebars AST before
+  // compilation. These can be
+  //   - the actual functions
+  //   - resolvable module names
+  //   - pairs of [resolvableModuleName, options], in which case we will invoke
+  //     the default export of the module with the options as argument, and the
+  //     actual ast transform function should be returned.
+  transforms?: Transform[];
 };
 
-htmlbarsInlinePrecompile._parallelBabel = {
+function cwdRequire(moduleName: string) {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  return require(require.resolve(moduleName, { paths: [process.cwd()] }));
+}
+
+function handleNodeSpecificOptions(opts: Options): SharedOptions {
+  let compiler: EmberTemplateCompiler;
+  if (opts.compilerPath) {
+    let mod: any = cwdRequire(opts.compilerPath);
+    assertTemplateCompiler(mod);
+    compiler = mod;
+  } else if (opts.compiler) {
+    assertTemplateCompiler(opts.compiler);
+    compiler = opts.compiler;
+  } else {
+    throw new Error(`must provide compilerPath or compiler`);
+  }
+
+  let transforms = [];
+  if (opts.transforms) {
+    transforms = opts.transforms.map((t) => {
+      if (typeof t === 'string') {
+        return esCompat(cwdRequire(t)).default;
+      } else if (Array.isArray(t) && typeof t[0] === 'string') {
+        return esCompat(cwdRequire(t[0])).default.call(undefined, t[1]);
+      } else {
+        return t;
+      }
+    });
+  }
+  return { ...opts, transforms, compiler };
+}
+
+const htmlbarsInlinePrecompile = makePlugin(handleNodeSpecificOptions);
+
+(htmlbarsInlinePrecompile as any)._parallelBabel = {
   requireFile: __filename,
 };
 
-htmlbarsInlinePrecompile.baseDir = function () {
+(htmlbarsInlinePrecompile as any).baseDir = function () {
   return resolve(__dirname, '..');
 };
 
-export default htmlbarsInlinePrecompile;
+export default htmlbarsInlinePrecompile as typeof htmlbarsInlinePrecompile & {
+  baseDir(): string;
+  _parallelBabel: { requireFile: string };
+};
+
+function esCompat(m: Record<string, any>) {
+  return m?.__esModule ? m : { default: m };
+}
