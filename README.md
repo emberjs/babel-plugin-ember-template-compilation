@@ -28,10 +28,27 @@ import hbs from 'htmlbars-inline-precompile';
 
 ## Common Options
 
-This package has both a Node implementation and a portable implementation that works in browsers. Both implementations share these common options:
+This package has both a Node implementation and a portable implementation that works in browsers.
+
+The exported modules are:
+
+- `babel-plugin-ember-template-compilation`: automatically chooses between the node and browser implementations (using package.json `exports` feature).
+- `babel-plugin-ember-template-compilation/browser`: the core implementation that works in browsers (and anywhere else) without using any Node-specific APIs.
+- `babel-plugin-ember-template-compilation/node`: the Node-specific implementation that adds the ability to automatically load plugins from disk, etc.
+
+The options are:
 
 ```ts
 interface Options {
+  // The ember-template-compiler.js module that ships within your ember-source version. In the browser implementation, this is mandatory. In the Node implementation you can use compilerPath instead.
+  compiler?: EmberTemplateCompiler;
+
+  // The on-disk path to the ember-template-compiler.js module for our current
+  // ember version. You need to either set `compilerPath` or set `compiler`.
+  // This will get resolved from the current working directory, so a package name
+  // like "ember-source/dist/ember-template-compiler" is acceptable.
+  compilerPath?: string;
+
   // Allows you to remap what imports will be emitted in our compiled output. By
   // example:
   //
@@ -52,51 +69,42 @@ interface Options {
   //
   // But historically there are several other importable syntaxes in widespread
   // use, and we can enable those too by including their module names in this
-  // list.
+  // list. See `type LegacyModuleName` below.
   enableLegacyModules?: LegacyModuleName[];
+
+  // Controls the output format.
+  //
+  //  "wire": The default. In the output, your templates are ready to execute in
+  //  the most performant way.
+  //
+  //  "hbs": In the output, your templates will still be in HBS format.
+  //  Generally this means they will still need further processing before
+  //  they're ready to execute. The purpose of this mode is to support things
+  //  like codemods and pre-publication transformations in libraries.
+  targetFormat?: 'wire' | 'hbs';
+
+  // Optional list of custom transforms to apply to the handlebars AST before
+  // compilation. See `type Transform` below.
+  transforms?: Transform[];
 }
 
+// The legal legacy module names. These are the only ones that are supported,
+// because these are the ones in widespread community use. We don't want people
+// creating new ones -- prefer `@ember/template-compilation` in new code.
 type LegacyModuleName =
   | 'ember-cli-htmlbars'
   | 'ember-cli-htmlbars-inline-precompile'
   | 'htmlbars-inline-precompile';
-```
 
-### Node Options
-
-When used in Node, the Options are extended to include:
-
-```ts
-interface NodeOptions extends Options {
-  // The on-disk path to a module that provides a `precompile` function as
-  // defined below. You need to either set `precompilePath` or set `precompile`.
-  precompilerPath?: string;
-
-  // A precompile function that invokes Ember's template compiler.
-  //
-  // Options handling rules:
-  //
-  //  - we add `content`, which is the original string form of the template
-  //  - we add `meta.jsutils`, which gives AST transform plugins access to methods for manipulating the surrounding javascript scope. See "JSUtils" below.
-  //  - we have special parsing for `scope` which becomes `locals` when passed
-  //    to your precompile
-  //  - anything else the user passes to `precompileTemplate` will be passed
-  //    through to your `precompile`.
-  precompile?: EmberPrecompile;
-}
-
-type EmberPrecompile = (templateString: string, options: Record<string, unknown>) => string;
-```
-
-### Browser Options
-
-For use in non-Node environments including browsers, when you import from this package you get a factory function that takes a callback and returns the plugin. Your callback receives the babel plugin options and should return the `precompile: EmberPrecompile` function as defined above.
-
-```js
-import makePlugin from 'babel-plugin-ember-template-compilation';
-import * as babel from '@babel/core';
-
-babel.transform(someCode, { plugins: [makePlugin(loadTemplateCompiler)] });
+// Each transform can be
+//   - the actual AST transform function (this is the only kind that works in non-Node environments)
+//   - a path to a module where we will find the AST transform function as the default export
+//   - an array of length two containing the path to a module and an arguments object.
+//       In this case we will pass the arguments to the default export from the module and
+//       it should return the actual AST transform function.
+// All the path resolving happens relative to the current working directory and
+// respects node_modules resolution.
+type Transform = Function | string | [string, unknown];
 ```
 
 # JSUtils: Manipulating Javascript from within AST transforms
