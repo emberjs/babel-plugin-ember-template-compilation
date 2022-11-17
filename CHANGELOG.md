@@ -1,3 +1,20 @@
+## v2.0.0 (2022-11-17)
+
+#### :rocket: Enhancement
+
+- [#5](https://github.com/emberjs/babel-plugin-ember-template-compilation/pull/5) Allow AST plugins to manipulate Javascript scope ([@ef4](https://github.com/ef4) and ([@dfreeman](https://github.com/dfreeman)))
+- [#9](https://github.com/emberjs/babel-plugin-ember-template-compilation/pull/9) Source to Source mode ([@ef4](https://github.com/ef4))
+
+#### :boom: Breaking
+
+- [#9](https://github.com/emberjs/babel-plugin-ember-template-compilation/pull/9) Source to Source mode: caused a change to the options format, since we now need the whole ember-template-compiler.js module, not just the precompile function from that module.
+
+#### Committers: 2
+
+- Edward Faulkner ([@ef4](https://github.com/ef4))
+- Dan Freeman ([@dfreeman](https://github.com/dfreeman))
+
+
 ## v1.0.2 (2022-04-11)
 
 #### :house: Internal
