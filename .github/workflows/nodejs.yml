@@ -19,9 +19,9 @@ jobs:
 
     steps:
       - uses: actions/checkout@v1
-      - uses: actions/setup-node@v1
+      - uses: actions/setup-node@v3
         with:
-          node-version: 12.x
+          node-version: 18.x
       - name: install yarn
         run: npm install -g yarn
       - name: install dependencies
@@ -35,11 +35,11 @@ jobs:
 
     strategy:
       matrix:
-        node: ['12', '14']
+        node: ['14', '18']
 
     steps:
       - uses: actions/checkout@v1
-      - uses: actions/setup-node@v1
+      - uses: actions/setup-node@v3
         with:
           node-version: ${{ matrix.node }}
       - name: install yarn
@@ -55,9 +55,9 @@ jobs:
 
     steps:
       - uses: actions/checkout@v1
-      - uses: actions/setup-node@v1
+      - uses: actions/setup-node@v3
         with:
-          node-version: '12.x'
+          node-version: '18.x'
       - name: install yarn
         run: npm install -g yarn
       - name: install dependencies

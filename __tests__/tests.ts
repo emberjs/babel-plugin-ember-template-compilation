@@ -8,6 +8,7 @@ import { stripIndent } from 'common-tags';
 import { EmberTemplateCompiler } from '../src/ember-template-compiler';
 import sinon from 'sinon';
 import { ExtendedPluginBuilder } from '../src/js-utils';
+import 'code-equality-assertions/jest';
 
 describe('htmlbars-inline-precompile', function () {
   // eslint-disable-next-line @typescript-eslint/no-var-requires
@@ -41,15 +42,15 @@ describe('htmlbars-inline-precompile', function () {
       "import { precompileTemplate } from '@ember/template-compilation';\nvar compiled = precompileTemplate('hello');"
     );
 
-    expect(transpiled).toMatchInlineSnapshot(`
-      "import { createTemplateFactory } from \\"@ember/template-factory\\";
+    expect(transpiled).toEqualCode(`
+      import { createTemplateFactory } from "@ember/template-factory";
       var compiled = createTemplateFactory(
       /*
         hello
       */
       function () {
-        return \\"hello\\";
-      });"
+        return "hello";
+      });
     `);
   });
 
@@ -60,13 +61,13 @@ describe('htmlbars-inline-precompile', function () {
       "import { precompileTemplate } from '@ember/template-compilation';\nvar compiled = precompileTemplate('hello');"
     );
 
-    expect(transpiled).toMatchInlineSnapshot(`
-      "import { createTemplateFactory } from \\"@ember/template-factory\\";
+    expect(transpiled).toEqualCode(`
+      import { createTemplateFactory } from "@ember/template-factory";
       var compiled = createTemplateFactory(
       /*
         hello
       */
-      precompiledFromPath(hello));"
+      precompiledFromPath(hello));
     `);
   });
 
@@ -157,7 +158,6 @@ describe('htmlbars-inline-precompile', function () {
 
     expect(transformed).toEqual(stripIndent`
       import { createTemplateFactory } from "@ember/template-factory";
-
       if ('foo') {
         const template = createTemplateFactory(
         /*
@@ -175,10 +175,10 @@ describe('htmlbars-inline-precompile', function () {
       `import { precompileTemplate } from '@ember/template-compilation';\nvar compiled = precompileTemplate('hello', { insertRuntimeErrors: true });`
     );
 
-    expect(transformed).toMatchInlineSnapshot(`
-      "var compiled = function () {
-        throw new Error(\\"NOOOOOOOOOOOOOOOOOOOOOO\\");
-      }();"
+    expect(transformed).toEqualCode(`
+      var compiled = function () {
+        throw new Error("NOOOOOOOOOOOOOOOOOOOOOO");
+      }();
     `);
   });
 
@@ -198,16 +198,16 @@ describe('htmlbars-inline-precompile', function () {
       }
     `);
 
-    expect(transformed).toMatchInlineSnapshot(`
-      "import { createTemplateFactory } from \\"@ember/template-factory\\";
+    expect(transformed).toEqualCode(`
+      import { createTemplateFactory } from "@ember/template-factory";
 
       if ('foo') {
         const template = createTemplateFactory(
         /*
-          hello *\\\\/
+          hello *\\/
         */
-        precompiled(\\"hello */\\"));
-      }"
+        precompiled("hello */"));
+      }
     `);
   });
 
@@ -251,13 +251,13 @@ describe('htmlbars-inline-precompile', function () {
       "import hbs from 'htmlbars-inline-precompile';\nvar compiled = hbs`hello`;"
     );
 
-    expect(transformed).toMatchInlineSnapshot(`
-      "import { createTemplateFactory } from \\"@ember/template-factory\\";
+    expect(transformed).toEqualCode(`
+      import { createTemplateFactory } from "@ember/template-factory";
       var compiled = createTemplateFactory(
       /*
         hello
       */
-      precompiled(\\"hello\\"));"
+      precompiled("hello"));
     `);
   });
 
@@ -280,13 +280,13 @@ describe('htmlbars-inline-precompile', function () {
       "import { hbs as baz } from 'ember-cli-htmlbars';\nvar compiled = baz`hello`;"
     );
 
-    expect(transformed).toMatchInlineSnapshot(`
-      "import { createTemplateFactory } from \\"@ember/template-factory\\";
+    expect(transformed).toEqualCode(`
+      import { createTemplateFactory } from "@ember/template-factory";
       var compiled = createTemplateFactory(
       /*
         hello
       */
-      precompiled(\\"hello\\"));"
+      precompiled("hello"));
     `);
   });
 
@@ -295,9 +295,9 @@ describe('htmlbars-inline-precompile', function () {
       "import { hbs as baz } from 'ember-cli-htmlbars';\nvar compiled = baz`hello`;"
     );
 
-    expect(transformed).toMatchInlineSnapshot(`
-      "import { hbs as baz } from 'ember-cli-htmlbars';
-      var compiled = baz\`hello\`;"
+    expect(transformed).toEqualCode(`
+      import { hbs as baz } from 'ember-cli-htmlbars';
+      var compiled = baz\`hello\`;
     `);
   });
 
@@ -318,18 +318,18 @@ describe('htmlbars-inline-precompile', function () {
       let b = other('hello');
     `);
 
-    expect(transformed).toMatchInlineSnapshot(`
-      "import { createTemplateFactory } from \\"@ember/template-factory\\";
+    expect(transformed).toEqualCode(`
+      import { createTemplateFactory } from "@ember/template-factory";
       let a = createTemplateFactory(
       /*
         hello
       */
-      precompiled(\\"hello\\"));
+      precompiled("hello"));
       let b = createTemplateFactory(
       /*
         hello
       */
-      precompiled(\\"hello\\"));"
+      precompiled("hello"));
     `);
   });
 
@@ -338,8 +338,8 @@ describe('htmlbars-inline-precompile', function () {
       import { precompileTemplate, compileTemplate } from '@ember/template-compilation';
     `);
 
-    expect(transformed).toMatchInlineSnapshot(
-      `"import { compileTemplate } from '@ember/template-compilation';"`
+    expect(transformed).toEqualCode(
+      `import { compileTemplate } from '@ember/template-compilation';`
     );
   });
 
@@ -366,21 +366,21 @@ describe('htmlbars-inline-precompile', function () {
         "var compiled2 = precompileTemplate('goodbye');\n"
     );
 
-    expect(transformed).toMatchInlineSnapshot(`
-      "define([\\"@ember/template-factory\\"], function (_templateFactory) {
-        \\"use strict\\";
+    expect(transformed).toEqualCode(`
+      define(["@ember/template-factory"], function (_templateFactory) {
+        "use strict";
 
         var compiled1 = (0, _templateFactory.createTemplateFactory)(
         /*
           hello
         */
-        precompiled(\\"hello\\"));
+        precompiled("hello"));
         var compiled2 = (0, _templateFactory.createTemplateFactory)(
         /*
           goodbye
         */
-        precompiled(\\"goodbye\\"));
-      });"
+        precompiled("goodbye"));
+      });
     `);
   });
 
@@ -396,14 +396,14 @@ describe('htmlbars-inline-precompile', function () {
       createTemplateFactory('whatever here');
     `);
 
-    expect(transformed).toMatchInlineSnapshot(`
-      "import { createTemplateFactory } from '@ember/template-factory';
+    expect(transformed).toEqualCode(`
+      import { createTemplateFactory } from '@ember/template-factory';
       createTemplateFactory(
       /*
         hello
       */
-      precompiled(\\"hello\\"));
-      createTemplateFactory('whatever here');"
+      precompiled("hello"));
+      createTemplateFactory('whatever here');
     `);
   });
 
@@ -417,16 +417,16 @@ describe('htmlbars-inline-precompile', function () {
       "import { precompileTemplate } from '@ember/template-compilation';\nvar compiled = precompileTemplate('hello');"
     );
 
-    expect(transformed).toMatchInlineSnapshot(`
-      "define([\\"@ember/template-factory\\", \\"@ember/template-compilation\\"], function (_templateFactory, _templateCompilation) {
-        \\"use strict\\";
+    expect(transformed).toEqualCode(`
+      define(["@ember/template-factory", "@ember/template-compilation"], function (_templateFactory, _templateCompilation) {
+        "use strict";
 
         var compiled = (0, _templateFactory.createTemplateFactory)(
         /*
           hello
         */
-        precompiled(\\"hello\\"));
-      });"
+        precompiled("hello"));
+      });
     `);
   });
 
@@ -440,13 +440,13 @@ describe('htmlbars-inline-precompile', function () {
       "import { precompileTemplate } from '@ember/template-compilation';\nvar compiled = precompileTemplate('some emoji goes 💥');"
     );
 
-    expect(transformed).toMatchInlineSnapshot(`
-      "import { createTemplateFactory } from \\"@ember/template-factory\\";
+    expect(transformed).toEqualCode(`
+      import { createTemplateFactory } from "@ember/template-factory";
       var compiled = createTemplateFactory(
       /*
         some emoji goes 💥
       */
-      precompiled(\\"some emoji goes 💥\\"));"
+      precompiled("some emoji goes 💥"));
     `);
   });
 
@@ -470,13 +470,13 @@ describe('htmlbars-inline-precompile', function () {
       "import hbs from 'htmlbars-inline-precompile';\nvar compiled = hbs`hello`;"
     );
 
-    expect(transformed).toMatchInlineSnapshot(`
-      "import { createTemplateFactory } from \\"@ember/template-factory\\";
+    expect(transformed).toEqualCode(`
+      import { createTemplateFactory } from "@ember/template-factory";
       var compiled = createTemplateFactory(
       /*
         hello
       */
-      precompiled(\\"hello\\"));"
+      precompiled("hello"));
     `);
   });
 
@@ -539,13 +539,13 @@ describe('htmlbars-inline-precompile', function () {
       const template = precompileTemplate('hello');
     `);
 
-    expect(transformed).toMatchInlineSnapshot(`
-      "import { createTemplateFactory } from \\"@glimmer/core\\";
+    expect(transformed).toEqualCode(`
+      import { createTemplateFactory } from "@glimmer/core";
       const template = createTemplateFactory(
       /*
         hello
       */
-      precompiled(\\"hello\\"));"
+      precompiled("hello"));
     `);
   });
 
@@ -640,14 +640,14 @@ describe('htmlbars-inline-precompile', function () {
         const template = precompileTemplate('<Message @text={{onePlusOne}} />');
       `);
 
-    expect(transformed).toMatchInlineSnapshot(`
-      "import { precompileTemplate } from '@ember/template-compilation';
+    expect(transformed).toEqualCode(`
+      import { precompileTemplate } from '@ember/template-compilation';
       let two = 1 + 1;
-      const template = precompileTemplate(\\"<Message @text={{two}} />\\", {
+      const template = precompileTemplate("<Message @text={{two}} />", {
         scope: () => ({
           two
         })
-      });"
+      });
     `);
   });
 
@@ -679,14 +679,14 @@ describe('htmlbars-inline-precompile', function () {
         const template = precompileTemplate('<Message @text={{onePlusOne}} />');
       `);
 
-    expect(transformed).toMatchInlineSnapshot(`
-      "import two from \\"my-library\\";
+    expect(transformed).toEqualCode(`
+      import two from "my-library";
       import { precompileTemplate } from '@ember/template-compilation';
-      const template = precompileTemplate(\\"<Message @text={{two}} />\\", {
+      const template = precompileTemplate("<Message @text={{two}} />", {
         scope: () => ({
           two
         })
-      });"
+      });
     `);
   });
 
@@ -703,17 +703,17 @@ describe('htmlbars-inline-precompile', function () {
         }
       `);
 
-    expect(transformed).toMatchInlineSnapshot(`
-      "import two0 from \\"my-library\\";
+    expect(transformed).toEqualCode(`
+      import two0 from "my-library";
       import { precompileTemplate } from '@ember/template-compilation';
       export function inner() {
         let two = 'twice';
-        const template = precompileTemplate(\\"<Message @text={{two0}} />\\", {
+        const template = precompileTemplate("<Message @text={{two0}} />", {
           scope: () => ({
             two0
           })
         });
-      }"
+      }
     `);
   });
 
@@ -729,17 +729,17 @@ describe('htmlbars-inline-precompile', function () {
         }
       `);
 
-    expect(transformed).toMatchInlineSnapshot(`
-      "import two from \\"my-library\\";
+    expect(transformed).toEqualCode(`
+      import two from "my-library";
       import { precompileTemplate } from '@ember/template-compilation';
       let two0 = two;
       export function inner() {
-        const template = precompileTemplate(\\"{{#let \\\\\\"twice\\\\\\" as |two|}}<Message @text={{two0}} />{{/let}}\\", {
+        const template = precompileTemplate("{{#let \\"twice\\" as |two|}}<Message @text={{two0}} />{{/let}}", {
           scope: () => ({
             two0
           })
         });
-      }"
+      }
     `);
   });
 
@@ -759,17 +759,17 @@ describe('htmlbars-inline-precompile', function () {
         }
       `);
 
-    expect(transformed).toMatchInlineSnapshot(`
-      "import { precompileTemplate } from '@ember/template-compilation';
+    expect(transformed).toEqualCode(`
+      import { precompileTemplate } from '@ember/template-compilation';
       let two0 = 1 + 1;
       export default function () {
         let two = 'twice';
-        const template = precompileTemplate(\\"<Message @text={{two0}} />\\", {
+        const template = precompileTemplate("<Message @text={{two0}} />", {
           scope: () => ({
             two0
           })
         });
-      }"
+      }
     `);
   });
 
@@ -830,22 +830,22 @@ describe('htmlbars-inline-precompile', function () {
         }
       `);
 
-    expect(transformed).toMatchInlineSnapshot(`
-      "import { precompileTemplate } from '@ember/template-compilation';
+    expect(transformed).toEqualCode(`
+      import { precompileTemplate } from '@ember/template-compilation';
       let two = 1 + 1;
       let two0 = 1 + 1;
       export default function () {
-        const template1 = precompileTemplate(\\"<Message @text={{two}} />\\", {
+        const template1 = precompileTemplate("<Message @text={{two}} />", {
           scope: () => ({
             two
           })
         });
-        const template2 = precompileTemplate(\\"<Other @text={{two0}} />\\", {
+        const template2 = precompileTemplate("<Other @text={{two0}} />", {
           scope: () => ({
             two0
           })
         });
-      }"
+      }
     `);
   });
 
@@ -864,16 +864,16 @@ describe('htmlbars-inline-precompile', function () {
         }
       `);
 
-    expect(transformed).toMatchInlineSnapshot(`
-      "import { precompileTemplate } from '@ember/template-compilation';
+    expect(transformed).toEqualCode(`
+      import { precompileTemplate } from '@ember/template-compilation';
       let two0 = 1 + 1;
       export default function () {
-        const template = precompileTemplate(\\"{{#let \\\\\\"twice\\\\\\" as |two|}}<Message @text={{two0}} />{{/let}}\\", {
+        const template = precompileTemplate("{{#let \\"twice\\" as |two|}}<Message @text={{two0}} />{{/let}}", {
           scope: () => ({
             two0
           })
         });
-      }"
+      }
     `);
   });
 
@@ -892,16 +892,16 @@ describe('htmlbars-inline-precompile', function () {
         }
       `);
 
-    expect(transformed).toMatchInlineSnapshot(`
-      "import { precompileTemplate } from '@ember/template-compilation';
+    expect(transformed).toEqualCode(`
+      import { precompileTemplate } from '@ember/template-compilation';
       let two0 = 1 + 1;
       export default function () {
-        const template = precompileTemplate(\\"<Outer as |two|><Message @text={{two0}} /></Outer>\\", {
+        const template = precompileTemplate("<Outer as |two|><Message @text={{two0}} /></Outer>", {
           scope: () => ({
             two0
           })
         });
-      }"
+      }
     `);
   });
 
@@ -920,16 +920,16 @@ describe('htmlbars-inline-precompile', function () {
         }
       `);
 
-    expect(transformed).toMatchInlineSnapshot(`
-      "import { precompileTemplate } from '@ember/template-compilation';
+    expect(transformed).toEqualCode(`
+      import { precompileTemplate } from '@ember/template-compilation';
       let two = 1 + 1;
       export default function () {
-        const template = precompileTemplate(\\"<Message @text={{two}} as |two|>{{two}}</Message>\\", {
+        const template = precompileTemplate("<Message @text={{two}} as |two|>{{two}}</Message>", {
           scope: () => ({
             two
           })
         });
-      }"
+      }
     `);
   });
 
@@ -1081,9 +1081,9 @@ describe('htmlbars-inline-precompile', function () {
         const template = precompileTemplate('<Message @color={{red}} />');
       `);
 
-      expect(transformed).toMatchInlineSnapshot(`
-        "import { precompileTemplate } from '@ember/template-compilation';
-        const template = precompileTemplate(\\"<Message @color={{\\\\\\"#ff0000\\\\\\"}} />\\");"
+      expect(transformed).toEqualCode(`
+        import { precompileTemplate } from '@ember/template-compilation';
+        const template = precompileTemplate("<Message @color={{\\"#ff0000\\"}} />");
       `);
     });
 
@@ -1104,9 +1104,9 @@ describe('htmlbars-inline-precompile', function () {
         "import { hbs } from 'ember-cli-htmlbars'; const template = hbs`<Message @color={{red}} />`;"
       );
 
-      expect(transformed).toMatchInlineSnapshot(`
-        "import { hbs } from 'ember-cli-htmlbars';
-        const template = hbs\`<Message @color={{\\"#ff0000\\"}} />\`;"
+      expect(transformed).toEqualCode(`
+        import { hbs } from 'ember-cli-htmlbars';
+        const template = hbs\`<Message @color={{"#ff0000"}} />\`;
       `);
     });
 
@@ -1123,14 +1123,14 @@ describe('htmlbars-inline-precompile', function () {
         const template = precompileTemplate('<Message @text={{onePlusOne}} />');
       `);
 
-      expect(transformed).toMatchInlineSnapshot(`
-        "import { precompileTemplate } from '@ember/template-compilation';
+      expect(transformed).toEqualCode(`
+        import { precompileTemplate } from '@ember/template-compilation';
         let two = 1 + 1;
-        const template = precompileTemplate(\\"<Message @text={{two}} />\\", {
+        const template = precompileTemplate("<Message @text={{two}} />", {
           scope: () => ({
             two
           })
-        });"
+        });
       `);
     });
 
@@ -1150,16 +1150,16 @@ describe('htmlbars-inline-precompile', function () {
         });
       `);
 
-      expect(transformed).toMatchInlineSnapshot(`
-        "import { precompileTemplate } from '@ember/template-compilation';
+      expect(transformed).toEqualCode(`
+        import { precompileTemplate } from '@ember/template-compilation';
         import Message from 'message';
         let two = 1 + 1;
-        const template = precompileTemplate(\\"<Message @text={{two}} />\\", {
+        const template = precompileTemplate("<Message @text={{two}} />", {
           moduleName: 'customModuleName',
           scope: () => ({
             two
           })
-        });"
+        });
       `);
     });
 
@@ -1181,16 +1181,16 @@ describe('htmlbars-inline-precompile', function () {
         });
       `);
 
-      expect(transformed).toMatchInlineSnapshot(`
-        "import { precompileTemplate } from '@ember/template-compilation';
+      expect(transformed).toEqualCode(`
+        import { precompileTemplate } from '@ember/template-compilation';
         import Message from 'message';
         let two = 1 + 1;
-        const template = precompileTemplate(\\"<Message @text={{two}} />\\", {
+        const template = precompileTemplate("<Message @text={{two}} />", {
           scope: () => ({
             Message,
             two
           })
-        });"
+        });
       `);
     });
 
@@ -1212,14 +1212,14 @@ describe('htmlbars-inline-precompile', function () {
         const template = hbs('<Message @text={{onePlusOne}} />');
       `);
 
-      expect(transformed).toMatchInlineSnapshot(`
-        "import { precompileTemplate } from \\"@ember/template-compilation\\";
+      expect(transformed).toEqualCode(`
+        import { precompileTemplate } from "@ember/template-compilation";
         let two = 1 + 1;
-        const template = precompileTemplate(\\"<Message @text={{two}} />\\", {
+        const template = precompileTemplate("<Message @text={{two}} />", {
           scope: () => ({
             two
           })
-        });"
+        });
       `);
     });
 
@@ -1240,14 +1240,14 @@ describe('htmlbars-inline-precompile', function () {
         "import { hbs } from 'ember-cli-htmlbars'; const template = hbs`<Message @text={{onePlusOne}} />`;"
       );
 
-      expect(transformed).toMatchInlineSnapshot(`
-        "import { precompileTemplate } from \\"@ember/template-compilation\\";
+      expect(transformed).toEqualCode(`
+        import { precompileTemplate } from "@ember/template-compilation";
         let two = 1 + 1;
-        const template = precompileTemplate(\\"<Message @text={{two}} />\\", {
+        const template = precompileTemplate("<Message @text={{two}} />", {
           scope: () => ({
             two
           })
-        });"
+        });
       `);
     });
 
@@ -1268,16 +1268,16 @@ describe('htmlbars-inline-precompile', function () {
         "import { hbs } from 'ember-cli-htmlbars'; const template = hbs`<Message @text={{onePlusOne}} />`; const other = hbs`hello`;"
       );
 
-      expect(transformed).toMatchInlineSnapshot(`
-        "import { precompileTemplate } from \\"@ember/template-compilation\\";
+      expect(transformed).toEqualCode(`
+        import { precompileTemplate } from "@ember/template-compilation";
         import { hbs } from 'ember-cli-htmlbars';
         let two = 1 + 1;
-        const template = precompileTemplate(\\"<Message @text={{two}} />\\", {
+        const template = precompileTemplate("<Message @text={{two}} />", {
           scope: () => ({
             two
           })
         });
-        const other = hbs\`hello\`;"
+        const other = hbs\`hello\`;
       `);
     });
   });
@@ -1299,20 +1299,20 @@ describe('htmlbars-inline-precompile', function () {
       "import { hbs } from 'ember-cli-htmlbars'; const template = hbs`<Message @text={{onePlusOne}} />`; const other = hbs`{{onePlusOne}}`;"
     );
 
-    expect(transformed).toMatchInlineSnapshot(`
-      "import { precompileTemplate } from \\"@ember/template-compilation\\";
+    expect(transformed).toEqualCode(`
+      import { precompileTemplate } from "@ember/template-compilation";
       let two = 1 + 1;
       let two0 = 1 + 1;
-      const template = precompileTemplate(\\"<Message @text={{two}} />\\", {
+      const template = precompileTemplate("<Message @text={{two}} />", {
         scope: () => ({
           two
         })
       });
-      const other = precompileTemplate(\\"{{two0}}\\", {
+      const other = precompileTemplate("{{two0}}", {
         scope: () => ({
           two0
         })
-      });"
+      });
     `);
   });
 
