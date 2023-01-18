@@ -8,6 +8,7 @@ import { stripIndent } from 'common-tags';
 import { EmberTemplateCompiler } from '../src/ember-template-compiler';
 import sinon from 'sinon';
 import { ExtendedPluginBuilder } from '../src/js-utils';
+import assert from 'assert';
 import 'code-equality-assertions/jest';
 
 describe('htmlbars-inline-precompile', function () {
@@ -18,7 +19,8 @@ describe('htmlbars-inline-precompile', function () {
   function transform(code: string) {
     let x = babel
       .transform(code, {
-        filename: 'foo-bar.js',
+        filename: '/my-computer/workspace/my-package/src/my-file.js',
+        cwd: '/my-computer/workspace/my-package/',
         plugins,
       })!
       .code!.trim();
@@ -80,6 +82,17 @@ describe('htmlbars-inline-precompile', function () {
     );
 
     expect(spy.firstCall.lastArg).toHaveProperty('contents', source);
+  });
+
+  it('moduleName is defined and is a relative path', function () {
+    let source = 'hello';
+
+    const result = transform(
+      `import { precompileTemplate } from '@ember/template-compilation';\nvar compiled = precompileTemplate('${source}');`
+    );
+    const match = result.match(/"moduleName": ?"(.+)"/);
+    assert(match);
+    expect(match[1]).toEqual('src/my-file.js');
   });
 
   it('uses the user provided isProduction option if present', function () {
