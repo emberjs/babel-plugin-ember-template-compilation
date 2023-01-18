@@ -6,6 +6,7 @@ import { ExpressionParser } from './expression-parser';
 import { JSUtils, ExtendedPluginBuilder } from './js-utils';
 import type { EmberTemplateCompiler, PreprocessOptions } from './ember-template-compiler';
 import { LegacyModuleName } from './public-types';
+import { relative } from 'path';
 
 export * from './public-types';
 
@@ -96,6 +97,8 @@ interface State<EnvSpecificOptions> {
   program: NodePath<t.Program>;
   lastInsertedPath: NodePath<t.Statement> | undefined;
   filename: string;
+  file: Babel.BabelFile;
+  cwd: string;
 }
 
 export function makePlugin<EnvSpecificOptions>(loadOptions: (opts: EnvSpecificOptions) => Options) {
@@ -277,6 +280,7 @@ function buildPrecompileOptions<EnvSpecificOptions>(
   }
   let jsutils = new JSUtils(babel, state, target, userTypedOptions.locals as string[], state.util);
   let meta = Object.assign({ jsutils }, userTypedOptions?.meta);
+
   return Object.assign(
     {
       contents: template,
@@ -285,7 +289,7 @@ function buildPrecompileOptions<EnvSpecificOptions>(
       // TODO: embroider's template-compiler allows this to be overriden to get
       // backward-compatible module names that don't match the real name of the
       // on-disk file. What's our plan for migrating people away from that?
-      moduleName: state.filename,
+      moduleName: relative(state.cwd, state.filename),
 
       // This is here so it's *always* the real filename. Historically, there is
       // also `moduleName` but that did not match the real on-disk filename, it
