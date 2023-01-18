@@ -16,13 +16,19 @@ describe('htmlbars-inline-precompile', function () {
   let compiler: EmberTemplateCompiler = { ...require('ember-source/dist/ember-template-compiler') };
   let plugins: ([typeof HTMLBarsInlinePrecompile, Options] | [unknown])[];
 
-  function transform(code: string) {
+  function transform(code: string, opts?: babel.TransformOptions) {
     let x = babel
-      .transform(code, {
-        filename: '/my-computer/workspace/my-package/src/my-file.js',
-        cwd: '/my-computer/workspace/my-package/',
-        plugins,
-      })!
+      .transform(
+        code,
+        Object.assign(
+          {
+            filename: '/my-computer/workspace/my-package/src/my-file.js',
+            cwd: '/my-computer/workspace/my-package/',
+            plugins,
+          },
+          opts || {}
+        )
+      )!
       .code!.trim();
     return x;
   }
@@ -93,6 +99,21 @@ describe('htmlbars-inline-precompile', function () {
     const match = result.match(/"moduleName": ?"(.+)"/);
     assert(match);
     expect(match[1]).toEqual('src/my-file.js');
+  });
+
+  it('moduleName is defined and is a relative path even if filename is already relative', function () {
+    let source = 'hello';
+
+    const result = transform(
+      `import { precompileTemplate } from '@ember/template-compilation';\nvar compiled = precompileTemplate('${source}');`,
+      {
+        filename: 'some/relative/path.js',
+        cwd: '/my-computer/workspace/my-package/',
+      }
+    );
+    const match = result.match(/"moduleName": ?"(.+)"/);
+    assert(match);
+    expect(match[1]).toEqual('some/relative/path.js');
   });
 
   it('uses the user provided isProduction option if present', function () {
