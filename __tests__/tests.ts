@@ -1359,6 +1359,16 @@ describe('htmlbars-inline-precompile', function () {
       expect(spy.firstCall.lastArg).toHaveProperty('locals', ['foo', 'bar']);
     });
 
+    it('correctly handles scope function with coverage', function () {
+      let source = 'hello';
+      let spy = sinon.spy(compiler, 'precompile');
+
+      transform(
+        `import { precompileTemplate } from '@ember/template-compilation';\nvar compiled = precompileTemplate('${source}', { scope() { ++cov_2rkfh72wo; return { foo, bar }; }});`
+      );
+      expect(spy.firstCall.lastArg).toHaveProperty('locals', ['foo', 'bar']);
+    });
+
     it('errors if scope contains mismatched keys/values', function () {
       expect(() => {
         transform(

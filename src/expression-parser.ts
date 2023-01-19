@@ -57,15 +57,18 @@ export class ExpressionParser {
     if (body?.type === 'ObjectExpression') {
       objExpression = body;
     } else if (body?.type === 'BlockStatement') {
-      let returnStatement = body.body[0];
+      // SAFETY: We know that the body is a ReturnStatement because we're checking inside
+      let returnStatements = body.body.filter(
+        (statement) => statement.type === 'ReturnStatement'
+      ) as Babel.types.ReturnStatement[];
 
-      if (body.body.length !== 1 || returnStatement.type !== 'ReturnStatement') {
+      if (returnStatements.length !== 1) {
         throw new Error(
-          'Scope functions can only consist of a single return statement which returns an object expression containing references to in-scope values'
+          'Scope functions must have a single return statement which returns an object expression containing references to in-scope values'
         );
       }
 
-      objExpression = returnStatement.argument;
+      objExpression = returnStatements[0].argument;
     }
 
     if (objExpression?.type !== 'ObjectExpression') {
