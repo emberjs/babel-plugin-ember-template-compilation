@@ -1321,7 +1321,7 @@ describe('htmlbars-inline-precompile', function () {
       let source = 'Hello, {{bar}}!';
       let spy = sinon.spy(compiler, 'precompile');
 
-      let result = transform(
+      transform(
         `import { precompileTemplate } from '@ember/template-compilation';\n` +
           `import { foo } from 'some-module';\n` +
           `export const compiled = precompileTemplate('${source}', { scope: () => ({ bar: foo }) });\n`
