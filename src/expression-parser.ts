@@ -98,7 +98,7 @@ export class ExpressionParser {
 
       let propName = name(key);
 
-      if (value.type !== 'Identifier' || value.name !== propName) {
+      if (value.type !== 'Identifier') {
         throw path.buildCodeFrameError(
           `Scope objects for \`${invokedName}\` may only contain direct references to in-scope values, e.g. { ${propName} } or { ${propName}: ${propName} }`
         );
