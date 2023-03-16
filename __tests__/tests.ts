@@ -1317,14 +1317,14 @@ describe('htmlbars-inline-precompile', function () {
   });
 
   describe('scope', function () {
-    it('correctly handles scope that has been renamed on import', function () {
+    it('correctly handles scope that has been renamed due to external tooling', function () {
       let source = 'Hello, {{bar}}!';
       let spy = sinon.spy(compiler, 'precompile');
 
-      transform(
+      let result = transform(
         `import { precompileTemplate } from '@ember/template-compilation';\n` +
-          `import { foo as bar } from 'some-module';\n` +
-          `export const compiled = precompileTemplate('${source}', { scope: () => ({ bar }) });\n`
+          `import { foo } from 'some-module';\n` +
+          `export const compiled = precompileTemplate('${source}', { scope: () => ({ bar: foo }) });\n`
       );
 
       expect(spy.firstCall.lastArg).toHaveProperty('locals', ['bar']);
