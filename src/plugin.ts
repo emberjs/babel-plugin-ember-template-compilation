@@ -1,4 +1,5 @@
 import type { NodePath } from '@babel/traverse';
+import traverse from '@babel/traverse';
 import type * as Babel from '@babel/core';
 import type { types as t } from '@babel/core';
 import { ImportUtil } from 'babel-import-util';
@@ -300,6 +301,40 @@ function buildPrecompileOptions<EnvSpecificOptions>(
   );
 }
 
+// if scope has different keys and values, this function will remap the keys to the values
+// you can see an example of this in the test "correctly handles scope if it contains keys and values"
+function remapIdentifiers(ast: Babel.types.File, localsWithNames?: { [key: string]: string }) {
+  if (
+    !localsWithNames ||
+    Object.keys(localsWithNames).length === 0 ||
+    Object.keys(localsWithNames).every((key) => key === localsWithNames[key])
+  ) {
+    // do nothing if all keys are the same as their values
+    return;
+  }
+
+  let visitor = {
+    ObjectProperty(path: NodePath<t.ObjectProperty>) {
+      if (
+        path.node.key.type === 'StringLiteral' &&
+        path.node.key.value === 'scope' &&
+        path.node.value.type === 'ArrowFunctionExpression' &&
+        path.node.value.body.type === 'ArrayExpression'
+      ) {
+        for (let element of path.node.value.body.elements) {
+          if (element?.type === 'Identifier') {
+            const replacement = localsWithNames[element.name];
+            if (replacement) {
+              element.name = replacement;
+            }
+          }
+        }
+      }
+    },
+  };
+  traverse(ast, visitor);
+}
+
 function insertCompiledTemplate<EnvSpecificOptions>(
   babel: typeof Babel,
   state: State<EnvSpecificOptions>,
@@ -323,10 +358,13 @@ function insertCompiledTemplate<EnvSpecificOptions>(
     precompileResultString = state.normalizedOpts.compiler.precompile(template, options);
   }
 
-  let precompileResultAST = babel.parse(`var precompileResult = ${precompileResultString};`, {
+  let precompileResultAST = babel.parse(`var precompileResult = ${precompileResultString}; `, {
     babelrc: false,
     configFile: false,
   }) as t.File;
+
+  const localsWithNames = <{ [key: string]: string } | undefined>userTypedOptions.localsWithNames;
+  remapIdentifiers(precompileResultAST, localsWithNames);
 
   let templateExpression = (precompileResultAST.program.body[0] as t.VariableDeclaration)
     .declarations[0].init as t.Expression;

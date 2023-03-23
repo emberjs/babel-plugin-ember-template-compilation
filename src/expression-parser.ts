@@ -77,7 +77,7 @@ export class ExpressionParser {
       );
     }
 
-    return objExpression.properties.map((prop) => {
+    return objExpression.properties.reduce((res, prop) => {
       if (this.t.isSpreadElement(prop)) {
         throw path.buildCodeFrameError(
           `Scope objects for \`${invokedName}\` may not contain spread elements`
@@ -98,14 +98,15 @@ export class ExpressionParser {
 
       let propName = name(key);
 
-      if (value.type !== 'Identifier' || value.name !== propName) {
+      if (value.type !== 'Identifier') {
         throw path.buildCodeFrameError(
           `Scope objects for \`${invokedName}\` may only contain direct references to in-scope values, e.g. { ${propName} } or { ${propName}: ${propName} }`
         );
       }
 
-      return propName;
-    });
+      res[propName] = value.name;
+      return res;
+    }, <{ [key: string]: string }>{});
   }
 
   parseObjectExpression(
@@ -133,7 +134,9 @@ export class ExpressionParser {
       let propertyName = name(key);
 
       if (shouldParseScope && propertyName === 'scope') {
-        result.locals = this.parseScope(invokedName, property as NodePath<typeof node>);
+        const scope = this.parseScope(invokedName, property as NodePath<typeof node>);
+        result.locals = Object.keys(scope);
+        result.localsWithNames = scope;
       } else {
         if (this.t.isObjectMethod(node)) {
           throw property.buildCodeFrameError(
