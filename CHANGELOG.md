@@ -1,3 +1,20 @@
+
+## v2.0.1 (2023-04-04)
+
+#### :bug: Bug Fix
+* [#17](https://github.com/emberjs/babel-plugin-ember-template-compilation/pull/17) PrecompileTemplate with scope that has properties with different key and value ([@candunaj](https://github.com/candunaj))
+* [#12](https://github.com/emberjs/babel-plugin-ember-template-compilation/pull/12) Handle coverage annotation in scope function ([@wagenet](https://github.com/wagenet))
+
+#### :house: Internal
+* [#15](https://github.com/emberjs/babel-plugin-ember-template-compilation/pull/15) Set volta config ([@NullVoxPopuli](https://github.com/NullVoxPopuli))
+* [#11](https://github.com/emberjs/babel-plugin-ember-template-compilation/pull/11) Update tests to use code-equality-assertions ([@ef4](https://github.com/ef4))
+
+#### Committers: 4
+- Edward Faulkner ([@ef4](https://github.com/ef4))
+- Peter Wagenet ([@wagenet](https://github.com/wagenet))
+- Stanislav Dunajcan (Stan) ([@candunaj](https://github.com/candunaj))
+- [@NullVoxPopuli](https://github.com/NullVoxPopuli)
+
 ## v2.0.0 (2022-11-17)
 
 #### :rocket: Enhancement
