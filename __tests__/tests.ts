@@ -1194,6 +1194,37 @@ describe('htmlbars-inline-precompile', function () {
       `);
     });
 
+    it('adds new locals to preexisting renamed scope', function () {
+      plugins = [
+        [
+          HTMLBarsInlinePrecompile,
+          { compiler, targetFormat: 'hbs', transforms: [expressionTransform] },
+        ],
+      ];
+
+      let transformed = transform(stripIndent`
+        import { precompileTemplate } from '@ember/template-compilation';
+        import Message$ from 'message';
+        const template = precompileTemplate('<Message @text={{onePlusOne}} />', {
+          scope: () => ({
+            Message: Message$
+          })
+        });
+      `);
+
+      expect(transformed).toEqualCode(`
+        import { precompileTemplate } from '@ember/template-compilation';
+        import Message$ from 'message';
+        let two = 1 + 1;
+        const template = precompileTemplate("<Message @text={{two}} />", {
+          scope: () => ({
+            Message: Message$,
+            two
+          })
+        });
+      `);
+    });
+
     it('switches from legacy callExpressions to precompileTemplate when needed to support scope', function () {
       plugins = [
         [

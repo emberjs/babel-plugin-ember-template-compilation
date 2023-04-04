@@ -1,6 +1,7 @@
 import type { NodePath } from '@babel/traverse';
 import type * as Babel from '@babel/core';
 import type { types as t } from '@babel/core';
+import { ScopeLocals } from './scope-locals';
 
 export class ExpressionParser {
   constructor(private babel: typeof Babel) {}
@@ -35,7 +36,7 @@ export class ExpressionParser {
     });
   }
 
-  parseScope(invokedName: string, path: NodePath<t.ObjectProperty | t.ObjectMethod>) {
+  parseScope(invokedName: string, path: NodePath<t.ObjectProperty | t.ObjectMethod>): ScopeLocals {
     let body: t.BlockStatement | t.Expression | undefined = undefined;
 
     if (path.node.type === 'ObjectMethod') {
@@ -104,9 +105,9 @@ export class ExpressionParser {
         );
       }
 
-      res[propName] = value.name;
+      res.add(propName, value.name);
       return res;
-    }, <{ [key: string]: string }>{});
+    }, new ScopeLocals());
   }
 
   parseObjectExpression(
@@ -134,9 +135,7 @@ export class ExpressionParser {
       let propertyName = name(key);
 
       if (shouldParseScope && propertyName === 'scope') {
-        const scope = this.parseScope(invokedName, property as NodePath<typeof node>);
-        result.locals = Object.keys(scope);
-        result.localsWithNames = scope;
+        result.scope = this.parseScope(invokedName, property as NodePath<typeof node>);
       } else {
         if (this.t.isObjectMethod(node)) {
           throw property.buildCodeFrameError(
