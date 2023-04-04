@@ -1194,6 +1194,37 @@ describe('htmlbars-inline-precompile', function () {
       `);
     });
 
+    it('adds new locals to preexisting renamed scope', function () {
+      plugins = [
+        [
+          HTMLBarsInlinePrecompile,
+          { compiler, targetFormat: 'hbs', transforms: [expressionTransform] },
+        ],
+      ];
+
+      let transformed = transform(stripIndent`
+        import { precompileTemplate } from '@ember/template-compilation';
+        import Message$ from 'message';
+        const template = precompileTemplate('<Message @text={{onePlusOne}} />', {
+          scope: () => ({
+            Message: Message$
+          })
+        });
+      `);
+
+      expect(transformed).toEqualCode(`
+        import { precompileTemplate } from '@ember/template-compilation';
+        import Message$ from 'message';
+        let two = 1 + 1;
+        const template = precompileTemplate("<Message @text={{two}} />", {
+          scope: () => ({
+            Message: Message$,
+            two
+          })
+        });
+      `);
+    });
+
     it('switches from legacy callExpressions to precompileTemplate when needed to support scope', function () {
       plugins = [
         [
@@ -1369,14 +1400,30 @@ describe('htmlbars-inline-precompile', function () {
       expect(spy.firstCall.lastArg).toHaveProperty('locals', ['foo', 'bar']);
     });
 
-    it('errors if scope contains mismatched keys/values', function () {
-      expect(() => {
-        transform(
-          "import { precompileTemplate } from '@ember/template-compilation';\nvar compiled = precompileTemplate('hello', { scope: () => ({ foo: bar }) });"
-        );
-      }).toThrow(
-        /Scope objects for `precompileTemplate` may only contain direct references to in-scope values, e.g. { foo } or { foo: foo }/
+    it('correctly handles scope if it contains keys and values', function () {
+      let transformed = transform(
+        "import bar from 'bar';\nimport { precompileTemplate } from '@ember/template-compilation';\nvar compiled = precompileTemplate('<Foo />', { scope: () => ({ Foo: bar }) });"
       );
+
+      transformed = transformed.replace(/"moduleName":\s"[^"]+"/, '"moduleName": "<moduleName>"');
+      transformed = transformed.replace(/"id":\s"[^"]+"/, '"id": "<id>"');
+
+      expect(transformed).toEqualCode(`
+        import { createTemplateFactory } from "@ember/template-factory";
+        import bar from "bar";
+        var compiled = createTemplateFactory(
+          /*
+            <Foo />
+          */
+          {
+            id: "<id>",
+            block: "[[[8,[32,0],null,null,null]],[],false,[]]",
+            moduleName: "<moduleName>",
+            scope: () => [bar],
+            isStrictMode: false,
+          }
+        );
+      `);
     });
 
     it('errors if scope is not an object', function () {

@@ -1,6 +1,7 @@
 import type { NodePath } from '@babel/traverse';
 import type * as Babel from '@babel/core';
 import type { types as t } from '@babel/core';
+import { ScopeLocals } from './scope-locals';
 
 export class ExpressionParser {
   constructor(private babel: typeof Babel) {}
@@ -35,7 +36,7 @@ export class ExpressionParser {
     });
   }
 
-  parseScope(invokedName: string, path: NodePath<t.ObjectProperty | t.ObjectMethod>) {
+  parseScope(invokedName: string, path: NodePath<t.ObjectProperty | t.ObjectMethod>): ScopeLocals {
     let body: t.BlockStatement | t.Expression | undefined = undefined;
 
     if (path.node.type === 'ObjectMethod') {
@@ -77,7 +78,7 @@ export class ExpressionParser {
       );
     }
 
-    return objExpression.properties.map((prop) => {
+    return objExpression.properties.reduce((res, prop) => {
       if (this.t.isSpreadElement(prop)) {
         throw path.buildCodeFrameError(
           `Scope objects for \`${invokedName}\` may not contain spread elements`
@@ -98,14 +99,15 @@ export class ExpressionParser {
 
       let propName = name(key);
 
-      if (value.type !== 'Identifier' || value.name !== propName) {
+      if (value.type !== 'Identifier') {
         throw path.buildCodeFrameError(
           `Scope objects for \`${invokedName}\` may only contain direct references to in-scope values, e.g. { ${propName} } or { ${propName}: ${propName} }`
         );
       }
 
-      return propName;
-    });
+      res.add(propName, value.name);
+      return res;
+    }, new ScopeLocals());
   }
 
   parseObjectExpression(
@@ -133,7 +135,7 @@ export class ExpressionParser {
       let propertyName = name(key);
 
       if (shouldParseScope && propertyName === 'scope') {
-        result.locals = this.parseScope(invokedName, property as NodePath<typeof node>);
+        result.scope = this.parseScope(invokedName, property as NodePath<typeof node>);
       } else {
         if (this.t.isObjectMethod(node)) {
           throw property.buildCodeFrameError(

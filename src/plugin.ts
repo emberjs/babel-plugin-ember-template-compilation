@@ -1,4 +1,5 @@
 import type { NodePath } from '@babel/traverse';
+import traverse from '@babel/traverse';
 import type * as Babel from '@babel/core';
 import type { types as t } from '@babel/core';
 import { ImportUtil } from 'babel-import-util';
@@ -6,6 +7,7 @@ import { ExpressionParser } from './expression-parser';
 import { JSUtils, ExtendedPluginBuilder } from './js-utils';
 import type { EmberTemplateCompiler, PreprocessOptions } from './ember-template-compiler';
 import { LegacyModuleName } from './public-types';
+import { ScopeLocals } from './scope-locals';
 
 export * from './public-types';
 
@@ -265,39 +267,71 @@ function runtimeErrorIIFE(babel: typeof Babel, replacements: { ERROR_MESSAGE: st
   return statement.expression;
 }
 
+function buildScopeLocals(userTypedOptions: Record<string, unknown>): ScopeLocals {
+  if (userTypedOptions.scope) {
+    return userTypedOptions.scope as ScopeLocals;
+  } else {
+    return new ScopeLocals();
+  }
+}
+
 function buildPrecompileOptions<EnvSpecificOptions>(
   babel: typeof Babel,
   target: NodePath<t.Expression>,
   state: State<EnvSpecificOptions>,
   template: string,
-  userTypedOptions: Record<string, unknown>
+  userTypedOptions: Record<string, unknown>,
+  scope: ScopeLocals
 ): PreprocessOptions & Record<string, unknown> {
-  if (!userTypedOptions.locals) {
-    userTypedOptions.locals = [];
-  }
-  let jsutils = new JSUtils(babel, state, target, userTypedOptions.locals as string[], state.util);
+  let jsutils = new JSUtils(babel, state, target, scope, state.util);
   let meta = Object.assign({ jsutils }, userTypedOptions?.meta);
-  return Object.assign(
-    {
-      contents: template,
-      meta,
 
-      // TODO: embroider's template-compiler allows this to be overriden to get
-      // backward-compatible module names that don't match the real name of the
-      // on-disk file. What's our plan for migrating people away from that?
-      moduleName: state.filename,
+  let output: PreprocessOptions & Record<string, unknown> = {
+    contents: template,
+    meta,
 
-      // This is here so it's *always* the real filename. Historically, there is
-      // also `moduleName` but that did not match the real on-disk filename, it
-      // was the notional runtime module name from classic ember builds.
-      filename: state.filename,
+    // TODO: embroider's template-compiler allows this to be overriden to get
+    // backward-compatible module names that don't match the real name of the
+    // on-disk file. What's our plan for migrating people away from that?
+    moduleName: state.filename,
 
-      plugins: {
-        ast: state.normalizedOpts.transforms,
-      },
+    // This is here so it's *always* the real filename. Historically, there is
+    // also `moduleName` but that did not match the real on-disk filename, it
+    // was the notional runtime module name from classic ember builds.
+    filename: state.filename,
+
+    plugins: {
+      ast: state.normalizedOpts.transforms,
     },
-    userTypedOptions
-  );
+  };
+
+  for (let [key, value] of Object.entries(userTypedOptions)) {
+    if (key !== 'scope') {
+      // `scope` in the user-facing API becomes `locals` in the low-level
+      // ember-template-compiler API
+      output[key] = value;
+    }
+  }
+
+  output.locals = scope.locals;
+  return output;
+}
+
+// if scope has different keys and values, this function will remap the keys to the values
+// you can see an example of this in the test "correctly handles scope if it contains keys and values"
+function remapIdentifiers(ast: Babel.types.File, babel: typeof Babel, scopeLocals: ScopeLocals) {
+  if (!scopeLocals.needsRemapping()) {
+    // do nothing if all keys are the same as their values
+    return;
+  }
+
+  traverse(ast, {
+    Identifier(path: NodePath<t.Identifier>) {
+      if (scopeLocals.has(path.node.name)) {
+        path.replaceWith(babel.types.identifier(scopeLocals.get(path.node.name)));
+      }
+    },
+  });
 }
 
 function insertCompiledTemplate<EnvSpecificOptions>(
@@ -308,7 +342,15 @@ function insertCompiledTemplate<EnvSpecificOptions>(
   userTypedOptions: Record<string, unknown>
 ) {
   let t = babel.types;
-  let options = buildPrecompileOptions(babel, target, state, template, userTypedOptions);
+  let scopeLocals = buildScopeLocals(userTypedOptions);
+  let options = buildPrecompileOptions(
+    babel,
+    target,
+    state,
+    template,
+    userTypedOptions,
+    scopeLocals
+  );
 
   let precompileResultString: string;
 
@@ -323,10 +365,12 @@ function insertCompiledTemplate<EnvSpecificOptions>(
     precompileResultString = state.normalizedOpts.compiler.precompile(template, options);
   }
 
-  let precompileResultAST = babel.parse(`var precompileResult = ${precompileResultString};`, {
+  let precompileResultAST = babel.parse(`var precompileResult = ${precompileResultString}; `, {
     babelrc: false,
     configFile: false,
   }) as t.File;
+
+  remapIdentifiers(precompileResultAST, babel, scopeLocals);
 
   let templateExpression = (precompileResultAST.program.body[0] as t.VariableDeclaration)
     .declarations[0].init as t.Expression;
@@ -355,27 +399,35 @@ function insertTransformedTemplate<EnvSpecificOptions>(
   formatOptions: ModuleConfig
 ) {
   let t = babel.types;
-  let options = buildPrecompileOptions(babel, target, state, template, userTypedOptions);
+  let scopeLocals = buildScopeLocals(userTypedOptions);
+  let options = buildPrecompileOptions(
+    babel,
+    target,
+    state,
+    template,
+    userTypedOptions,
+    scopeLocals
+  );
   let ast = state.normalizedOpts.compiler._preprocess(template, { ...options, mode: 'codemod' });
   let transformed = state.normalizedOpts.compiler._print(ast);
   if (target.isCallExpression()) {
     (target.get('arguments.0') as NodePath<t.Node>).replaceWith(t.stringLiteral(transformed));
-    if (options.locals && options.locals.length > 0) {
+    if (!scopeLocals.isEmpty()) {
       if (!formatOptions.enableScope) {
         maybePruneImport(state.util, target.get('callee'));
         target.set('callee', precompileTemplate(state.util, target));
       }
-      updateScope(babel, target, options.locals);
+      updateScope(babel, target, scopeLocals);
     }
   } else {
-    if (options.locals && options.locals.length > 0) {
+    if (!scopeLocals.isEmpty()) {
       // need to add scope, so need to replace the backticks form with a call
       // expression to precompileTemplate
       maybePruneImport(state.util, target.get('tag'));
       let newCall = target.replaceWith(
         t.callExpression(precompileTemplate(state.util, target), [t.stringLiteral(transformed)])
       )[0];
-      updateScope(babel, newCall, options.locals);
+      updateScope(babel, newCall, scopeLocals);
     } else {
       (target.get('quasi').get('quasis.0') as NodePath<t.TemplateElement>).replaceWith(
         t.templateElement({ raw: transformed })
@@ -393,16 +445,20 @@ function templateFactoryConfig(opts: Required<Options>) {
     : { exportName, moduleName };
 }
 
-function buildScope(babel: typeof Babel, locals: string[]) {
+function buildScope(babel: typeof Babel, locals: ScopeLocals) {
   let t = babel.types;
   return t.arrowFunctionExpression(
     [],
     t.objectExpression(
-      locals.map((name) => t.objectProperty(t.identifier(name), t.identifier(name), false, true))
+      locals
+        .entries()
+        .map(([name, identifier]) =>
+          t.objectProperty(t.identifier(name), t.identifier(identifier), false, true)
+        )
     )
   );
 }
-function updateScope(babel: typeof Babel, target: NodePath<t.CallExpression>, locals: string[]) {
+function updateScope(babel: typeof Babel, target: NodePath<t.CallExpression>, locals: ScopeLocals) {
   let t = babel.types;
   let secondArg = target.get('arguments.1') as NodePath<t.ObjectExpression> | undefined;
   if (secondArg) {
