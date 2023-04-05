@@ -327,7 +327,8 @@ function remapIdentifiers(ast: Babel.types.File, babel: typeof Babel, scopeLocal
 
   traverse(ast, {
     Identifier(path: NodePath<t.Identifier>) {
-      if (scopeLocals.has(path.node.name)) {
+      if (scopeLocals.has(path.node.name) && path.node.name !== scopeLocals.get(path.node.name)) {
+        // replace the path only if the key is different from the value
         path.replaceWith(babel.types.identifier(scopeLocals.get(path.node.name)));
       }
     },
