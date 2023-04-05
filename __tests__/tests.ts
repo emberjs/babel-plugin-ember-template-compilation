@@ -1205,8 +1205,10 @@ describe('htmlbars-inline-precompile', function () {
       let transformed = transform(stripIndent`
         import { precompileTemplate } from '@ember/template-compilation';
         import Message$ from 'message';
-        const template = precompileTemplate('<Message @text={{onePlusOne}} />', {
+        import Label from 'label';
+        const template = precompileTemplate('<Label /><Message @text={{onePlusOne}} />', {
           scope: () => ({
+            Label,
             Message: Message$
           })
         });
@@ -1215,9 +1217,11 @@ describe('htmlbars-inline-precompile', function () {
       expect(transformed).toEqualCode(`
         import { precompileTemplate } from '@ember/template-compilation';
         import Message$ from 'message';
+        import Label from 'label';
         let two = 1 + 1;
-        const template = precompileTemplate("<Message @text={{two}} />", {
+        const template = precompileTemplate("<Label /><Message @text={{two}} />", {
           scope: () => ({
+            Label,
             Message: Message$,
             two
           })
@@ -1401,9 +1405,12 @@ describe('htmlbars-inline-precompile', function () {
     });
 
     it('correctly handles scope if it contains keys and values', function () {
-      let transformed = transform(
-        "import bar from 'bar';\nimport { precompileTemplate } from '@ember/template-compilation';\nvar compiled = precompileTemplate('<Foo />', { scope: () => ({ Foo: bar }) });"
-      );
+      let transformed = transform(`
+        import bar from 'bar';
+        import MyButton from 'my-button';
+        import { precompileTemplate } from '@ember/template-compilation';
+        var compiled = precompileTemplate('<Foo /><MyButton />', { scope: () => ({ Foo: bar, MyButton}) });
+      `);
 
       transformed = transformed.replace(/"moduleName":\s"[^"]+"/, '"moduleName": "<moduleName>"');
       transformed = transformed.replace(/"id":\s"[^"]+"/, '"id": "<id>"');
@@ -1411,15 +1418,16 @@ describe('htmlbars-inline-precompile', function () {
       expect(transformed).toEqualCode(`
         import { createTemplateFactory } from "@ember/template-factory";
         import bar from "bar";
+        import MyButton from 'my-button';
         var compiled = createTemplateFactory(
           /*
-            <Foo />
+            <Foo /><MyButton />
           */
           {
             id: "<id>",
-            block: "[[[8,[32,0],null,null,null]],[],false,[]]",
+            block: "[[[8,[32,0],null,null,null],[8,[32,1],null,null,null]],[],false,[]]",
             moduleName: "<moduleName>",
-            scope: () => [bar],
+            scope: () => [bar, MyButton],
             isStrictMode: false,
           }
         );
