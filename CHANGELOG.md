@@ -1,4 +1,13 @@
 
+
+## v2.0.2 (2023-04-05)
+
+#### :bug: Bug Fix
+* [#19](https://github.com/emberjs/babel-plugin-ember-template-compilation/pull/19) Replace Identifier only if key and value are different in the scope ([@candunaj](https://github.com/candunaj))
+
+#### Committers: 1
+- Stanislav Dunajcan (Stan) ([@candunaj](https://github.com/candunaj))
+
 ## v2.0.1 (2023-04-04)
 
 #### :bug: Bug Fix
