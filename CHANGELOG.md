@@ -1,5 +1,14 @@
 
 
+
+## v2.0.3 (2023-05-19)
+
+#### :bug: Bug Fix
+* [#20](https://github.com/emberjs/babel-plugin-ember-template-compilation/pull/20) Fix entity encoding in source-to-source mode ([@ef4](https://github.com/ef4))
+
+#### Committers: 1
+- Edward Faulkner ([@ef4](https://github.com/ef4))
+
 ## v2.0.2 (2023-04-05)
 
 #### :bug: Bug Fix
