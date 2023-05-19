@@ -1315,6 +1315,20 @@ describe('htmlbars-inline-precompile', function () {
         const other = hbs\`hello\`;
       `);
     });
+
+    it('leaves html entities unchanged when there are no transforms', function () {
+      plugins = [[HTMLBarsInlinePrecompile, { compiler, targetFormat: 'hbs', transforms: [] }]];
+
+      let transformed = transform(stripIndent`
+        import { precompileTemplate } from '@ember/template-compilation';
+        const template = precompileTemplate('&times;');
+      `);
+
+      expect(transformed).toEqualCode(`
+        import { precompileTemplate } from '@ember/template-compilation';
+        const template = precompileTemplate('&times;');
+      `);
+    });
   });
 
   it('removes original import when there are multiple callsites that all needed replacement', function () {
