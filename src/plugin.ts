@@ -410,7 +410,7 @@ function insertTransformedTemplate<EnvSpecificOptions>(
     scopeLocals
   );
   let ast = state.normalizedOpts.compiler._preprocess(template, { ...options, mode: 'codemod' });
-  let transformed = state.normalizedOpts.compiler._print(ast);
+  let transformed = state.normalizedOpts.compiler._print(ast, { entityEncoding: 'raw' });
   if (target.isCallExpression()) {
     (target.get('arguments.0') as NodePath<t.Node>).replaceWith(t.stringLiteral(transformed));
     if (!scopeLocals.isEmpty()) {
