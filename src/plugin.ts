@@ -8,6 +8,7 @@ import { JSUtils, ExtendedPluginBuilder } from './js-utils';
 import type { EmberTemplateCompiler, PreprocessOptions } from './ember-template-compiler';
 import { LegacyModuleName } from './public-types';
 import { ScopeLocals } from './scope-locals';
+import { getTemplateLocals } from '@glimmer/syntax';
 
 export * from './public-types';
 
@@ -226,7 +227,8 @@ export function makePlugin<EnvSpecificOptions>(loadOptions: (opts: EnvSpecificOp
             userTypedOptions = new ExpressionParser(babel).parseObjectExpression(
               calleePath.node.name,
               secondArg,
-              config.enableScope
+              config.enableScope,
+              Boolean(config.rfc931Support)
             );
           }
           let backingClass: undefined | Parameters<typeof t.callExpression>[1][number];
@@ -305,12 +307,35 @@ function runtimeErrorIIFE(babel: typeof Babel, replacements: { ERROR_MESSAGE: st
   return statement.expression;
 }
 
-function buildScopeLocals(userTypedOptions: Record<string, unknown>): ScopeLocals {
-  if (userTypedOptions.scope) {
+function buildScopeLocals(
+  userTypedOptions: Record<string, unknown>,
+  formatOptions: ModuleConfig,
+  templateContent: string
+): ScopeLocals {
+  if (formatOptions.rfc931Support && userTypedOptions.eval) {
+    return discoverLocals(templateContent);
+  } else if (userTypedOptions.scope) {
     return userTypedOptions.scope as ScopeLocals;
   } else {
     return new ScopeLocals();
   }
+}
+
+function discoverLocals(templateContent: string): ScopeLocals {
+  // this is wrong, but the right thing is unreleased in
+  // https://github.com/glimmerjs/glimmer-vm/pull/1421, so for the moment I'm
+  // sticking with the exact behavior that ember-templates-imports has.
+  //
+  // (the reason it's wrong is that the correct answer depends on not just the
+  // template, but the ambient javascript scope. Anything in locals needs to win
+  // over ember keywords. Otherwise we can never introduce new keywords.)
+  let scopeLocals = new ScopeLocals();
+  for (let local of getTemplateLocals(templateContent)) {
+    if (local.match(/^[$A-Z_][0-9A-Z_$]*$/i)) {
+      scopeLocals.add(local);
+    }
+  }
+  return scopeLocals;
 }
 
 function buildPrecompileOptions<EnvSpecificOptions>(
@@ -389,7 +414,7 @@ function insertCompiledTemplate<EnvSpecificOptions>(
   backingClass: Parameters<typeof t.callExpression>[1][number] | undefined
 ) {
   let t = babel.types;
-  let scopeLocals = buildScopeLocals(userTypedOptions);
+  let scopeLocals = buildScopeLocals(userTypedOptions, config, template);
   let options = buildPrecompileOptions(
     babel,
     target,
@@ -465,7 +490,7 @@ function insertTransformedTemplate<EnvSpecificOptions>(
   backingClass: Parameters<typeof t.callExpression>[1][number] | undefined
 ) {
   let t = babel.types;
-  let scopeLocals = buildScopeLocals(userTypedOptions);
+  let scopeLocals = buildScopeLocals(userTypedOptions, formatOptions, template);
   let options = buildPrecompileOptions(
     babel,
     target,
@@ -491,6 +516,7 @@ function insertTransformedTemplate<EnvSpecificOptions>(
       maybePruneImport(state.util, target.get('callee'));
       target.set('callee', precompileTemplate(state.util, target));
       convertStrictMode(babel, target);
+      removeEval(target);
       target.node.arguments = target.node.arguments.slice(0, 2);
       state.recursionGuard.add(target.node);
       target.replaceWith(
@@ -569,6 +595,19 @@ function updateScope(babel: typeof Babel, target: NodePath<t.CallExpression>, lo
       'arguments',
       t.objectExpression([t.objectProperty(t.identifier('scope'), buildScope(babel, locals))])
     );
+  }
+}
+
+function removeEval(target: NodePath<t.CallExpression>) {
+  let secondArg = target.get('arguments.1') as NodePath<t.ObjectExpression> | undefined;
+  if (secondArg) {
+    let evalProp = secondArg.get('properties').find((p) => {
+      let key = p.get('key') as NodePath<t.Node>;
+      return key.isIdentifier() && key.node.name === 'eval';
+    });
+    if (evalProp) {
+      evalProp.remove();
+    }
   }
 }
 

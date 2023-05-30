@@ -1643,6 +1643,119 @@ describe('htmlbars-inline-precompile', function () {
       );
     });
   });
+
+  describe('implicit-scope-form', function () {
+    it('uses local to satisfy upvar in template', function () {
+      plugins = [
+        [
+          HTMLBarsInlinePrecompile,
+          {
+            compiler,
+            targetFormat: 'hbs',
+          },
+        ],
+      ];
+
+      let transformed = transform(
+        `import { template } from '@ember/template-compiler'; 
+         import HelloWorld from 'somewhere';
+         export default template('<HelloWorld />', { eval: function() { return eval(arguments[0]) } })
+        `
+      );
+
+      expect(transformed).toEqualCode(`
+        import templateOnly from "@ember/component/template-only";
+        import { setComponentTemplate } from "@ember/component";
+        import { precompileTemplate } from "@ember/template-compilation";
+        import HelloWorld from "somewhere";
+        export default setComponentTemplate(precompileTemplate('<HelloWorld />', { scope: () => ({ HelloWorld }), strictMode: true }), templateOnly());
+      `);
+    });
+
+    // You might think this would be confusing style, and you'd be correct. But
+    // that's what the lint rules are for. When it comes to correctness, we need
+    // our scope to behave like real Javascript, and Javascript doesn't care
+    // whether you've (for example) capitalized your variable identifier.
+    it.skip('shadows html elements with locals', function () {
+      plugins = [
+        [
+          HTMLBarsInlinePrecompile,
+          {
+            compiler,
+            targetFormat: 'hbs',
+          },
+        ],
+      ];
+
+      let transformed = transform(
+        `import { template } from '@ember/template-compiler'; 
+         let div = 1;
+         export default template('<div></div>', { eval: function() { return eval(arguments[0]) } })
+        `
+      );
+
+      expect(transformed).toEqualCode(`
+        import templateOnly from "@ember/component/template-only";
+        import { setComponentTemplate } from "@ember/component";
+        import { precompileTemplate } from "@ember/template-compilation";
+        let div = 1;
+        export default setComponentTemplate(precompileTemplate('<div></div>', { scope: () => ({ div }), strictMode: true }), templateOnly());
+      `);
+    });
+
+    it('shadows ember keywords with locals', function () {
+      plugins = [
+        [
+          HTMLBarsInlinePrecompile,
+          {
+            compiler,
+            targetFormat: 'hbs',
+          },
+        ],
+      ];
+
+      let transformed = transform(
+        `import { template } from '@ember/template-compiler'; 
+         let hasBlock = 1;
+         export default template('{{hasBlock "thing"}}', { eval: function() { return eval(arguments[0]) } })
+        `
+      );
+
+      expect(transformed).toEqualCode(`
+        import templateOnly from "@ember/component/template-only";
+        import { setComponentTemplate } from "@ember/component";
+        import { precompileTemplate } from "@ember/template-compilation";
+        let hasBlock = 1;
+        export default setComponentTemplate(precompileTemplate('{{hasBlock "thing"}}', { scope: () => ({ hasBlock }), strictMode: true }), templateOnly());
+      `);
+    });
+
+    it.skip('leaves ember keywords alone when no local is defined', function () {
+      plugins = [
+        [
+          HTMLBarsInlinePrecompile,
+          {
+            compiler,
+            targetFormat: 'hbs',
+          },
+        ],
+      ];
+
+      let transformed = transform(
+        `import { template } from '@ember/template-compiler'; 
+         export default template('{{hasBlock "thing"}}', { eval: function() { return eval(arguments[0]) } })
+        `
+      );
+
+      expect(transformed).toEqualCode(`
+        import templateOnly from "@ember/component/template-only";
+        import { setComponentTemplate } from "@ember/component";
+        import { precompileTemplate } from "@ember/template-compilation";
+        let hasBlock = 1;
+        export default setComponentTemplate(precompileTemplate('{{hasBlock "thing"}}', { strictMode: true }), templateOnly());
+      `);
+    });
+  });
 });
 
 // This takes out parts of ember's wire format that aren't our job and shouldn't
