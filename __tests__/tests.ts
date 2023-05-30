@@ -1329,6 +1329,96 @@ describe('htmlbars-inline-precompile', function () {
         const template = precompileTemplate('&times;');
       `);
     });
+
+    it('emits setComponentTemplate and templateOnlyComponent when polyfilling rfc931 in hbs format', function () {
+      plugins = [
+        [
+          HTMLBarsInlinePrecompile,
+          {
+            compiler,
+            targetFormat: 'hbs',
+            transforms: [color],
+          },
+        ],
+      ];
+
+      let transformed = transform(
+        `import { template } from '@ember/template-compiler'; 
+         import HelloWorld from 'somewhere';
+         export default template('<HelloWorld @color={{red}} />', { scope: () => ({ HelloWorld }) });`
+      );
+
+      expect(transformed).toEqualCode(`
+        import templateOnly from "@ember/component/template-only";
+        import { setComponentTemplate } from "@ember/component";
+        import { precompileTemplate } from "@ember/template-compilation";
+        import HelloWorld from "somewhere";
+        export default setComponentTemplate(precompileTemplate('<HelloWorld @color={{"#ff0000"}} />', { scope: () => ({ HelloWorld }), strictMode: true }), templateOnly());
+      `);
+    });
+
+    it('emits setComponentsTemplate when polyfilling rfc931 with hbs target', function () {
+      plugins = [
+        [
+          HTMLBarsInlinePrecompile,
+          {
+            compiler,
+            targetFormat: 'hbs',
+            transforms: [color],
+          },
+        ],
+      ];
+
+      let transformed = transform(
+        `
+         import { template } from '@ember/template-compiler'; 
+         import HelloWorld from 'somewhere';
+         export default class {
+           static {
+             template('<HelloWorld @color={{red}} />', { scope: () => ({ HelloWorld }) }, this);
+           }
+         }
+        `
+      );
+
+      expect(transformed).toEqualCode(`
+        import { setComponentTemplate } from "@ember/component";
+        import { precompileTemplate } from "@ember/template-compilation";
+        import HelloWorld from "somewhere";
+        export default class {
+          static {
+            setComponentTemplate(precompileTemplate('<HelloWorld @color={{"#ff0000"}} />', { scope: () => ({ HelloWorld }), strictMode: true }), this);
+          }
+        }
+      `);
+    });
+
+    it("respects user's strict option on template()", function () {
+      plugins = [
+        [
+          HTMLBarsInlinePrecompile,
+          {
+            compiler,
+            targetFormat: 'hbs',
+            transforms: [],
+          },
+        ],
+      ];
+
+      let transformed = transform(
+        `import { template } from '@ember/template-compiler'; 
+         import HelloWorld from 'somewhere';
+         export default template('<HelloWorld />', { strict: false, scope: () => ({ HelloWorld }) });`
+      );
+
+      expect(transformed).toEqualCode(`
+        import templateOnly from "@ember/component/template-only";
+        import { setComponentTemplate } from "@ember/component";
+        import { precompileTemplate } from "@ember/template-compilation";
+        import HelloWorld from "somewhere";
+        export default setComponentTemplate(precompileTemplate('<HelloWorld />', { strictMode: false, scope: () => ({ HelloWorld }) }), templateOnly());
+      `);
+    });
   });
 
   it('removes original import when there are multiple callsites that all needed replacement', function () {
@@ -1362,6 +1452,94 @@ describe('htmlbars-inline-precompile', function () {
           two0
         })
       });
+    `);
+  });
+
+  it('emits setComponentTemplate and templateOnlyComponent when compiling rfc931 to wire format', function () {
+    plugins = [
+      [
+        HTMLBarsInlinePrecompile,
+        {
+          compiler,
+          targetFormat: 'wire',
+          transforms: [],
+        },
+      ],
+    ];
+
+    let transformed = transform(
+      `import { template } from '@ember/template-compiler'; 
+       import HelloWorld from 'somewhere';
+       export default template('<HelloWorld />', { scope: () => ({ HelloWorld }) });`
+    );
+
+    expect(normalizeWireFormat(transformed)).toEqualCode(`
+      import templateOnly from "@ember/component/template-only";
+      import { setComponentTemplate } from "@ember/component";
+      import { createTemplateFactory } from "@ember/template-factory";
+      import HelloWorld from "somewhere";
+      export default setComponentTemplate(createTemplateFactory(
+        /*
+          <HelloWorld />
+      */
+        {
+          id: "<id>",
+          block: "[[[8,[32,0],null,null,null]],[],false,[]]",
+          moduleName: "<moduleName>",
+          scope: () => [HelloWorld],
+          isStrictMode: true,
+        }
+      ), templateOnly());    
+    `);
+  });
+
+  it('emits setComponentsTemplate when compling rfc931 to wire format', function () {
+    plugins = [
+      [
+        HTMLBarsInlinePrecompile,
+        {
+          compiler,
+          targetFormat: 'wire',
+          transforms: [],
+        },
+      ],
+    ];
+
+    let transformed = transform(
+      `
+       import { template } from '@ember/template-compiler'; 
+       import HelloWorld from 'somewhere';
+       export default class {
+         static {
+           template('<HelloWorld />', { scope: () => ({ HelloWorld }) }, this);
+         }
+       }
+      `
+    );
+
+    expect(normalizeWireFormat(transformed)).toEqualCode(`
+      import { setComponentTemplate } from "@ember/component";
+      import { createTemplateFactory } from "@ember/template-factory";
+      import HelloWorld from "somewhere";
+      export default class {
+        static {
+          setComponentTemplate(
+            createTemplateFactory(
+              /*
+                <HelloWorld />
+          */
+              {
+                id: "<id>",
+                block: "[[[8,[32,0],null,null,null]],[],false,[]]",
+                moduleName: "<moduleName>",
+                scope: () => [HelloWorld],
+                isStrictMode: true,
+              }
+            ),
+            this
+          );
+        }
+      }
     `);
   });
 
@@ -1426,10 +1604,7 @@ describe('htmlbars-inline-precompile', function () {
         var compiled = precompileTemplate('<Foo /><MyButton />', { scope: () => ({ Foo: bar, MyButton}) });
       `);
 
-      transformed = transformed.replace(/"moduleName":\s"[^"]+"/, '"moduleName": "<moduleName>"');
-      transformed = transformed.replace(/"id":\s"[^"]+"/, '"id": "<id>"');
-
-      expect(transformed).toEqualCode(`
+      expect(normalizeWireFormat(transformed)).toEqualCode(`
         import { createTemplateFactory } from "@ember/template-factory";
         import bar from "bar";
         import MyButton from 'my-button';
@@ -1469,3 +1644,11 @@ describe('htmlbars-inline-precompile', function () {
     });
   });
 });
+
+// This takes out parts of ember's wire format that aren't our job and shouldn't
+// break our tests if they change.
+function normalizeWireFormat(src: string): string {
+  return src
+    .replace(/"moduleName":\s"[^"]+"/, '"moduleName": "<moduleName>"')
+    .replace(/"id":\s"[^"]+"/, '"id": "<id>"');
+}
