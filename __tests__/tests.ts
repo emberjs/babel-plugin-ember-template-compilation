@@ -1645,7 +1645,7 @@ describe('htmlbars-inline-precompile', function () {
   });
 
   describe('implicit-scope-form', function () {
-    it('uses local to satisfy upvar in template', function () {
+    it('uses local to satisfy upvar in template, in hbs target', function () {
       plugins = [
         [
           HTMLBarsInlinePrecompile,
@@ -1753,6 +1753,47 @@ describe('htmlbars-inline-precompile', function () {
         import { precompileTemplate } from "@ember/template-compilation";
         let hasBlock = 1;
         export default setComponentTemplate(precompileTemplate('{{hasBlock "thing"}}', { strictMode: true }), templateOnly());
+      `);
+    });
+
+    it('uses local to satisfy upvar in template, in wire target', function () {
+      plugins = [
+        [
+          HTMLBarsInlinePrecompile,
+          {
+            compiler,
+            targetFormat: 'wire',
+          },
+        ],
+      ];
+
+      let transformed = transform(
+        `import { template } from '@ember/template-compiler'; 
+         import HelloWorld from 'somewhere';
+         export default template('<HelloWorld />', { eval: function() { return eval(arguments[0]) } })
+        `
+      );
+
+      expect(normalizeWireFormat(transformed)).toEqualCode(`
+        import templateOnly from "@ember/component/template-only";
+        import { setComponentTemplate } from "@ember/component";
+        import { createTemplateFactory } from "@ember/template-factory";
+        import HelloWorld from "somewhere";
+        export default setComponentTemplate(
+          createTemplateFactory(
+            /*
+              <HelloWorld />
+            */
+            {
+              id: "<id>",
+              block: "[[[8,[32,0],null,null,null]],[],false,[]]",
+              moduleName: "<moduleName>",
+              scope: () => [HelloWorld],
+              isStrictMode: true,
+            }
+          ),
+           templateOnly()
+        );
       `);
     });
   });
