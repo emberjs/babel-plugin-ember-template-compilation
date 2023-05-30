@@ -1677,6 +1677,8 @@ describe('htmlbars-inline-precompile', function () {
     // that's what the lint rules are for. When it comes to correctness, we need
     // our scope to behave like real Javascript, and Javascript doesn't care
     // whether you've (for example) capitalized your variable identifier.
+    //
+    // needs https://github.com/glimmerjs/glimmer-vm/pull/1421
     it.skip('shadows html elements with locals', function () {
       plugins = [
         [
@@ -1731,6 +1733,7 @@ describe('htmlbars-inline-precompile', function () {
       `);
     });
 
+    // needs https://github.com/glimmerjs/glimmer-vm/pull/1421
     it.skip('leaves ember keywords alone when no local is defined', function () {
       plugins = [
         [
