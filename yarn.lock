@@ -994,6 +994,11 @@
   resolved "https://registry.yarnpkg.com/@bcoe/v8-coverage/-/v8-coverage-0.2.3.tgz#75a2e8b51cb758a7553d6804a5932d7aace75c39"
   integrity sha512-0hYQ8SB4Db5zvZB4axdMHGwEaQjkZzFjQiN9LVYvIFB2nSUHW9tYpxWriPrWDASIxiaXax83REcLxuSdnGPZtw==
 
+"@ef4/content-tag@^0.1.0":
+  version "0.1.0"
+  resolved "https://registry.yarnpkg.com/@ef4/content-tag/-/content-tag-0.1.0.tgz#ee691452dffd6b43cd484e64fb781a83797e2fe5"
+  integrity sha512-+RCn4xj2BN2DnVGjlknTIwkdGnPYvah/Hq2cSm/E/2zN5cDBbj17aaVyxOjMQJARnseATV4Vo7fJI6W5ycTLrg==
+
 "@ember-data/rfc395-data@^0.0.4":
   version "0.0.4"
   resolved "https://registry.yarnpkg.com/@ember-data/rfc395-data/-/rfc395-data-0.0.4.tgz#ecb86efdf5d7733a76ff14ea651a1b0ed1f8a843"

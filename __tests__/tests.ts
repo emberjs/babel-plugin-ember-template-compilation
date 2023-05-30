@@ -9,6 +9,7 @@ import { EmberTemplateCompiler } from '../src/ember-template-compiler';
 import sinon from 'sinon';
 import { ExtendedPluginBuilder } from '../src/js-utils';
 import 'code-equality-assertions/jest';
+import { Preprocessor } from '@ef4/content-tag';
 
 describe('htmlbars-inline-precompile', function () {
   // eslint-disable-next-line @typescript-eslint/no-var-requires
@@ -1795,6 +1796,73 @@ describe('htmlbars-inline-precompile', function () {
            templateOnly()
         );
       `);
+    });
+  });
+
+  describe('content-tag end-to-end', function () {
+    it('works for expression form', function () {
+      plugins = [
+        [
+          HTMLBarsInlinePrecompile,
+          {
+            compiler,
+            targetFormat: 'hbs',
+          },
+        ],
+      ];
+
+      let p = new Preprocessor();
+
+      let transformed = transform(
+        p.process(
+          `import HelloWorld from 'somewhere';
+           const MyComponent = <template><HelloWorld /></template>;
+          `
+        )
+      );
+
+      expect(transformed).toEqualCode(`
+          import templateOnly from "@ember/component/template-only";
+          import { setComponentTemplate } from "@ember/component";
+          import { precompileTemplate } from "@ember/template-compilation";
+          import HelloWorld from "somewhere";
+          const MyComponent = setComponentTemplate(precompileTemplate('<HelloWorld />', { scope: () => ({ HelloWorld }), strictMode: true }), templateOnly());
+        `);
+    });
+
+    it('works for class member form', function () {
+      plugins = [
+        [
+          HTMLBarsInlinePrecompile,
+          {
+            compiler,
+            targetFormat: 'hbs',
+          },
+        ],
+      ];
+
+      let p = new Preprocessor();
+
+      let transformed = transform(
+        p.process(
+          `import HelloWorld from 'somewhere';
+           export default class {
+             <template><HelloWorld /></template>
+           }
+          `
+        )
+      );
+
+      expect(transformed).toEqualCode(`
+          import { setComponentTemplate } from "@ember/component";
+          import { precompileTemplate } from "@ember/template-compilation";
+          import HelloWorld from "somewhere";
+          export default class {
+            static {
+              setComponentTemplate(precompileTemplate('<HelloWorld />', { scope: () => ({ HelloWorld }), strictMode: true }), this);
+            }
+          }
+        `);
     });
   });
 });
