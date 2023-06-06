@@ -187,7 +187,7 @@ export class ExpressionParser {
     invokedName: string,
     path: NodePath<t.ObjectExpression>,
     shouldParseScope = false,
-    shouldParseEval = false
+    shouldSupportRFC931 = false
   ) {
     let result: Record<string, unknown> = {};
 
@@ -210,8 +210,10 @@ export class ExpressionParser {
 
       if (shouldParseScope && propertyName === 'scope') {
         result.scope = this.parseScope(invokedName, property as NodePath<typeof node>);
-      } else if (shouldParseEval && propertyName === 'eval') {
+      } else if (shouldSupportRFC931 && propertyName === 'eval') {
         result.eval = this.parseEval(invokedName, property as NodePath<typeof node>);
+      } else if (shouldSupportRFC931 && propertyName === 'component') {
+        result.component = (property as NodePath<typeof node>).get('value');
       } else {
         if (this.t.isObjectMethod(node)) {
           throw property.buildCodeFrameError(

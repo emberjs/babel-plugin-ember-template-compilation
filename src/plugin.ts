@@ -186,7 +186,13 @@ export function makePlugin<EnvSpecificOptions>(loadOptions: (opts: EnvSpecificOp
             return;
           }
 
-          let [firstArg, secondArg, ...restArgs] = path.get('arguments');
+          if (path.get('arguments').length > 2) {
+            throw path.buildCodeFrameError(
+              `${calleePath.node.name} can only be invoked with 2 arguments: the template string and any static options`
+            );
+          }
+
+          let [firstArg, secondArg] = path.get('arguments');
 
           let template;
 
@@ -214,6 +220,7 @@ export function makePlugin<EnvSpecificOptions>(loadOptions: (opts: EnvSpecificOp
           }
 
           let userTypedOptions: Record<string, unknown>;
+          let backingClass: undefined | Parameters<typeof t.callExpression>[1][number];
 
           if (!secondArg) {
             userTypedOptions = {};
@@ -230,24 +237,13 @@ export function makePlugin<EnvSpecificOptions>(loadOptions: (opts: EnvSpecificOp
               config.enableScope,
               Boolean(config.rfc931Support)
             );
-          }
-          let backingClass: undefined | Parameters<typeof t.callExpression>[1][number];
-          if (config.rfc931Support) {
-            if (restArgs.length > 1) {
-              throw path.buildCodeFrameError(
-                `${calleePath.node.name} can only be invoked with up to 3 arguments: the template string, the options object, and the optional backing class`
-              );
-            }
-            if (restArgs.length === 1) {
-              backingClass = restArgs[0].node;
-            }
-          } else {
-            if (restArgs.length > 0) {
-              throw path.buildCodeFrameError(
-                `${calleePath.node.name} can only be invoked with 2 arguments: the template string, and any static options`
-              );
+            if (config.rfc931Support && userTypedOptions.component) {
+              backingClass = userTypedOptions.component as Parameters<
+                typeof t.callExpression
+              >[1][number];
             }
           }
+
           if (state.normalizedOpts.targetFormat === 'wire') {
             insertCompiledTemplate(
               babel,
@@ -516,7 +512,7 @@ function insertTransformedTemplate<EnvSpecificOptions>(
       maybePruneImport(state.util, target.get('callee'));
       target.set('callee', precompileTemplate(state.util, target));
       convertStrictMode(babel, target);
-      removeEval(target);
+      removeEvalAndScope(target);
       target.node.arguments = target.node.arguments.slice(0, 2);
       state.recursionGuard.add(target.node);
       target.replaceWith(
@@ -598,7 +594,7 @@ function updateScope(babel: typeof Babel, target: NodePath<t.CallExpression>, lo
   }
 }
 
-function removeEval(target: NodePath<t.CallExpression>) {
+function removeEvalAndScope(target: NodePath<t.CallExpression>) {
   let secondArg = target.get('arguments.1') as NodePath<t.ObjectExpression> | undefined;
   if (secondArg) {
     let evalProp = secondArg.get('properties').find((p) => {
@@ -607,6 +603,14 @@ function removeEval(target: NodePath<t.CallExpression>) {
     });
     if (evalProp) {
       evalProp.remove();
+    }
+
+    let componentProp = secondArg.get('properties').find((p) => {
+      let key = p.get('key') as NodePath<t.Node>;
+      return key.isIdentifier() && key.node.name === 'component';
+    });
+    if (componentProp) {
+      componentProp.remove();
     }
   }
 }
