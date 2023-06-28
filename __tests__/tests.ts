@@ -1758,7 +1758,6 @@ describe('htmlbars-inline-precompile', function () {
         import templateOnly from "@ember/component/template-only";
         import { setComponentTemplate } from "@ember/component";
         import { precompileTemplate } from "@ember/template-compilation";
-        let hasBlock = 1;
         export default setComponentTemplate(precompileTemplate('{{hasBlock "thing"}}', { strictMode: true }), templateOnly());
       `);
     });
