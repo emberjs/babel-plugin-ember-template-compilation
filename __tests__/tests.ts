@@ -1374,7 +1374,7 @@ describe('htmlbars-inline-precompile', function () {
         `
          import { template } from '@ember/template-compiler'; 
          import HelloWorld from 'somewhere';
-         export default class {
+         export default class MyComponent {
            static {
              template('<HelloWorld @color={{red}} />', { component: this, scope: () => ({ HelloWorld }) });
            }
@@ -1386,7 +1386,7 @@ describe('htmlbars-inline-precompile', function () {
         import { setComponentTemplate } from "@ember/component";
         import { precompileTemplate } from "@ember/template-compilation";
         import HelloWorld from "somewhere";
-        export default class {
+        export default class MyComponent {
           static {
             setComponentTemplate(
               precompileTemplate('<HelloWorld @color={{"#ff0000"}} />', { scope: () => ({ HelloWorld }), strictMode: true }), 
@@ -1394,6 +1394,41 @@ describe('htmlbars-inline-precompile', function () {
             );
           }
         }
+      `);
+    });
+
+    it('emits setComponentsTemplate outside a class when polyfilling rfc931 with hbs target', function () {
+      plugins = [
+        [
+          HTMLBarsInlinePrecompile,
+          {
+            compiler,
+            targetFormat: 'hbs',
+            transforms: [color],
+          },
+        ],
+      ];
+
+      let transformed = transform(
+        `
+         import { template } from '@ember/template-compiler'; 
+         import HelloWorld from 'somewhere';
+         export default class MyComponent {      
+         }
+         template('<HelloWorld @color={{red}} />', { component: MyComponent, scope: () => ({ HelloWorld }) });
+        `
+      );
+
+      expect(transformed).toEqualCode(`
+        import { setComponentTemplate } from "@ember/component";
+        import { precompileTemplate } from "@ember/template-compilation";
+        import HelloWorld from "somewhere";
+        export default class MyComponent {
+        }
+        setComponentTemplate(
+          precompileTemplate('<HelloWorld @color={{"#ff0000"}} />', { scope: () => ({ HelloWorld }), strictMode: true }), 
+          MyComponent
+        );
       `);
     });
 

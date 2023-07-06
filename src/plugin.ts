@@ -220,7 +220,7 @@ export function makePlugin<EnvSpecificOptions>(loadOptions: (opts: EnvSpecificOp
           }
 
           let userTypedOptions: Record<string, unknown>;
-          let backingClass: undefined | Parameters<typeof t.callExpression>[1][number];
+          let backingClass: undefined | NodePath<Parameters<typeof t.callExpression>[1][number]>;
 
           if (!secondArg) {
             userTypedOptions = {};
@@ -238,9 +238,9 @@ export function makePlugin<EnvSpecificOptions>(loadOptions: (opts: EnvSpecificOp
               Boolean(config.rfc931Support)
             );
             if (config.rfc931Support && userTypedOptions.component) {
-              backingClass = userTypedOptions.component as Parameters<
-                typeof t.callExpression
-              >[1][number];
+              backingClass = userTypedOptions.component as NodePath<
+                Parameters<typeof t.callExpression>[1][number]
+              >;
             }
           }
 
@@ -407,7 +407,7 @@ function insertCompiledTemplate<EnvSpecificOptions>(
   target: NodePath<t.Expression>,
   userTypedOptions: Record<string, unknown>,
   config: ModuleConfig,
-  backingClass: Parameters<typeof t.callExpression>[1][number] | undefined
+  backingClass: NodePath<Parameters<typeof t.callExpression>[1][number]> | undefined
 ) {
   let t = babel.types;
   let scopeLocals = buildScopeLocals(userTypedOptions, config, template);
@@ -465,7 +465,7 @@ function insertCompiledTemplate<EnvSpecificOptions>(
       state.util.import(target, '@ember/component', 'setComponentTemplate'),
       [
         expression,
-        backingClass ??
+        backingClass?.node ??
           t.callExpression(
             state.util.import(target, '@ember/component/template-only', 'default', 'templateOnly'),
             []
@@ -483,7 +483,7 @@ function insertTransformedTemplate<EnvSpecificOptions>(
   target: NodePath<t.CallExpression> | NodePath<t.TaggedTemplateExpression>,
   userTypedOptions: Record<string, unknown>,
   formatOptions: ModuleConfig,
-  backingClass: Parameters<typeof t.callExpression>[1][number] | undefined
+  backingClass: NodePath<Parameters<typeof t.callExpression>[1][number]> | undefined
 ) {
   let t = babel.types;
   let scopeLocals = buildScopeLocals(userTypedOptions, formatOptions, template);
@@ -518,7 +518,7 @@ function insertTransformedTemplate<EnvSpecificOptions>(
       target.replaceWith(
         t.callExpression(state.util.import(target, '@ember/component', 'setComponentTemplate'), [
           target.node,
-          backingClass ??
+          backingClass?.node ??
             t.callExpression(
               state.util.import(
                 target,
