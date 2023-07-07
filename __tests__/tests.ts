@@ -9,7 +9,7 @@ import { EmberTemplateCompiler } from '../src/ember-template-compiler';
 import sinon from 'sinon';
 import { ExtendedPluginBuilder } from '../src/js-utils';
 import 'code-equality-assertions/jest';
-import { Preprocessor } from '@ef4/content-tag';
+import { Preprocessor } from 'content-tag';
 
 describe('htmlbars-inline-precompile', function () {
   // eslint-disable-next-line @typescript-eslint/no-var-requires
@@ -1839,7 +1839,7 @@ describe('htmlbars-inline-precompile', function () {
     });
   });
 
-  describe.skip('content-tag end-to-end', function () {
+  describe('content-tag end-to-end', function () {
     it('works for expression form', function () {
       plugins = [
         [
