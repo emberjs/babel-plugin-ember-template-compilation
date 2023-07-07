@@ -1,5 +1,4 @@
 import type { NodePath } from '@babel/traverse';
-import traverse from '@babel/traverse';
 import type * as Babel from '@babel/core';
 import type { types as t } from '@babel/core';
 import { ImportUtil } from 'babel-import-util';
@@ -390,7 +389,7 @@ function remapIdentifiers(ast: Babel.types.File, babel: typeof Babel, scopeLocal
     return;
   }
 
-  traverse(ast, {
+  babel.traverse(ast, {
     Identifier(path: NodePath<t.Identifier>) {
       if (scopeLocals.has(path.node.name) && path.node.name !== scopeLocals.get(path.node.name)) {
         // replace the path only if the key is different from the value
