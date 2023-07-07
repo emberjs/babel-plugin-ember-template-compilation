@@ -7,16 +7,18 @@ import { JSUtils, ExtendedPluginBuilder } from './js-utils';
 import type { EmberTemplateCompiler, PreprocessOptions } from './ember-template-compiler';
 import { LegacyModuleName } from './public-types';
 import { ScopeLocals } from './scope-locals';
+import { getTemplateLocals } from '@glimmer/syntax';
 
 export * from './public-types';
 
-type ModuleName = LegacyModuleName | '@ember/template-compilation';
+type ModuleName = LegacyModuleName | '@ember/template-compilation' | '@ember/template-compiler';
 
 interface ModuleConfig {
   moduleName: ModuleName;
   export: string;
-  allowTemplateLiteral: boolean;
-  enableScope: boolean;
+  allowTemplateLiteral?: true;
+  enableScope?: true;
+  rfc931Support?: 'polyfilled';
 }
 
 const INLINE_PRECOMPILE_MODULES: ModuleConfig[] = [
@@ -24,25 +26,27 @@ const INLINE_PRECOMPILE_MODULES: ModuleConfig[] = [
     moduleName: 'ember-cli-htmlbars',
     export: 'hbs',
     allowTemplateLiteral: true,
-    enableScope: false,
   },
   {
     moduleName: 'ember-cli-htmlbars-inline-precompile',
     export: 'default',
     allowTemplateLiteral: true,
-    enableScope: false,
   },
   {
     moduleName: 'htmlbars-inline-precompile',
     export: 'default',
     allowTemplateLiteral: true,
-    enableScope: false,
   },
   {
     moduleName: '@ember/template-compilation',
     export: 'precompileTemplate',
-    allowTemplateLiteral: false,
     enableScope: true,
+  },
+  {
+    moduleName: '@ember/template-compiler',
+    export: 'template',
+    enableScope: true,
+    rfc931Support: 'polyfilled',
   },
 ];
 
@@ -97,6 +101,7 @@ interface State<EnvSpecificOptions> {
   program: NodePath<t.Program>;
   lastInsertedPath: NodePath<t.Statement> | undefined;
   filename: string;
+  recursionGuard: Set<unknown>;
 }
 
 export function makePlugin<EnvSpecificOptions>(loadOptions: (opts: EnvSpecificOptions) => Options) {
@@ -120,6 +125,7 @@ export function makePlugin<EnvSpecificOptions>(loadOptions: (opts: EnvSpecificOp
             state.templateFactory = templateFactoryConfig(state.normalizedOpts);
             state.util = new ImportUtil(t, path);
             state.program = path;
+            state.recursionGuard = new Set();
           },
           exit(_path: NodePath<t.Program>, state: State<EnvSpecificOptions>) {
             if (state.normalizedOpts.targetFormat === 'wire') {
@@ -139,12 +145,12 @@ export function makePlugin<EnvSpecificOptions>(loadOptions: (opts: EnvSpecificOp
           if (!tagPath.isIdentifier()) {
             return;
           }
-          let options = referencesInlineCompiler(tagPath, state);
-          if (!options) {
+          let config = referencesInlineCompiler(tagPath, state);
+          if (!config) {
             return;
           }
 
-          if (!options.allowTemplateLiteral) {
+          if (!config.allowTemplateLiteral) {
             throw path.buildCodeFrameError(
               `Attempted to use \`${tagPath.node.name}\` as a template tag, but it can only be called as a function with a string passed to it: ${tagPath.node.name}('content here')`
             );
@@ -158,9 +164,9 @@ export function makePlugin<EnvSpecificOptions>(loadOptions: (opts: EnvSpecificOp
 
           let template = path.node.quasi.quasis.map((quasi) => quasi.value.cooked).join('');
           if (state.normalizedOpts.targetFormat === 'wire') {
-            insertCompiledTemplate(babel, state, template, path, {});
+            insertCompiledTemplate(babel, state, template, path, {}, config, undefined);
           } else {
-            insertTransformedTemplate(babel, state, template, path, {}, options);
+            insertTransformedTemplate(babel, state, template, path, {}, config, undefined);
           }
         },
 
@@ -170,12 +176,22 @@ export function makePlugin<EnvSpecificOptions>(loadOptions: (opts: EnvSpecificOp
           if (!calleePath.isIdentifier()) {
             return;
           }
-          let options = referencesInlineCompiler(calleePath, state);
-          if (!options) {
+          let config = referencesInlineCompiler(calleePath, state);
+          if (!config) {
             return;
           }
 
-          let [firstArg, secondArg, ...restArgs] = path.get('arguments');
+          if (state.recursionGuard.has(path.node)) {
+            return;
+          }
+
+          if (path.get('arguments').length > 2) {
+            throw path.buildCodeFrameError(
+              `${calleePath.node.name} can only be invoked with 2 arguments: the template string and any static options`
+            );
+          }
+
+          let [firstArg, secondArg] = path.get('arguments');
 
           let template;
 
@@ -203,6 +219,7 @@ export function makePlugin<EnvSpecificOptions>(loadOptions: (opts: EnvSpecificOp
           }
 
           let userTypedOptions: Record<string, unknown>;
+          let backingClass: undefined | NodePath<Parameters<typeof t.callExpression>[1][number]>;
 
           if (!secondArg) {
             userTypedOptions = {};
@@ -216,18 +233,36 @@ export function makePlugin<EnvSpecificOptions>(loadOptions: (opts: EnvSpecificOp
             userTypedOptions = new ExpressionParser(babel).parseObjectExpression(
               calleePath.node.name,
               secondArg,
-              options.enableScope
+              config.enableScope,
+              Boolean(config.rfc931Support)
             );
+            if (config.rfc931Support && userTypedOptions.component) {
+              backingClass = userTypedOptions.component as NodePath<
+                Parameters<typeof t.callExpression>[1][number]
+              >;
+            }
           }
-          if (restArgs.length > 0) {
-            throw path.buildCodeFrameError(
-              `${calleePath.node.name} can only be invoked with 2 arguments: the template string, and any static options`
-            );
-          }
+
           if (state.normalizedOpts.targetFormat === 'wire') {
-            insertCompiledTemplate(babel, state, template, path, userTypedOptions);
+            insertCompiledTemplate(
+              babel,
+              state,
+              template,
+              path,
+              userTypedOptions,
+              config,
+              backingClass
+            );
           } else {
-            insertTransformedTemplate(babel, state, template, path, userTypedOptions, options);
+            insertTransformedTemplate(
+              babel,
+              state,
+              template,
+              path,
+              userTypedOptions,
+              config,
+              backingClass
+            );
           }
         },
       },
@@ -239,6 +274,7 @@ function* configuredModules<EnvSpecificOptions>(state: State<EnvSpecificOptions>
   for (let moduleConfig of INLINE_PRECOMPILE_MODULES) {
     if (
       moduleConfig.moduleName !== '@ember/template-compilation' &&
+      moduleConfig.moduleName !== '@ember/template-compiler' &&
       !state.normalizedOpts.enableLegacyModules.includes(moduleConfig.moduleName)
     ) {
       continue;
@@ -266,12 +302,35 @@ function runtimeErrorIIFE(babel: typeof Babel, replacements: { ERROR_MESSAGE: st
   return statement.expression;
 }
 
-function buildScopeLocals(userTypedOptions: Record<string, unknown>): ScopeLocals {
-  if (userTypedOptions.scope) {
+function buildScopeLocals(
+  userTypedOptions: Record<string, unknown>,
+  formatOptions: ModuleConfig,
+  templateContent: string
+): ScopeLocals {
+  if (formatOptions.rfc931Support && userTypedOptions.eval) {
+    return discoverLocals(templateContent);
+  } else if (userTypedOptions.scope) {
     return userTypedOptions.scope as ScopeLocals;
   } else {
     return new ScopeLocals();
   }
+}
+
+function discoverLocals(templateContent: string): ScopeLocals {
+  // this is wrong, but the right thing is unreleased in
+  // https://github.com/glimmerjs/glimmer-vm/pull/1421, so for the moment I'm
+  // sticking with the exact behavior that ember-templates-imports has.
+  //
+  // (the reason it's wrong is that the correct answer depends on not just the
+  // template, but the ambient javascript scope. Anything in locals needs to win
+  // over ember keywords. Otherwise we can never introduce new keywords.)
+  let scopeLocals = new ScopeLocals();
+  for (let local of getTemplateLocals(templateContent)) {
+    if (local.match(/^[$A-Z_][0-9A-Z_$]*$/i)) {
+      scopeLocals.add(local);
+    }
+  }
+  return scopeLocals;
 }
 
 function buildPrecompileOptions<EnvSpecificOptions>(
@@ -280,6 +339,7 @@ function buildPrecompileOptions<EnvSpecificOptions>(
   state: State<EnvSpecificOptions>,
   template: string,
   userTypedOptions: Record<string, unknown>,
+  config: ModuleConfig,
   scope: ScopeLocals
 ): PreprocessOptions & Record<string, unknown> {
   let jsutils = new JSUtils(babel, state, target, scope, state.util);
@@ -313,6 +373,11 @@ function buildPrecompileOptions<EnvSpecificOptions>(
   }
 
   output.locals = scope.locals;
+
+  if (config.rfc931Support) {
+    output.strictMode = true;
+  }
+
   return output;
 }
 
@@ -339,22 +404,26 @@ function insertCompiledTemplate<EnvSpecificOptions>(
   state: State<EnvSpecificOptions>,
   template: string,
   target: NodePath<t.Expression>,
-  userTypedOptions: Record<string, unknown>
+  userTypedOptions: Record<string, unknown>,
+  config: ModuleConfig,
+  backingClass: NodePath<Parameters<typeof t.callExpression>[1][number]> | undefined
 ) {
   let t = babel.types;
-  let scopeLocals = buildScopeLocals(userTypedOptions);
+  let scopeLocals = buildScopeLocals(userTypedOptions, config, template);
   let options = buildPrecompileOptions(
     babel,
     target,
     state,
     template,
     userTypedOptions,
+    config,
     scopeLocals
   );
 
   let precompileResultString: string;
 
-  if (options.insertRuntimeErrors) {
+  // insertRuntimeErrors is legacy and not supported by the newer rfc931 form
+  if (options.insertRuntimeErrors && !config.rfc931Support) {
     try {
       precompileResultString = state.normalizedOpts.compiler.precompile(template, options);
     } catch (error) {
@@ -387,7 +456,23 @@ function insertCompiledTemplate<EnvSpecificOptions>(
     state.templateFactory.moduleName,
     state.templateFactory.exportName
   );
-  target.replaceWith(t.callExpression(templateFactoryIdentifier, [templateExpression]));
+
+  let expression = t.callExpression(templateFactoryIdentifier, [templateExpression]);
+
+  if (config.rfc931Support) {
+    expression = t.callExpression(
+      state.util.import(target, '@ember/component', 'setComponentTemplate'),
+      [
+        expression,
+        backingClass?.node ??
+          t.callExpression(
+            state.util.import(target, '@ember/component/template-only', 'default', 'templateOnly'),
+            []
+          ),
+      ]
+    );
+  }
+  target.replaceWith(expression);
 }
 
 function insertTransformedTemplate<EnvSpecificOptions>(
@@ -396,16 +481,18 @@ function insertTransformedTemplate<EnvSpecificOptions>(
   template: string,
   target: NodePath<t.CallExpression> | NodePath<t.TaggedTemplateExpression>,
   userTypedOptions: Record<string, unknown>,
-  formatOptions: ModuleConfig
+  formatOptions: ModuleConfig,
+  backingClass: NodePath<Parameters<typeof t.callExpression>[1][number]> | undefined
 ) {
   let t = babel.types;
-  let scopeLocals = buildScopeLocals(userTypedOptions);
+  let scopeLocals = buildScopeLocals(userTypedOptions, formatOptions, template);
   let options = buildPrecompileOptions(
     babel,
     target,
     state,
     template,
     userTypedOptions,
+    formatOptions,
     scopeLocals
   );
   let ast = state.normalizedOpts.compiler._preprocess(template, { ...options, mode: 'codemod' });
@@ -418,6 +505,30 @@ function insertTransformedTemplate<EnvSpecificOptions>(
         target.set('callee', precompileTemplate(state.util, target));
       }
       updateScope(babel, target, scopeLocals);
+    }
+
+    if (formatOptions.rfc931Support === 'polyfilled') {
+      maybePruneImport(state.util, target.get('callee'));
+      target.set('callee', precompileTemplate(state.util, target));
+      convertStrictMode(babel, target);
+      removeEvalAndScope(target);
+      target.node.arguments = target.node.arguments.slice(0, 2);
+      state.recursionGuard.add(target.node);
+      target.replaceWith(
+        t.callExpression(state.util.import(target, '@ember/component', 'setComponentTemplate'), [
+          target.node,
+          backingClass?.node ??
+            t.callExpression(
+              state.util.import(
+                target,
+                '@ember/component/template-only',
+                'default',
+                'templateOnly'
+              ),
+              []
+            ),
+        ])
+      );
     }
   } else {
     if (!scopeLocals.isEmpty()) {
@@ -478,6 +589,54 @@ function updateScope(babel: typeof Babel, target: NodePath<t.CallExpression>, lo
     target.pushContainer(
       'arguments',
       t.objectExpression([t.objectProperty(t.identifier('scope'), buildScope(babel, locals))])
+    );
+  }
+}
+
+function removeEvalAndScope(target: NodePath<t.CallExpression>) {
+  let secondArg = target.get('arguments.1') as NodePath<t.ObjectExpression> | undefined;
+  if (secondArg) {
+    let evalProp = secondArg.get('properties').find((p) => {
+      let key = p.get('key') as NodePath<t.Node>;
+      return key.isIdentifier() && key.node.name === 'eval';
+    });
+    if (evalProp) {
+      evalProp.remove();
+    }
+
+    let componentProp = secondArg.get('properties').find((p) => {
+      let key = p.get('key') as NodePath<t.Node>;
+      return key.isIdentifier() && key.node.name === 'component';
+    });
+    if (componentProp) {
+      componentProp.remove();
+    }
+  }
+}
+
+// Given a call to template(), convert its "strict" argument into
+// precompileTemplate's "strictMode" argument. They differ in name and default
+// value.
+function convertStrictMode(babel: typeof Babel, target: NodePath<t.CallExpression>) {
+  let t = babel.types;
+  let secondArg = target.get('arguments.1') as NodePath<t.ObjectExpression> | undefined;
+  if (secondArg) {
+    let strict = secondArg.get('properties').find((p) => {
+      let key = p.get('key') as NodePath<t.Node>;
+      return key.isIdentifier() && key.node.name === 'strict';
+    }) as NodePath<t.ObjectProperty>;
+    if (strict) {
+      strict.set('key', t.identifier('strictMode'));
+    } else {
+      secondArg.pushContainer(
+        'properties',
+        t.objectProperty(t.identifier('strictMode'), t.booleanLiteral(true))
+      );
+    }
+  } else {
+    target.pushContainer(
+      'arguments',
+      t.objectExpression([t.objectProperty(t.identifier('strictMode'), t.booleanLiteral(true))])
     );
   }
 }

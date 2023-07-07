@@ -9,6 +9,7 @@ import { EmberTemplateCompiler } from '../src/ember-template-compiler';
 import sinon from 'sinon';
 import { ExtendedPluginBuilder } from '../src/js-utils';
 import 'code-equality-assertions/jest';
+import { Preprocessor } from 'content-tag';
 
 describe('htmlbars-inline-precompile', function () {
   // eslint-disable-next-line @typescript-eslint/no-var-requires
@@ -1329,6 +1330,134 @@ describe('htmlbars-inline-precompile', function () {
         const template = precompileTemplate('&times;');
       `);
     });
+
+    it('emits setComponentTemplate and templateOnlyComponent when polyfilling rfc931 in hbs format', function () {
+      plugins = [
+        [
+          HTMLBarsInlinePrecompile,
+          {
+            compiler,
+            targetFormat: 'hbs',
+            transforms: [color],
+          },
+        ],
+      ];
+
+      let transformed = transform(
+        `import { template } from '@ember/template-compiler'; 
+         import HelloWorld from 'somewhere';
+         export default template('<HelloWorld @color={{red}} />', { scope: () => ({ HelloWorld }) });`
+      );
+
+      expect(transformed).toEqualCode(`
+        import templateOnly from "@ember/component/template-only";
+        import { setComponentTemplate } from "@ember/component";
+        import { precompileTemplate } from "@ember/template-compilation";
+        import HelloWorld from "somewhere";
+        export default setComponentTemplate(precompileTemplate('<HelloWorld @color={{"#ff0000"}} />', { scope: () => ({ HelloWorld }), strictMode: true }), templateOnly());
+      `);
+    });
+
+    it('emits setComponentsTemplate when polyfilling rfc931 with hbs target', function () {
+      plugins = [
+        [
+          HTMLBarsInlinePrecompile,
+          {
+            compiler,
+            targetFormat: 'hbs',
+            transforms: [color],
+          },
+        ],
+      ];
+
+      let transformed = transform(
+        `
+         import { template } from '@ember/template-compiler'; 
+         import HelloWorld from 'somewhere';
+         export default class MyComponent {
+           static {
+             template('<HelloWorld @color={{red}} />', { component: this, scope: () => ({ HelloWorld }) });
+           }
+         }
+        `
+      );
+
+      expect(transformed).toEqualCode(`
+        import { setComponentTemplate } from "@ember/component";
+        import { precompileTemplate } from "@ember/template-compilation";
+        import HelloWorld from "somewhere";
+        export default class MyComponent {
+          static {
+            setComponentTemplate(
+              precompileTemplate('<HelloWorld @color={{"#ff0000"}} />', { scope: () => ({ HelloWorld }), strictMode: true }), 
+              this
+            );
+          }
+        }
+      `);
+    });
+
+    it('emits setComponentsTemplate outside a class when polyfilling rfc931 with hbs target', function () {
+      plugins = [
+        [
+          HTMLBarsInlinePrecompile,
+          {
+            compiler,
+            targetFormat: 'hbs',
+            transforms: [color],
+          },
+        ],
+      ];
+
+      let transformed = transform(
+        `
+         import { template } from '@ember/template-compiler'; 
+         import HelloWorld from 'somewhere';
+         export default class MyComponent {      
+         }
+         template('<HelloWorld @color={{red}} />', { component: MyComponent, scope: () => ({ HelloWorld }) });
+        `
+      );
+
+      expect(transformed).toEqualCode(`
+        import { setComponentTemplate } from "@ember/component";
+        import { precompileTemplate } from "@ember/template-compilation";
+        import HelloWorld from "somewhere";
+        export default class MyComponent {
+        }
+        setComponentTemplate(
+          precompileTemplate('<HelloWorld @color={{"#ff0000"}} />', { scope: () => ({ HelloWorld }), strictMode: true }), 
+          MyComponent
+        );
+      `);
+    });
+
+    it("respects user's strict option on template()", function () {
+      plugins = [
+        [
+          HTMLBarsInlinePrecompile,
+          {
+            compiler,
+            targetFormat: 'hbs',
+            transforms: [],
+          },
+        ],
+      ];
+
+      let transformed = transform(
+        `import { template } from '@ember/template-compiler'; 
+         import HelloWorld from 'somewhere';
+         export default template('<HelloWorld />', { strict: false, scope: () => ({ HelloWorld }) });`
+      );
+
+      expect(transformed).toEqualCode(`
+        import templateOnly from "@ember/component/template-only";
+        import { setComponentTemplate } from "@ember/component";
+        import { precompileTemplate } from "@ember/template-compilation";
+        import HelloWorld from "somewhere";
+        export default setComponentTemplate(precompileTemplate('<HelloWorld />', { strictMode: false, scope: () => ({ HelloWorld }) }), templateOnly());
+      `);
+    });
   });
 
   it('removes original import when there are multiple callsites that all needed replacement', function () {
@@ -1362,6 +1491,94 @@ describe('htmlbars-inline-precompile', function () {
           two0
         })
       });
+    `);
+  });
+
+  it('emits setComponentTemplate and templateOnlyComponent when compiling rfc931 to wire format', function () {
+    plugins = [
+      [
+        HTMLBarsInlinePrecompile,
+        {
+          compiler,
+          targetFormat: 'wire',
+          transforms: [],
+        },
+      ],
+    ];
+
+    let transformed = transform(
+      `import { template } from '@ember/template-compiler'; 
+       import HelloWorld from 'somewhere';
+       export default template('<HelloWorld />', { scope: () => ({ HelloWorld }) });`
+    );
+
+    expect(normalizeWireFormat(transformed)).toEqualCode(`
+      import templateOnly from "@ember/component/template-only";
+      import { setComponentTemplate } from "@ember/component";
+      import { createTemplateFactory } from "@ember/template-factory";
+      import HelloWorld from "somewhere";
+      export default setComponentTemplate(createTemplateFactory(
+        /*
+          <HelloWorld />
+      */
+        {
+          id: "<id>",
+          block: "[[[8,[32,0],null,null,null]],[],false,[]]",
+          moduleName: "<moduleName>",
+          scope: () => [HelloWorld],
+          isStrictMode: true,
+        }
+      ), templateOnly());    
+    `);
+  });
+
+  it('emits setComponentsTemplate when compling rfc931 to wire format', function () {
+    plugins = [
+      [
+        HTMLBarsInlinePrecompile,
+        {
+          compiler,
+          targetFormat: 'wire',
+          transforms: [],
+        },
+      ],
+    ];
+
+    let transformed = transform(
+      `
+       import { template } from '@ember/template-compiler'; 
+       import HelloWorld from 'somewhere';
+       export default class {
+         static {
+           template('<HelloWorld />', { component: this, scope: () => ({ HelloWorld }) });
+         }
+       }
+      `
+    );
+
+    expect(normalizeWireFormat(transformed)).toEqualCode(`
+      import { setComponentTemplate } from "@ember/component";
+      import { createTemplateFactory } from "@ember/template-factory";
+      import HelloWorld from "somewhere";
+      export default class {
+        static {
+          setComponentTemplate(
+            createTemplateFactory(
+              /*
+                <HelloWorld />
+          */
+              {
+                id: "<id>",
+                block: "[[[8,[32,0],null,null,null]],[],false,[]]",
+                moduleName: "<moduleName>",
+                scope: () => [HelloWorld],
+                isStrictMode: true,
+              }
+            ),
+            this
+          );
+        }
+      }
     `);
   });
 
@@ -1426,10 +1643,7 @@ describe('htmlbars-inline-precompile', function () {
         var compiled = precompileTemplate('<Foo /><MyButton />', { scope: () => ({ Foo: bar, MyButton}) });
       `);
 
-      transformed = transformed.replace(/"moduleName":\s"[^"]+"/, '"moduleName": "<moduleName>"');
-      transformed = transformed.replace(/"id":\s"[^"]+"/, '"id": "<id>"');
-
-      expect(transformed).toEqualCode(`
+      expect(normalizeWireFormat(transformed)).toEqualCode(`
         import { createTemplateFactory } from "@ember/template-factory";
         import bar from "bar";
         import MyButton from 'my-button';
@@ -1468,4 +1682,235 @@ describe('htmlbars-inline-precompile', function () {
       );
     });
   });
+
+  describe('implicit-scope-form', function () {
+    it('uses local to satisfy upvar in template, in hbs target', function () {
+      plugins = [
+        [
+          HTMLBarsInlinePrecompile,
+          {
+            compiler,
+            targetFormat: 'hbs',
+          },
+        ],
+      ];
+
+      let transformed = transform(
+        `import { template } from '@ember/template-compiler'; 
+         import HelloWorld from 'somewhere';
+         export default template('<HelloWorld />', { eval: function() { return eval(arguments[0]) } })
+        `
+      );
+
+      expect(transformed).toEqualCode(`
+        import templateOnly from "@ember/component/template-only";
+        import { setComponentTemplate } from "@ember/component";
+        import { precompileTemplate } from "@ember/template-compilation";
+        import HelloWorld from "somewhere";
+        export default setComponentTemplate(precompileTemplate('<HelloWorld />', { scope: () => ({ HelloWorld }), strictMode: true }), templateOnly());
+      `);
+    });
+
+    // You might think this would be confusing style, and you'd be correct. But
+    // that's what the lint rules are for. When it comes to correctness, we need
+    // our scope to behave like real Javascript, and Javascript doesn't care
+    // whether you've (for example) capitalized your variable identifier.
+    //
+    // needs https://github.com/glimmerjs/glimmer-vm/pull/1421
+    it.skip('shadows html elements with locals', function () {
+      plugins = [
+        [
+          HTMLBarsInlinePrecompile,
+          {
+            compiler,
+            targetFormat: 'hbs',
+          },
+        ],
+      ];
+
+      let transformed = transform(
+        `import { template } from '@ember/template-compiler'; 
+         let div = 1;
+         export default template('<div></div>', { eval: function() { return eval(arguments[0]) } })
+        `
+      );
+
+      expect(transformed).toEqualCode(`
+        import templateOnly from "@ember/component/template-only";
+        import { setComponentTemplate } from "@ember/component";
+        import { precompileTemplate } from "@ember/template-compilation";
+        let div = 1;
+        export default setComponentTemplate(precompileTemplate('<div></div>', { scope: () => ({ div }), strictMode: true }), templateOnly());
+      `);
+    });
+
+    it('shadows ember keywords with locals', function () {
+      plugins = [
+        [
+          HTMLBarsInlinePrecompile,
+          {
+            compiler,
+            targetFormat: 'hbs',
+          },
+        ],
+      ];
+
+      let transformed = transform(
+        `import { template } from '@ember/template-compiler'; 
+         let hasBlock = 1;
+         export default template('{{hasBlock "thing"}}', { eval: function() { return eval(arguments[0]) } })
+        `
+      );
+
+      expect(transformed).toEqualCode(`
+        import templateOnly from "@ember/component/template-only";
+        import { setComponentTemplate } from "@ember/component";
+        import { precompileTemplate } from "@ember/template-compilation";
+        let hasBlock = 1;
+        export default setComponentTemplate(precompileTemplate('{{hasBlock "thing"}}', { scope: () => ({ hasBlock }), strictMode: true }), templateOnly());
+      `);
+    });
+
+    // needs https://github.com/glimmerjs/glimmer-vm/pull/1421
+    it.skip('leaves ember keywords alone when no local is defined', function () {
+      plugins = [
+        [
+          HTMLBarsInlinePrecompile,
+          {
+            compiler,
+            targetFormat: 'hbs',
+          },
+        ],
+      ];
+
+      let transformed = transform(
+        `import { template } from '@ember/template-compiler'; 
+         export default template('{{hasBlock "thing"}}', { eval: function() { return eval(arguments[0]) } })
+        `
+      );
+
+      expect(transformed).toEqualCode(`
+        import templateOnly from "@ember/component/template-only";
+        import { setComponentTemplate } from "@ember/component";
+        import { precompileTemplate } from "@ember/template-compilation";
+        export default setComponentTemplate(precompileTemplate('{{hasBlock "thing"}}', { strictMode: true }), templateOnly());
+      `);
+    });
+
+    it('uses local to satisfy upvar in template, in wire target', function () {
+      plugins = [
+        [
+          HTMLBarsInlinePrecompile,
+          {
+            compiler,
+            targetFormat: 'wire',
+          },
+        ],
+      ];
+
+      let transformed = transform(
+        `import { template } from '@ember/template-compiler'; 
+         import HelloWorld from 'somewhere';
+         export default template('<HelloWorld />', { eval: function() { return eval(arguments[0]) } })
+        `
+      );
+
+      expect(normalizeWireFormat(transformed)).toEqualCode(`
+        import templateOnly from "@ember/component/template-only";
+        import { setComponentTemplate } from "@ember/component";
+        import { createTemplateFactory } from "@ember/template-factory";
+        import HelloWorld from "somewhere";
+        export default setComponentTemplate(
+          createTemplateFactory(
+            /*
+              <HelloWorld />
+            */
+            {
+              id: "<id>",
+              block: "[[[8,[32,0],null,null,null]],[],false,[]]",
+              moduleName: "<moduleName>",
+              scope: () => [HelloWorld],
+              isStrictMode: true,
+            }
+          ),
+           templateOnly()
+        );
+      `);
+    });
+  });
+
+  describe('content-tag end-to-end', function () {
+    it('works for expression form', function () {
+      plugins = [
+        [
+          HTMLBarsInlinePrecompile,
+          {
+            compiler,
+            targetFormat: 'hbs',
+          },
+        ],
+      ];
+
+      let p = new Preprocessor();
+
+      let transformed = transform(
+        p.process(
+          `import HelloWorld from 'somewhere';
+           const MyComponent = <template><HelloWorld /></template>;
+          `
+        )
+      );
+
+      expect(transformed).toEqualCode(`
+          import templateOnly from "@ember/component/template-only";
+          import { setComponentTemplate } from "@ember/component";
+          import { precompileTemplate } from "@ember/template-compilation";
+          import HelloWorld from "somewhere";
+          const MyComponent = setComponentTemplate(precompileTemplate('<HelloWorld />', { scope: () => ({ HelloWorld }), strictMode: true }), templateOnly());
+        `);
+    });
+
+    it('works for class member form', function () {
+      plugins = [
+        [
+          HTMLBarsInlinePrecompile,
+          {
+            compiler,
+            targetFormat: 'hbs',
+          },
+        ],
+      ];
+
+      let p = new Preprocessor();
+
+      let transformed = transform(
+        p.process(
+          `import HelloWorld from 'somewhere';
+           export default class {
+             <template><HelloWorld /></template>
+           }
+          `
+        )
+      );
+
+      expect(transformed).toEqualCode(`
+          import { setComponentTemplate } from "@ember/component";
+          import { precompileTemplate } from "@ember/template-compilation";
+          import HelloWorld from "somewhere";
+          export default class {
+            static {
+              setComponentTemplate(precompileTemplate('<HelloWorld />', { scope: () => ({ HelloWorld }), strictMode: true }), this);
+            }
+          }
+        `);
+    });
+  });
 });
+
+// This takes out parts of ember's wire format that aren't our job and shouldn't
+// break our tests if they change.
+function normalizeWireFormat(src: string): string {
+  return src
+    .replace(/"moduleName":\s"[^"]+"/, '"moduleName": "<moduleName>"')
+    .replace(/"id":\s"[^"]+"/, '"id": "<id>"');
+}

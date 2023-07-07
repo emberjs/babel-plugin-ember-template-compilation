@@ -110,10 +110,84 @@ export class ExpressionParser {
     }, new ScopeLocals());
   }
 
+  parseEval(
+    invokedName: string,
+    path: NodePath<t.ObjectProperty | t.ObjectMethod>
+  ): { isEval: true } {
+    let body: NodePath<t.BlockStatement>;
+
+    if (path.isObjectMethod()) {
+      body = path.get('body');
+    } else if (path.isObjectProperty()) {
+      let value = path.get('value');
+      if (value.isFunctionExpression()) {
+        body = value.get('body');
+      } else {
+        throw path.buildCodeFrameError(
+          `unsupported syntax for \`eval\` parameter to \`${invokedName}\`. It must be an object method or a function.`
+        );
+      }
+    } else {
+      throw path.buildCodeFrameError(
+        `unsupported syntax for \`eval\` parameter to \`${invokedName}\`. It must be an object method or a function.`
+      );
+    }
+
+    let returnStatements = body
+      .get('body')
+      .filter((statement) => statement.isReturnStatement()) as NodePath<t.ReturnStatement>[];
+
+    if (returnStatements.length !== 1) {
+      throw body.buildCodeFrameError('eval function must have a single return statement');
+    }
+
+    let returnExpression = returnStatements[0].get('argument');
+
+    if (!returnExpression.isCallExpression()) {
+      throw returnStatements[0].buildCodeFrameError(
+        'eval function must return `eval(arguments[0])`. Found non-CallExpression.'
+      );
+    }
+
+    let callee = returnExpression.get('callee');
+    if (!callee.isIdentifier() || callee.node.name !== 'eval') {
+      throw returnExpression.buildCodeFrameError(
+        'eval function must return `eval(arguments[0])`. Found callee is not eval.'
+      );
+    }
+
+    let args = returnExpression.get('arguments');
+    if (args.length !== 1) {
+      throw returnExpression.buildCodeFrameError(
+        'eval function must return `eval(arguments[0])`. Found incorrect number of arguments.'
+      );
+    }
+    let arg = args[0];
+    if (!arg.isMemberExpression()) {
+      throw arg.buildCodeFrameError(
+        'eval function must return `eval(arguments[0])`. Found argument is non-MemberExpression.'
+      );
+    }
+    let obj = arg.get('object');
+    if (!obj.isIdentifier() || obj.node.name !== 'arguments') {
+      throw obj.buildCodeFrameError(
+        'eval function must return `eval(arguments[0])`. Found wrong argument to eval.'
+      );
+    }
+    let prop = arg.get('property');
+    if (!prop.isNumericLiteral() || prop.node.value !== 0) {
+      throw prop.buildCodeFrameError(
+        'eval function must return `eval(arguments[0])`. Found wrong property.'
+      );
+    }
+    return { isEval: true };
+  }
+
   parseObjectExpression(
     invokedName: string,
     path: NodePath<t.ObjectExpression>,
-    shouldParseScope = false
+    shouldParseScope = false,
+    shouldSupportRFC931 = false
   ) {
     let result: Record<string, unknown> = {};
 
@@ -136,6 +210,10 @@ export class ExpressionParser {
 
       if (shouldParseScope && propertyName === 'scope') {
         result.scope = this.parseScope(invokedName, property as NodePath<typeof node>);
+      } else if (shouldSupportRFC931 && propertyName === 'eval') {
+        result.eval = this.parseEval(invokedName, property as NodePath<typeof node>);
+      } else if (shouldSupportRFC931 && propertyName === 'component') {
+        result.component = (property as NodePath<typeof node>).get('value');
       } else {
         if (this.t.isObjectMethod(node)) {
           throw property.buildCodeFrameError(
