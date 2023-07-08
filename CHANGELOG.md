@@ -1,6 +1,21 @@
 
 
 
+
+## v2.1.0 (2023-07-08)
+
+#### :rocket: Enhancement
+* [#21](https://github.com/emberjs/babel-plugin-ember-template-compilation/pull/21) implementing rfc931 ([@ef4](https://github.com/ef4))
+
+#### :bug: Bug Fix
+* [#25](https://github.com/emberjs/babel-plugin-ember-template-compilation/pull/25) Don't bring a separate @babel/traverse ([@ef4](https://github.com/ef4))
+* [#24](https://github.com/emberjs/babel-plugin-ember-template-compilation/pull/24) fix: @babel/traverse is a dependency not a dev-dependency ([@runspired](https://github.com/runspired))
+
+#### Committers: 3
+- Aaron Chambers ([@achambers](https://github.com/achambers))
+- Chris Thoburn ([@runspired](https://github.com/runspired))
+- Edward Faulkner ([@ef4](https://github.com/ef4))
+
 ## v2.0.3 (2023-05-19)
 
 #### :bug: Bug Fix
