@@ -1,6 +1,6 @@
 {
   "name": "babel-plugin-ember-template-compilation",
-  "version": "2.1.0",
+  "version": "2.1.1",
   "description": "Babel implementation of Ember's low-level template-compilation API",
   "repository": "https://github.com/emberjs/babel-plugin-ember-template-compilation",
   "license": "MIT",

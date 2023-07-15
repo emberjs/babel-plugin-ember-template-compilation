@@ -2,6 +2,15 @@
 
 
 
+
+## v2.1.1 (2023-07-15)
+
+#### :house: Internal
+* [#26](https://github.com/emberjs/babel-plugin-ember-template-compilation/pull/26) Update babel-import-util ([@ef4](https://github.com/ef4))
+
+#### Committers: 1
+- Edward Faulkner ([@ef4](https://github.com/ef4))
+
 ## v2.1.0 (2023-07-08)
 
 #### :rocket: Enhancement
