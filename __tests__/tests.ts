@@ -419,7 +419,7 @@ describe('htmlbars-inline-precompile', function () {
     );
 
     expect(transformed).toEqualCode(`
-      define(["@ember/template-factory", "@ember/template-compilation"], function (_templateFactory, _templateCompilation) {
+      define(["@ember/template-compilation", "@ember/template-factory"], function (_templateCompilation, _templateFactory) {
         "use strict";
 
         var compiled = (0, _templateFactory.createTemplateFactory)(
@@ -681,8 +681,8 @@ describe('htmlbars-inline-precompile', function () {
       `);
 
     expect(transformed).toEqualCode(`
-      import two from "my-library";
       import { precompileTemplate } from '@ember/template-compilation';
+      import two from "my-library";
       const template = precompileTemplate("<Message @text={{two}} />", {
         scope: () => ({
           two
@@ -705,8 +705,8 @@ describe('htmlbars-inline-precompile', function () {
       `);
 
     expect(transformed).toEqualCode(`
-      import two0 from "my-library";
       import { precompileTemplate } from '@ember/template-compilation';
+      import two0 from "my-library";
       export function inner() {
         let two = 'twice';
         const template = precompileTemplate("<Message @text={{two0}} />", {
@@ -731,9 +731,9 @@ describe('htmlbars-inline-precompile', function () {
       `);
 
     expect(transformed).toEqualCode(`
-      import two from "my-library";
       import { precompileTemplate } from '@ember/template-compilation';
       let two0 = two;
+      import two from "my-library";
       export function inner() {
         const template = precompileTemplate("{{#let \\"twice\\" as |two|}}<Message @text={{two0}} />{{/let}}", {
           scope: () => ({
@@ -1305,8 +1305,8 @@ describe('htmlbars-inline-precompile', function () {
       );
 
       expect(transformed).toEqualCode(`
-        import { precompileTemplate } from "@ember/template-compilation";
         import { hbs } from 'ember-cli-htmlbars';
+        import { precompileTemplate } from "@ember/template-compilation";
         let two = 1 + 1;
         const template = precompileTemplate("<Message @text={{two}} />", {
           scope: () => ({
@@ -1350,15 +1350,15 @@ describe('htmlbars-inline-precompile', function () {
       );
 
       expect(transformed).toEqualCode(`
-        import templateOnly from "@ember/component/template-only";
-        import { setComponentTemplate } from "@ember/component";
-        import { precompileTemplate } from "@ember/template-compilation";
         import HelloWorld from "somewhere";
+        import { precompileTemplate } from "@ember/template-compilation";
+        import { setComponentTemplate } from "@ember/component";
+        import templateOnly from "@ember/component/template-only";
         export default setComponentTemplate(precompileTemplate('<HelloWorld @color={{"#ff0000"}} />', { scope: () => ({ HelloWorld }), strictMode: true }), templateOnly());
       `);
     });
 
-    it('emits setComponentsTemplate when polyfilling rfc931 with hbs target', function () {
+    it('emits setComponentTemplate when polyfilling rfc931 with hbs target', function () {
       plugins = [
         [
           HTMLBarsInlinePrecompile,
@@ -1383,9 +1383,9 @@ describe('htmlbars-inline-precompile', function () {
       );
 
       expect(transformed).toEqualCode(`
-        import { setComponentTemplate } from "@ember/component";
-        import { precompileTemplate } from "@ember/template-compilation";
         import HelloWorld from "somewhere";
+        import { precompileTemplate } from "@ember/template-compilation";
+        import { setComponentTemplate } from "@ember/component";
         export default class MyComponent {
           static {
             setComponentTemplate(
@@ -1397,7 +1397,7 @@ describe('htmlbars-inline-precompile', function () {
       `);
     });
 
-    it('emits setComponentsTemplate outside a class when polyfilling rfc931 with hbs target', function () {
+    it('emits setComponentTemplate outside a class when polyfilling rfc931 with hbs target', function () {
       plugins = [
         [
           HTMLBarsInlinePrecompile,
@@ -1420,9 +1420,9 @@ describe('htmlbars-inline-precompile', function () {
       );
 
       expect(transformed).toEqualCode(`
-        import { setComponentTemplate } from "@ember/component";
-        import { precompileTemplate } from "@ember/template-compilation";
         import HelloWorld from "somewhere";
+        import { precompileTemplate } from "@ember/template-compilation";
+        import { setComponentTemplate } from "@ember/component";
         export default class MyComponent {
         }
         setComponentTemplate(
@@ -1451,10 +1451,10 @@ describe('htmlbars-inline-precompile', function () {
       );
 
       expect(transformed).toEqualCode(`
-        import templateOnly from "@ember/component/template-only";
-        import { setComponentTemplate } from "@ember/component";
-        import { precompileTemplate } from "@ember/template-compilation";
         import HelloWorld from "somewhere";
+        import { precompileTemplate } from "@ember/template-compilation";
+        import { setComponentTemplate } from "@ember/component";
+        import templateOnly from "@ember/component/template-only";
         export default setComponentTemplate(precompileTemplate('<HelloWorld />', { strictMode: false, scope: () => ({ HelloWorld }) }), templateOnly());
       `);
     });
@@ -1513,10 +1513,10 @@ describe('htmlbars-inline-precompile', function () {
     );
 
     expect(normalizeWireFormat(transformed)).toEqualCode(`
-      import templateOnly from "@ember/component/template-only";
-      import { setComponentTemplate } from "@ember/component";
-      import { createTemplateFactory } from "@ember/template-factory";
       import HelloWorld from "somewhere";
+      import { createTemplateFactory } from "@ember/template-factory";
+      import { setComponentTemplate } from "@ember/component";
+      import templateOnly from "@ember/component/template-only";
       export default setComponentTemplate(createTemplateFactory(
         /*
           <HelloWorld />
@@ -1532,7 +1532,7 @@ describe('htmlbars-inline-precompile', function () {
     `);
   });
 
-  it('emits setComponentsTemplate when compling rfc931 to wire format', function () {
+  it('emits setComponentTemplate when compiling rfc931 to wire format', function () {
     plugins = [
       [
         HTMLBarsInlinePrecompile,
@@ -1557,9 +1557,9 @@ describe('htmlbars-inline-precompile', function () {
     );
 
     expect(normalizeWireFormat(transformed)).toEqualCode(`
-      import { setComponentTemplate } from "@ember/component";
-      import { createTemplateFactory } from "@ember/template-factory";
       import HelloWorld from "somewhere";
+      import { createTemplateFactory } from "@ember/template-factory";
+      import { setComponentTemplate } from "@ember/component";
       export default class {
         static {
           setComponentTemplate(
@@ -1644,9 +1644,9 @@ describe('htmlbars-inline-precompile', function () {
       `);
 
       expect(normalizeWireFormat(transformed)).toEqualCode(`
-        import { createTemplateFactory } from "@ember/template-factory";
         import bar from "bar";
         import MyButton from 'my-button';
+        import { createTemplateFactory } from "@ember/template-factory";
         var compiled = createTemplateFactory(
           /*
             <Foo /><MyButton />
@@ -1703,10 +1703,10 @@ describe('htmlbars-inline-precompile', function () {
       );
 
       expect(transformed).toEqualCode(`
-        import templateOnly from "@ember/component/template-only";
-        import { setComponentTemplate } from "@ember/component";
-        import { precompileTemplate } from "@ember/template-compilation";
         import HelloWorld from "somewhere";
+        import { precompileTemplate } from "@ember/template-compilation";
+        import { setComponentTemplate } from "@ember/component";
+        import templateOnly from "@ember/component/template-only";
         export default setComponentTemplate(precompileTemplate('<HelloWorld />', { scope: () => ({ HelloWorld }), strictMode: true }), templateOnly());
       `);
     });
@@ -1763,9 +1763,9 @@ describe('htmlbars-inline-precompile', function () {
       );
 
       expect(transformed).toEqualCode(`
-        import templateOnly from "@ember/component/template-only";
-        import { setComponentTemplate } from "@ember/component";
         import { precompileTemplate } from "@ember/template-compilation";
+        import { setComponentTemplate } from "@ember/component";
+        import templateOnly from "@ember/component/template-only";
         let hasBlock = 1;
         export default setComponentTemplate(precompileTemplate('{{hasBlock "thing"}}', { scope: () => ({ hasBlock }), strictMode: true }), templateOnly());
       `);
@@ -1816,10 +1816,10 @@ describe('htmlbars-inline-precompile', function () {
       );
 
       expect(normalizeWireFormat(transformed)).toEqualCode(`
-        import templateOnly from "@ember/component/template-only";
-        import { setComponentTemplate } from "@ember/component";
-        import { createTemplateFactory } from "@ember/template-factory";
         import HelloWorld from "somewhere";
+        import { createTemplateFactory } from "@ember/template-factory";
+        import { setComponentTemplate } from "@ember/component";
+        import templateOnly from "@ember/component/template-only";
         export default setComponentTemplate(
           createTemplateFactory(
             /*
@@ -1862,10 +1862,10 @@ describe('htmlbars-inline-precompile', function () {
       );
 
       expect(transformed).toEqualCode(`
-          import templateOnly from "@ember/component/template-only";
-          import { setComponentTemplate } from "@ember/component";
-          import { precompileTemplate } from "@ember/template-compilation";
           import HelloWorld from "somewhere";
+          import { precompileTemplate } from "@ember/template-compilation";
+          import { setComponentTemplate } from "@ember/component";
+          import templateOnly from "@ember/component/template-only";
           const MyComponent = setComponentTemplate(precompileTemplate('<HelloWorld />', { scope: () => ({ HelloWorld }), strictMode: true }), templateOnly());
         `);
     });
@@ -1894,9 +1894,9 @@ describe('htmlbars-inline-precompile', function () {
       );
 
       expect(transformed).toEqualCode(`
-          import { setComponentTemplate } from "@ember/component";
-          import { precompileTemplate } from "@ember/template-compilation";
           import HelloWorld from "somewhere";
+          import { precompileTemplate } from "@ember/template-compilation";
+          import { setComponentTemplate } from "@ember/component";
           export default class {
             static {
               setComponentTemplate(precompileTemplate('<HelloWorld />', { scope: () => ({ HelloWorld }), strictMode: true }), this);
