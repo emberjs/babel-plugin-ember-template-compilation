@@ -7,7 +7,7 @@ import { JSUtils, ExtendedPluginBuilder } from './js-utils';
 import type { EmberTemplateCompiler, PreprocessOptions } from './ember-template-compiler';
 import { LegacyModuleName } from './public-types';
 import { ScopeLocals } from './scope-locals';
-import { getTemplateLocals, preprocess, print } from '@glimmer/syntax';
+import { ASTPluginBuilder, getTemplateLocals, preprocess, print } from '@glimmer/syntax';
 
 export * from './public-types';
 
@@ -395,7 +395,10 @@ function buildPrecompileOptions<EnvSpecificOptions>(
 
   let output: PreprocessOptions & Record<string, unknown> = {
     contents: template,
-    meta,
+
+    // we've extended meta to add jsutils, but the types in @glimmer/syntax
+    // don't account for extension
+    meta: meta as PreprocessOptions['meta'],
 
     // TODO: embroider's template-compiler allows this to be overriden to get
     // backward-compatible module names that don't match the real name of the
@@ -408,7 +411,9 @@ function buildPrecompileOptions<EnvSpecificOptions>(
     filename: state.filename,
 
     plugins: {
-      ast: state.normalizedOpts.transforms,
+      // the cast is needed here only because our meta is extended. That is,
+      // these plugins can access meta.jsutils.
+      ast: state.normalizedOpts.transforms as ASTPluginBuilder[],
     },
   };
 
@@ -544,7 +549,7 @@ function insertTransformedTemplate<EnvSpecificOptions>(
     formatOptions,
     scopeLocals
   );
-  let ast = preprocess(template, { ...options, mode: 'codemod' } as any);
+  let ast = preprocess(template, { ...options, mode: 'codemod' });
   let transformed = print(ast, { entityEncoding: 'raw' });
   if (target.isCallExpression()) {
     (target.get('arguments.0') as NodePath<t.Node>).replaceWith(t.stringLiteral(transformed));
