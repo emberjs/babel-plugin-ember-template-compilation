@@ -630,10 +630,7 @@ describe('htmlbars-inline-precompile', function () {
 
   it('allows AST transform to bind a JS expression', function () {
     plugins = [
-      [
-        HTMLBarsInlinePrecompile,
-        { compiler, targetFormat: 'hbs', transforms: [expressionTransform] },
-      ],
+      [HTMLBarsInlinePrecompile, { targetFormat: 'hbs', transforms: [expressionTransform] }],
     ];
 
     let transformed = transform(stripIndent`
@@ -671,9 +668,7 @@ describe('htmlbars-inline-precompile', function () {
   });
 
   it('allows AST transform to bind a JS import', function () {
-    plugins = [
-      [HTMLBarsInlinePrecompile, { compiler, targetFormat: 'hbs', transforms: [importTransform] }],
-    ];
+    plugins = [[HTMLBarsInlinePrecompile, { targetFormat: 'hbs', transforms: [importTransform] }]];
 
     let transformed = transform(stripIndent`
         import { precompileTemplate } from '@ember/template-compilation';
@@ -692,9 +687,7 @@ describe('htmlbars-inline-precompile', function () {
   });
 
   it('does not smash existing js binding for import', function () {
-    plugins = [
-      [HTMLBarsInlinePrecompile, { compiler, targetFormat: 'hbs', transforms: [importTransform] }],
-    ];
+    plugins = [[HTMLBarsInlinePrecompile, { targetFormat: 'hbs', transforms: [importTransform] }]];
 
     let transformed = transform(stripIndent`
         import { precompileTemplate } from '@ember/template-compilation';
@@ -719,9 +712,7 @@ describe('htmlbars-inline-precompile', function () {
   });
 
   it('does not smash existing hbs binding for import', function () {
-    plugins = [
-      [HTMLBarsInlinePrecompile, { compiler, targetFormat: 'hbs', transforms: [importTransform] }],
-    ];
+    plugins = [[HTMLBarsInlinePrecompile, { targetFormat: 'hbs', transforms: [importTransform] }]];
 
     let transformed = transform(stripIndent`
         import { precompileTemplate } from '@ember/template-compilation';
@@ -746,10 +737,7 @@ describe('htmlbars-inline-precompile', function () {
 
   it('does not smash existing js binding for expression', function () {
     plugins = [
-      [
-        HTMLBarsInlinePrecompile,
-        { compiler, targetFormat: 'hbs', transforms: [expressionTransform] },
-      ],
+      [HTMLBarsInlinePrecompile, { targetFormat: 'hbs', transforms: [expressionTransform] }],
     ];
 
     let transformed = transform(stripIndent`
@@ -775,9 +763,7 @@ describe('htmlbars-inline-precompile', function () {
   });
 
   it('reuses existing imports when possible', () => {
-    plugins = [
-      [HTMLBarsInlinePrecompile, { compiler, targetFormat: 'hbs', transforms: [importTransform] }],
-    ];
+    plugins = [[HTMLBarsInlinePrecompile, { targetFormat: 'hbs', transforms: [importTransform] }]];
 
     let transformed = transform(stripIndent`
       import { precompileTemplate } from '@ember/template-compilation';
@@ -794,9 +780,7 @@ describe('htmlbars-inline-precompile', function () {
   });
 
   it('rebinds existing imports when necessary', () => {
-    plugins = [
-      [HTMLBarsInlinePrecompile, { compiler, targetFormat: 'hbs', transforms: [importTransform] }],
-    ];
+    plugins = [[HTMLBarsInlinePrecompile, { targetFormat: 'hbs', transforms: [importTransform] }]];
 
     let transformed = transform(stripIndent`
       import { precompileTemplate } from '@ember/template-compilation';
@@ -817,10 +801,7 @@ describe('htmlbars-inline-precompile', function () {
 
   it('does not smash own newly-created js binding for expression', function () {
     plugins = [
-      [
-        HTMLBarsInlinePrecompile,
-        { compiler, targetFormat: 'hbs', transforms: [expressionTransform] },
-      ],
+      [HTMLBarsInlinePrecompile, { targetFormat: 'hbs', transforms: [expressionTransform] }],
     ];
 
     let transformed = transform(stripIndent`
@@ -852,10 +833,7 @@ describe('htmlbars-inline-precompile', function () {
 
   it('does not smash existing hbs block binding for expression', function () {
     plugins = [
-      [
-        HTMLBarsInlinePrecompile,
-        { compiler, targetFormat: 'hbs', transforms: [expressionTransform] },
-      ],
+      [HTMLBarsInlinePrecompile, { targetFormat: 'hbs', transforms: [expressionTransform] }],
     ];
 
     let transformed = transform(stripIndent`
@@ -880,10 +858,7 @@ describe('htmlbars-inline-precompile', function () {
 
   it('does not smash existing hbs element binding for expression', function () {
     plugins = [
-      [
-        HTMLBarsInlinePrecompile,
-        { compiler, targetFormat: 'hbs', transforms: [expressionTransform] },
-      ],
+      [HTMLBarsInlinePrecompile, { targetFormat: 'hbs', transforms: [expressionTransform] }],
     ];
 
     let transformed = transform(stripIndent`
@@ -908,10 +883,7 @@ describe('htmlbars-inline-precompile', function () {
 
   it('understands that block params are only defined in the body, not the arguments, of an element', function () {
     plugins = [
-      [
-        HTMLBarsInlinePrecompile,
-        { compiler, targetFormat: 'hbs', transforms: [expressionTransform] },
-      ],
+      [HTMLBarsInlinePrecompile, { targetFormat: 'hbs', transforms: [expressionTransform] }],
     ];
 
     let transformed = transform(stripIndent`
@@ -936,10 +908,7 @@ describe('htmlbars-inline-precompile', function () {
 
   it('does not smash other previously-bound expressions with new ones', () => {
     plugins = [
-      [
-        HTMLBarsInlinePrecompile,
-        { compiler, targetFormat: 'hbs', transforms: [expressionTransform] },
-      ],
+      [HTMLBarsInlinePrecompile, { targetFormat: 'hbs', transforms: [expressionTransform] }],
     ];
 
     let transformed = transform(stripIndent`
@@ -981,9 +950,7 @@ describe('htmlbars-inline-precompile', function () {
       };
     };
 
-    plugins = [
-      [HTMLBarsInlinePrecompile, { compiler, targetFormat: 'hbs', transforms: [nowTransform] }],
-    ];
+    plugins = [[HTMLBarsInlinePrecompile, { targetFormat: 'hbs', transforms: [nowTransform] }]];
 
     let transformed = transform(stripIndent`
         import { precompileTemplate } from '@ember/template-compilation';
@@ -1014,9 +981,7 @@ describe('htmlbars-inline-precompile', function () {
       };
     };
 
-    plugins = [
-      [HTMLBarsInlinePrecompile, { compiler, targetFormat: 'hbs', transforms: [compatTransform] }],
-    ];
+    plugins = [[HTMLBarsInlinePrecompile, { targetFormat: 'hbs', transforms: [compatTransform] }]];
 
     let transformed = transform(stripIndent`
       import { precompileTemplate } from '@ember/template-compilation';
@@ -1043,9 +1008,7 @@ describe('htmlbars-inline-precompile', function () {
       };
     };
 
-    plugins = [
-      [HTMLBarsInlinePrecompile, { compiler, targetFormat: 'hbs', transforms: [compatTransform] }],
-    ];
+    plugins = [[HTMLBarsInlinePrecompile, { targetFormat: 'hbs', transforms: [compatTransform] }]];
 
     let transformed = transform(stripIndent`
       import { precompileTemplate } from '@ember/template-compilation';
@@ -1073,9 +1036,7 @@ describe('htmlbars-inline-precompile', function () {
     };
 
     it('can run an ast transform inside precompileTemplate', function () {
-      plugins = [
-        [HTMLBarsInlinePrecompile, { compiler, targetFormat: 'hbs', transforms: [color] }],
-      ];
+      plugins = [[HTMLBarsInlinePrecompile, { targetFormat: 'hbs', transforms: [color] }]];
 
       let transformed = transform(stripIndent`
         import { precompileTemplate } from '@ember/template-compilation';
@@ -1113,10 +1074,7 @@ describe('htmlbars-inline-precompile', function () {
 
     it('can create the options object for precompileTemplate', function () {
       plugins = [
-        [
-          HTMLBarsInlinePrecompile,
-          { compiler, targetFormat: 'hbs', transforms: [expressionTransform] },
-        ],
+        [HTMLBarsInlinePrecompile, { targetFormat: 'hbs', transforms: [expressionTransform] }],
       ];
 
       let transformed = transform(stripIndent`
@@ -1137,10 +1095,7 @@ describe('htmlbars-inline-precompile', function () {
 
     it('adds scope to existing options object', function () {
       plugins = [
-        [
-          HTMLBarsInlinePrecompile,
-          { compiler, targetFormat: 'hbs', transforms: [expressionTransform] },
-        ],
+        [HTMLBarsInlinePrecompile, { targetFormat: 'hbs', transforms: [expressionTransform] }],
       ];
 
       let transformed = transform(stripIndent`
@@ -1166,10 +1121,7 @@ describe('htmlbars-inline-precompile', function () {
 
     it('adds new locals to preexisting scope', function () {
       plugins = [
-        [
-          HTMLBarsInlinePrecompile,
-          { compiler, targetFormat: 'hbs', transforms: [expressionTransform] },
-        ],
+        [HTMLBarsInlinePrecompile, { targetFormat: 'hbs', transforms: [expressionTransform] }],
       ];
 
       let transformed = transform(stripIndent`
@@ -1197,10 +1149,7 @@ describe('htmlbars-inline-precompile', function () {
 
     it('adds new locals to preexisting renamed scope', function () {
       plugins = [
-        [
-          HTMLBarsInlinePrecompile,
-          { compiler, targetFormat: 'hbs', transforms: [expressionTransform] },
-        ],
+        [HTMLBarsInlinePrecompile, { targetFormat: 'hbs', transforms: [expressionTransform] }],
       ];
 
       let transformed = transform(stripIndent`
@@ -1292,7 +1241,6 @@ describe('htmlbars-inline-precompile', function () {
         [
           HTMLBarsInlinePrecompile,
           {
-            compiler,
             targetFormat: 'hbs',
             transforms: [expressionTransform],
             enableLegacyModules: ['ember-cli-htmlbars'],
@@ -1318,7 +1266,7 @@ describe('htmlbars-inline-precompile', function () {
     });
 
     it('leaves html entities unchanged when there are no transforms', function () {
-      plugins = [[HTMLBarsInlinePrecompile, { compiler, targetFormat: 'hbs', transforms: [] }]];
+      plugins = [[HTMLBarsInlinePrecompile, { targetFormat: 'hbs', transforms: [] }]];
 
       let transformed = transform(stripIndent`
         import { precompileTemplate } from '@ember/template-compilation';
@@ -1336,7 +1284,6 @@ describe('htmlbars-inline-precompile', function () {
         [
           HTMLBarsInlinePrecompile,
           {
-            compiler,
             targetFormat: 'hbs',
             transforms: [color],
           },
@@ -1363,7 +1310,6 @@ describe('htmlbars-inline-precompile', function () {
         [
           HTMLBarsInlinePrecompile,
           {
-            compiler,
             targetFormat: 'hbs',
             transforms: [color],
           },
@@ -1402,7 +1348,6 @@ describe('htmlbars-inline-precompile', function () {
         [
           HTMLBarsInlinePrecompile,
           {
-            compiler,
             targetFormat: 'hbs',
             transforms: [color],
           },
@@ -1437,7 +1382,6 @@ describe('htmlbars-inline-precompile', function () {
         [
           HTMLBarsInlinePrecompile,
           {
-            compiler,
             targetFormat: 'hbs',
             transforms: [],
           },
@@ -1465,7 +1409,6 @@ describe('htmlbars-inline-precompile', function () {
       [
         HTMLBarsInlinePrecompile,
         {
-          compiler,
           targetFormat: 'hbs',
           transforms: [expressionTransform],
           enableLegacyModules: ['ember-cli-htmlbars'],

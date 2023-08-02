@@ -34,7 +34,7 @@ function cwdRequire(moduleName: string) {
 }
 
 function handleNodeSpecificOptions(opts: Options): SharedOptions {
-  let compiler: EmberTemplateCompiler;
+  let compiler: EmberTemplateCompiler | undefined = undefined;
   if (opts.compilerPath) {
     let mod: any = cwdRequire(opts.compilerPath);
     assertTemplateCompiler(mod);
@@ -42,8 +42,6 @@ function handleNodeSpecificOptions(opts: Options): SharedOptions {
   } else if (opts.compiler) {
     assertTemplateCompiler(opts.compiler);
     compiler = opts.compiler;
-  } else {
-    throw new Error(`must provide compilerPath or compiler`);
   }
 
   let transforms = [];
