@@ -7,7 +7,7 @@ import { JSUtils, ExtendedPluginBuilder } from './js-utils';
 import type { EmberTemplateCompiler, PreprocessOptions } from './ember-template-compiler';
 import { LegacyModuleName } from './public-types';
 import { ScopeLocals } from './scope-locals';
-import { getTemplateLocals } from '@glimmer/syntax';
+import { ASTPluginBuilder, getTemplateLocals, preprocess, print } from '@glimmer/syntax';
 
 export * from './public-types';
 
@@ -51,8 +51,9 @@ const INLINE_PRECOMPILE_MODULES: ModuleConfig[] = [
 ];
 
 export interface Options {
-  // The ember-template-compiler.js module that ships within your ember-source version.
-  compiler: EmberTemplateCompiler;
+  // The ember-template-compiler.js module that ships within your ember-source
+  // version. Mandatory when using targetFormat: 'wire'.
+  compiler?: EmberTemplateCompiler;
 
   // Allows you to remap what imports will be emitted in our compiled output. By
   // example:
@@ -93,9 +94,53 @@ export interface Options {
   transforms?: ExtendedPluginBuilder[];
 }
 
+interface WireOpts {
+  targetFormat: 'wire';
+  compiler: EmberTemplateCompiler;
+  outputModuleOverrides: Record<string, Record<string, [string, string]>>;
+  enableLegacyModules: LegacyModuleName[];
+  transforms: ExtendedPluginBuilder[];
+}
+
+interface HbsOpts {
+  targetFormat: 'hbs';
+  outputModuleOverrides: Record<string, Record<string, [string, string]>>;
+  enableLegacyModules: LegacyModuleName[];
+  transforms: ExtendedPluginBuilder[];
+}
+
+type NormalizedOpts = WireOpts | HbsOpts;
+
+function normalizeOpts(options: Options): NormalizedOpts {
+  if ((options.targetFormat ?? 'wire') === 'wire') {
+    let { compiler } = options;
+    if (!compiler) {
+      throw new Error(
+        `when targetFormat==="wire" you must set the compiler or compilerPath option`
+      );
+    }
+    return {
+      outputModuleOverrides: {},
+      enableLegacyModules: [],
+      transforms: [],
+      ...options,
+      targetFormat: 'wire',
+      compiler,
+    };
+  } else {
+    return {
+      outputModuleOverrides: {},
+      enableLegacyModules: [],
+      transforms: [],
+      ...options,
+      targetFormat: 'hbs',
+    };
+  }
+}
+
 interface State<EnvSpecificOptions> {
   opts: EnvSpecificOptions;
-  normalizedOpts: Required<Options>;
+  normalizedOpts: NormalizedOpts;
   util: ImportUtil;
   templateFactory: { moduleName: string; exportName: string };
   program: NodePath<t.Program>;
@@ -114,14 +159,7 @@ export function makePlugin<EnvSpecificOptions>(loadOptions: (opts: EnvSpecificOp
       visitor: {
         Program: {
           enter(path: NodePath<t.Program>, state: State<EnvSpecificOptions>) {
-            state.normalizedOpts = {
-              targetFormat: 'wire',
-              outputModuleOverrides: {},
-              enableLegacyModules: [],
-              transforms: [],
-              ...loadOptions(state.opts),
-            };
-
+            state.normalizedOpts = normalizeOpts(loadOptions(state.opts));
             state.templateFactory = templateFactoryConfig(state.normalizedOpts);
             state.util = new ImportUtil(t, path);
             state.program = path;
@@ -164,7 +202,16 @@ export function makePlugin<EnvSpecificOptions>(loadOptions: (opts: EnvSpecificOp
 
           let template = path.node.quasi.quasis.map((quasi) => quasi.value.cooked).join('');
           if (state.normalizedOpts.targetFormat === 'wire') {
-            insertCompiledTemplate(babel, state, template, path, {}, config, undefined);
+            insertCompiledTemplate(
+              babel,
+              state,
+              state.normalizedOpts,
+              template,
+              path,
+              {},
+              config,
+              undefined
+            );
           } else {
             insertTransformedTemplate(babel, state, template, path, {}, config, undefined);
           }
@@ -247,6 +294,7 @@ export function makePlugin<EnvSpecificOptions>(loadOptions: (opts: EnvSpecificOp
             insertCompiledTemplate(
               babel,
               state,
+              state.normalizedOpts,
               template,
               path,
               userTypedOptions,
@@ -347,7 +395,10 @@ function buildPrecompileOptions<EnvSpecificOptions>(
 
   let output: PreprocessOptions & Record<string, unknown> = {
     contents: template,
-    meta,
+
+    // we've extended meta to add jsutils, but the types in @glimmer/syntax
+    // don't account for extension
+    meta: meta as PreprocessOptions['meta'],
 
     // TODO: embroider's template-compiler allows this to be overriden to get
     // backward-compatible module names that don't match the real name of the
@@ -360,7 +411,9 @@ function buildPrecompileOptions<EnvSpecificOptions>(
     filename: state.filename,
 
     plugins: {
-      ast: state.normalizedOpts.transforms,
+      // the cast is needed here only because our meta is extended. That is,
+      // these plugins can access meta.jsutils.
+      ast: state.normalizedOpts.transforms as ASTPluginBuilder[],
     },
   };
 
@@ -402,6 +455,7 @@ function remapIdentifiers(ast: Babel.types.File, babel: typeof Babel, scopeLocal
 function insertCompiledTemplate<EnvSpecificOptions>(
   babel: typeof Babel,
   state: State<EnvSpecificOptions>,
+  opts: WireOpts,
   template: string,
   target: NodePath<t.Expression>,
   userTypedOptions: Record<string, unknown>,
@@ -425,13 +479,13 @@ function insertCompiledTemplate<EnvSpecificOptions>(
   // insertRuntimeErrors is legacy and not supported by the newer rfc931 form
   if (options.insertRuntimeErrors && !config.rfc931Support) {
     try {
-      precompileResultString = state.normalizedOpts.compiler.precompile(template, options);
+      precompileResultString = opts.compiler.precompile(template, options);
     } catch (error) {
       target.replaceWith(runtimeErrorIIFE(babel, { ERROR_MESSAGE: (error as any).message }));
       return;
     }
   } else {
-    precompileResultString = state.normalizedOpts.compiler.precompile(template, options);
+    precompileResultString = opts.compiler.precompile(template, options);
   }
 
   let precompileResultAST = babel.parse(`var precompileResult = ${precompileResultString}; `, {
@@ -495,8 +549,8 @@ function insertTransformedTemplate<EnvSpecificOptions>(
     formatOptions,
     scopeLocals
   );
-  let ast = state.normalizedOpts.compiler._preprocess(template, { ...options, mode: 'codemod' });
-  let transformed = state.normalizedOpts.compiler._print(ast, { entityEncoding: 'raw' });
+  let ast = preprocess(template, { ...options, mode: 'codemod' });
+  let transformed = print(ast, { entityEncoding: 'raw' });
   if (target.isCallExpression()) {
     (target.get('arguments.0') as NodePath<t.Node>).replaceWith(t.stringLiteral(transformed));
     if (!scopeLocals.isEmpty()) {
@@ -547,7 +601,7 @@ function insertTransformedTemplate<EnvSpecificOptions>(
   }
 }
 
-function templateFactoryConfig(opts: Required<Options>) {
+function templateFactoryConfig(opts: NormalizedOpts) {
   let moduleName = '@ember/template-factory';
   let exportName = 'createTemplateFactory';
   let overrides = opts.outputModuleOverrides[moduleName]?.[exportName];
