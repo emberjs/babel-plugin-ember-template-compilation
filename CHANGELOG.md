@@ -3,6 +3,18 @@
 
 
 
+
+## v2.2.0 (2023-08-03)
+
+#### :rocket: Enhancement
+* [#28](https://github.com/emberjs/babel-plugin-ember-template-compilation/pull/28) Don't require compiler when targetFormat='hbs' ([@ef4](https://github.com/ef4))
+
+#### :house: Internal
+* [#29](https://github.com/emberjs/babel-plugin-ember-template-compilation/pull/29) rev yarn.lock ([@ef4](https://github.com/ef4))
+
+#### Committers: 1
+- Edward Faulkner ([@ef4](https://github.com/ef4))
+
 ## v2.1.1 (2023-07-15)
 
 #### :house: Internal
