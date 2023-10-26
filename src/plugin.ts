@@ -1,4 +1,4 @@
-import type { NodePath } from '@babel/traverse';
+import { NodePath } from '@babel/traverse';
 import type * as Babel from '@babel/core';
 import type { types as t } from '@babel/core';
 import { ImportUtil } from 'babel-import-util';
@@ -156,6 +156,36 @@ export function makePlugin<EnvSpecificOptions>(loadOptions: (opts: EnvSpecificOp
     let t = babel.types;
 
     return {
+      pre(state) {
+        const imports = state.ast.program.body.filter(
+          (b) => b.type === 'ImportDeclaration'
+        ) as t.ImportDeclaration[];
+        const templateCompilerImport = imports.find(
+          (i) => i.source.value === '@ember/template-compiler'
+        );
+
+        if (templateCompilerImport) {
+          const program = NodePath.get({
+            hub: state.hub,
+            key: 'program',
+            parent: state.ast,
+            parentPath: null,
+            container: state.ast,
+          });
+          const p = program.get('body');
+          for (const i of imports) {
+            const idx = state.ast.program.body.indexOf(i);
+            const impNodePath = p[idx] as NodePath<t.ImportDeclaration>;
+            const specifiers = impNodePath.get('specifiers');
+            for (const specifier of specifiers) {
+              const local = specifier.get('local');
+              if (!state.scope.getBinding(local.node.name)?.referencePaths.length) {
+                state.scope.getBinding(local.node.name)?.referencePaths.push(program);
+              }
+            }
+          }
+        }
+      },
       visitor: {
         Program: {
           enter(path: NodePath<t.Program>, state: State<EnvSpecificOptions>) {
