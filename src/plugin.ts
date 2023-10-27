@@ -176,8 +176,8 @@ export function makePlugin<EnvSpecificOptions>(loadOptions: (opts: EnvSpecificOp
             const specifiers = i.specifiers;
             for (const specifier of specifiers) {
               const local = specifier.local;
-              if (!state.scope.getBinding(local.node.name)?.referencePaths.length) {
-                state.scope.getBinding(local.node.name)?.referencePaths.push(program);
+              if (!state.scope.getBinding(local.name)?.referencePaths.length) {
+                state.scope.getBinding(local.name)?.referencePaths.push(program);
               }
             }
           }
