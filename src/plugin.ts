@@ -172,13 +172,10 @@ export function makePlugin<EnvSpecificOptions>(loadOptions: (opts: EnvSpecificOp
             parentPath: null,
             container: state.ast,
           });
-          const p = program.get('body');
           for (const i of imports) {
-            const idx = state.ast.program.body.indexOf(i);
-            const impNodePath = p[idx] as NodePath<t.ImportDeclaration>;
-            const specifiers = impNodePath.get('specifiers');
+            const specifiers = i.specifiers;
             for (const specifier of specifiers) {
-              const local = specifier.get('local');
+              const local = specifier.local;
               if (!state.scope.getBinding(local.node.name)?.referencePaths.length) {
                 state.scope.getBinding(local.node.name)?.referencePaths.push(program);
               }
