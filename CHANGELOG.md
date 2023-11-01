@@ -4,6 +4,16 @@
 
 
 
+
+## v2.2.1 (2023-11-01)
+
+#### :bug: Bug Fix
+* [#32](https://github.com/emberjs/babel-plugin-ember-template-compilation/pull/32) Preserve used imports when interoperating with transform-typescript ([@patricklx](https://github.com/patricklx), [@ef4](https://github.com/ef4))
+
+#### Committers: 1
+- Edward Faulkner ([@ef4](https://github.com/ef4))
+- Patrick Pircher ([@patricklx](https://github.com/patricklx))
+
 ## v2.2.0 (2023-08-03)
 
 #### :rocket: Enhancement
