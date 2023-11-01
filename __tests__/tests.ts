@@ -4,6 +4,8 @@ import HTMLBarsInlinePrecompile, { Options } from '..';
 import TransformTemplateLiterals from '@babel/plugin-transform-template-literals';
 import TransformModules from '@babel/plugin-transform-modules-amd';
 import TransformUnicodeEscapes from '@babel/plugin-transform-unicode-escapes';
+// @ts-expect-error no upstream types
+import TransformTypescript from '@babel/plugin-transform-typescript';
 import { stripIndent } from 'common-tags';
 import { EmberTemplateCompiler } from '../src/ember-template-compiler';
 import sinon from 'sinon';
@@ -1778,6 +1780,109 @@ describe('htmlbars-inline-precompile', function () {
           ),
            templateOnly()
         );
+      `);
+    });
+
+    it('interoperates correctly with @babel/plugin-transform-typescript when handling locals with hbs target', function () {
+      plugins = [
+        [
+          HTMLBarsInlinePrecompile,
+          {
+            compiler,
+            targetFormat: 'hbs',
+          },
+        ],
+        TransformTypescript,
+      ];
+
+      let transformed = transform(
+        `import { template } from '@ember/template-compiler'; 
+         import HelloWorld from 'somewhere';
+         export default template('<HelloWorld />', { eval: function() { return eval(arguments[0]) } })
+        `
+      );
+
+      expect(transformed).toEqualCode(`
+        import HelloWorld from "somewhere";
+        import { precompileTemplate } from "@ember/template-compilation";
+        import { setComponentTemplate } from "@ember/component";
+        import templateOnly from "@ember/component/template-only";
+        export default setComponentTemplate(precompileTemplate('<HelloWorld />', { scope: () => ({ HelloWorld }), strictMode: true }), templateOnly());
+      `);
+    });
+
+    it('respects local priority when inter-operating with @babel/plugin-transform-typescript', function () {
+      plugins = [
+        [
+          HTMLBarsInlinePrecompile,
+          {
+            compiler,
+            targetFormat: 'hbs',
+          },
+        ],
+        TransformTypescript,
+      ];
+
+      let transformed = transform(
+        `import { template } from '@ember/template-compiler'; 
+         import HelloWorld from 'somewhere';
+         export default function() { 
+          let { HelloWorld } = globalThis;
+          return template('<HelloWorld />', { eval: function() { return eval(arguments[0]) } })
+         }
+        `
+      );
+
+      expect(transformed).toEqualCode(`
+        import { precompileTemplate } from "@ember/template-compilation";
+        import { setComponentTemplate } from "@ember/component";
+        import templateOnly from "@ember/component/template-only";
+        export default function() {
+          let { HelloWorld } = globalThis;
+          return setComponentTemplate(precompileTemplate('<HelloWorld />', { scope: () => ({ HelloWorld }), strictMode: true }), templateOnly());
+        }
+      `);
+    });
+
+    it('interoperates correctly with @babel/plugin-transform-typescript when handling locals with wire target', function () {
+      plugins = [
+        [
+          HTMLBarsInlinePrecompile,
+          {
+            compiler,
+            targetFormat: 'wire',
+          },
+        ],
+        TransformTypescript,
+      ];
+
+      let transformed = transform(
+        `import { template } from '@ember/template-compiler'; 
+         import HelloWorld from 'somewhere';
+         export default template('<HelloWorld />', { eval: function() { return eval(arguments[0]) } })
+        `
+      );
+
+      expect(normalizeWireFormat(transformed)).toEqualCode(`
+    import HelloWorld from 'somewhere';
+    import { createTemplateFactory } from "@ember/template-factory";
+    import { setComponentTemplate } from "@ember/component";
+    import templateOnly from "@ember/component/template-only";
+    export default setComponentTemplate(
+      createTemplateFactory(
+        /*
+          <HelloWorld />
+       */
+        {
+          id: "<id>",
+          block: "[[[8,[32,0],null,null,null]],[],false,[]]",
+          moduleName: "<moduleName>",
+          scope: () => [HelloWorld],
+          isStrictMode: true,
+        }
+      ),
+      templateOnly()
+    );
       `);
     });
   });

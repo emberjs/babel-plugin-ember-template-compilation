@@ -36,6 +36,8 @@ export class ScopeLocals {
 
   add(key: string, value?: string) {
     this.#mapping[key] = value ?? key;
-    this.#locals.push(key);
+    if (!this.#locals.includes(key)) {
+      this.#locals.push(key);
+    }
   }
 }
