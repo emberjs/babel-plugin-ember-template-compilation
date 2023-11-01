@@ -1811,6 +1811,39 @@ describe('htmlbars-inline-precompile', function () {
       `);
     });
 
+    it('respects local priority when inter-operating with @babel/plugin-transform-typescript', function () {
+      plugins = [
+        [
+          HTMLBarsInlinePrecompile,
+          {
+            compiler,
+            targetFormat: 'hbs',
+          },
+        ],
+        TransformTypescript,
+      ];
+
+      let transformed = transform(
+        `import { template } from '@ember/template-compiler'; 
+         import HelloWorld from 'somewhere';
+         export default function() { 
+          let { HelloWorld } = globalThis;
+          return template('<HelloWorld />', { eval: function() { return eval(arguments[0]) } })
+         }
+        `
+      );
+
+      expect(transformed).toEqualCode(`
+        import { precompileTemplate } from "@ember/template-compilation";
+        import { setComponentTemplate } from "@ember/component";
+        import templateOnly from "@ember/component/template-only";
+        export default function() {
+          let { HelloWorld } = globalThis;
+          return setComponentTemplate(precompileTemplate('<HelloWorld />', { scope: () => ({ HelloWorld }), strictMode: true }), templateOnly());
+        }
+      `);
+    });
+
     it('interoperates correctly with @babel/plugin-transform-typescript when handling locals with wire target', function () {
       plugins = [
         [
