@@ -156,7 +156,7 @@ export function makePlugin<EnvSpecificOptions>(loadOptions: (opts: EnvSpecificOp
   ): Babel.PluginObj<State<EnvSpecificOptions>> {
     let t = babel.types;
 
-    return {
+    const plugin = {
       pre(this: State<EnvSpecificOptions>, file) {
         // Remember the available set of imported names very early here in <pre>
         // so that when other plugins (particularly
@@ -175,6 +175,14 @@ export function makePlugin<EnvSpecificOptions>(loadOptions: (opts: EnvSpecificOp
             }
           }
         }
+
+        // run out processing in pre so that imports for gts
+        // are kept for other plugina.
+        // also use hbs format, so that other plugins can change the hbs part.
+        const targetFormat = this.opts.targetFormat;
+        this.opts.targetFormat = 'hbs';
+        babel.traverse(file.ast, plugin.visitor);
+        this.opts.targetFormat = this.opts.targetFormat;
       },
       visitor: {
         Program: {
@@ -335,6 +343,7 @@ export function makePlugin<EnvSpecificOptions>(loadOptions: (opts: EnvSpecificOp
         },
       },
     };
+    return plugin;
   } as (babel: typeof Babel) => Babel.PluginObj<unknown>;
 }
 
