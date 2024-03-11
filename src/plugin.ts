@@ -157,33 +157,6 @@ export function makePlugin<EnvSpecificOptions>(loadOptions: (opts: EnvSpecificOp
     let t = babel.types;
 
     const plugin = {
-      pre(this: State<EnvSpecificOptions>, file) {
-        // Remember the available set of imported names very early here in <pre>
-        // so that when other plugins (particularly
-        // @babel/plugin-transform-typescript) drop "unused" imports in their
-        // own Program.enter we still know about them. If we want to use them
-        // from inside a template, they weren't really unused and we can ensure
-        // they continue to exist.
-        this.originalImportedNames = new Map();
-        for (let statement of file.ast.program.body) {
-          if (statement.type === 'ImportDeclaration') {
-            for (let specifier of statement.specifiers) {
-              this.originalImportedNames.set(specifier.local.name, [
-                statement.source.value,
-                importedName(specifier),
-              ]);
-            }
-          }
-        }
-
-        // run out processing in pre so that imports for gts
-        // are kept for other plugina.
-        // also use hbs format, so that other plugins can change the hbs part.
-        const targetFormat = this.opts.targetFormat;
-        this.opts.targetFormat = 'hbs';
-        babel.traverse(file.ast, plugin.visitor);
-        this.opts.targetFormat = this.opts.targetFormat;
-      },
       visitor: {
         Program: {
           enter(path: NodePath<t.Program>, state: State<EnvSpecificOptions>) {
@@ -200,6 +173,15 @@ export function makePlugin<EnvSpecificOptions>(loadOptions: (opts: EnvSpecificOp
               }
             }
           },
+        },
+
+        Identifier(path: NodePath<t.Identifier>) {
+          if (path.node.name) {
+            const binding = path.scope.getBinding(path.node.name);
+            if (binding && binding.path.node !== path.parent) {
+              binding.reference(path);
+            }
+          }
         },
 
         TaggedTemplateExpression(
@@ -343,7 +325,33 @@ export function makePlugin<EnvSpecificOptions>(loadOptions: (opts: EnvSpecificOp
         },
       },
     };
-    return plugin;
+
+    return {
+      pre(this: State<EnvSpecificOptions>, file) {
+        // Remember the available set of imported names very early here in <pre>
+        // so that when other plugins (particularly
+        // @babel/plugin-transform-typescript) drop "unused" imports in their
+        // own Program.enter we still know about them. If we want to use them
+        // from inside a template, they weren't really unused and we can ensure
+        // they continue to exist.
+        this.originalImportedNames = new Map();
+        for (let statement of file.ast.program.body) {
+          if (statement.type === 'ImportDeclaration') {
+            for (let specifier of statement.specifiers) {
+              this.originalImportedNames.set(specifier.local.name, [
+                statement.source.value,
+                importedName(specifier),
+              ]);
+            }
+          }
+        }
+
+        // run our processing in pre so that imports for gts
+        // are kept for other plugins.
+        babel.traverse(file.ast, plugin.visitor, file.scope, this);
+      },
+      visitor: {},
+    };
   } as (babel: typeof Babel) => Babel.PluginObj<unknown>;
 }
 
