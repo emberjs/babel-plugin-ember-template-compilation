@@ -14,10 +14,6 @@ export class ScopeLocals {
     return this.#locals;
   }
 
-  get mapping() {
-    return this.#mapping;
-  }
-
   has(key: string): boolean {
     return key in this.#mapping;
   }
@@ -42,14 +38,6 @@ export class ScopeLocals {
     this.#mapping[key] = value ?? key;
     if (!this.#locals.includes(key)) {
       this.#locals.push(key);
-    }
-  }
-
-  remove(key: string) {
-    delete this.#mapping[key];
-    const i = this.#locals.indexOf(key);
-    if (i >= 0) {
-      this.#locals.splice(i, 1);
     }
   }
 }
