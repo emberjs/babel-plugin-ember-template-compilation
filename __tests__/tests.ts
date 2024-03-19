@@ -421,7 +421,7 @@ describe('htmlbars-inline-precompile', function () {
     );
 
     expect(transformed).toEqualCode(`
-      define(["@ember/template-compilation", "@ember/template-factory"], function (_templateCompilation, _templateFactory) {
+      define(["@ember/template-factory"], function (_templateFactory) {
         "use strict";
 
         var compiled = (0, _templateFactory.createTemplateFactory)(

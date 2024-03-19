@@ -147,7 +147,6 @@ interface State<EnvSpecificOptions> {
   lastInsertedPath: NodePath<t.Statement> | undefined;
   filename: string;
   recursionGuard: Set<unknown>;
-  originalImportedNames: Map<string, [string, string]>;
 }
 
 export function makePlugin<EnvSpecificOptions>(loadOptions: (opts: EnvSpecificOptions) => Options) {
@@ -156,26 +155,7 @@ export function makePlugin<EnvSpecificOptions>(loadOptions: (opts: EnvSpecificOp
   ): Babel.PluginObj<State<EnvSpecificOptions>> {
     let t = babel.types;
 
-    return {
-      pre(this: State<EnvSpecificOptions>, file) {
-        // Remember the available set of imported names very early here in <pre>
-        // so that when other plugins (particularly
-        // @babel/plugin-transform-typescript) drop "unused" imports in their
-        // own Program.enter we still know about them. If we want to use them
-        // from inside a template, they weren't really unused and we can ensure
-        // they continue to exist.
-        this.originalImportedNames = new Map();
-        for (let statement of file.ast.program.body) {
-          if (statement.type === 'ImportDeclaration') {
-            for (let specifier of statement.specifiers) {
-              this.originalImportedNames.set(specifier.local.name, [
-                statement.source.value,
-                importedName(specifier),
-              ]);
-            }
-          }
-        }
-      },
+    const plugin = {
       visitor: {
         Program: {
           enter(path: NodePath<t.Program>, state: State<EnvSpecificOptions>) {
@@ -192,6 +172,15 @@ export function makePlugin<EnvSpecificOptions>(loadOptions: (opts: EnvSpecificOp
               }
             }
           },
+        },
+
+        Identifier(path: NodePath<t.Identifier>) {
+          if (path.node.name) {
+            const binding = path.scope.getBinding(path.node.name);
+            if (binding && binding.path.node !== path.parent) {
+              binding.reference(path);
+            }
+          }
         },
 
         TaggedTemplateExpression(
@@ -334,6 +323,15 @@ export function makePlugin<EnvSpecificOptions>(loadOptions: (opts: EnvSpecificOp
           }
         },
       },
+    };
+
+    return {
+      pre(this: State<EnvSpecificOptions>, file) {
+        // run our processing in pre so that imports for gts
+        // are kept for other plugins.
+        babel.traverse(file.ast, plugin.visitor, file.scope, this);
+      },
+      visitor: {},
     };
   } as (babel: typeof Babel) => Babel.PluginObj<unknown>;
 }
@@ -513,7 +511,6 @@ function insertCompiledTemplate<EnvSpecificOptions>(
     configFile: false,
   }) as t.File;
 
-  ensureImportedNames(target, scopeLocals, state.util, state.originalImportedNames);
   remapIdentifiers(precompileResultAST, babel, scopeLocals);
 
   let templateExpression = (precompileResultAST.program.body[0] as t.VariableDeclaration)
@@ -579,7 +576,6 @@ function insertTransformedTemplate<EnvSpecificOptions>(
         maybePruneImport(state.util, target.get('callee'));
         target.set('callee', precompileTemplate(state.util, target));
       }
-      ensureImportedNames(target, scopeLocals, state.util, state.originalImportedNames);
       updateScope(babel, target, scopeLocals);
     }
 
@@ -614,7 +610,6 @@ function insertTransformedTemplate<EnvSpecificOptions>(
       let newCall = target.replaceWith(
         t.callExpression(precompileTemplate(state.util, target), [t.stringLiteral(transformed)])
       )[0];
-      ensureImportedNames(newCall, scopeLocals, state.util, state.originalImportedNames);
       updateScope(babel, newCall, scopeLocals);
     } else {
       (target.get('quasi').get('quasis.0') as NodePath<t.TemplateElement>).replaceWith(
@@ -749,33 +744,6 @@ function name(node: t.StringLiteral | t.Identifier) {
     return node.value;
   } else {
     return node.name;
-  }
-}
-
-function ensureImportedNames(
-  target: NodePath<t.Node>,
-  scopeLocals: ScopeLocals,
-  util: ImportUtil,
-  originalImportedNames: Map<string, [string, string]>
-) {
-  for (let [nameInTemplate, identifier] of scopeLocals.entries()) {
-    if (!target.scope.getBinding(identifier)) {
-      let available = originalImportedNames.get(identifier);
-      if (available) {
-        let newIdent = util.import(target, available[0], available[1], identifier);
-        scopeLocals.add(nameInTemplate, newIdent.name);
-      }
-    }
-  }
-}
-
-function importedName(node: t.ImportDeclaration['specifiers'][number]): string {
-  if (node.type === 'ImportDefaultSpecifier') {
-    return 'default';
-  } else if (node.type === 'ImportNamespaceSpecifier') {
-    return '*';
-  } else {
-    return name(node.imported);
   }
 }
 
