@@ -7,7 +7,13 @@ import { JSUtils, ExtendedPluginBuilder } from './js-utils';
 import type { EmberTemplateCompiler, PreprocessOptions } from './ember-template-compiler';
 import { LegacyModuleName } from './public-types';
 import { ScopeLocals } from './scope-locals';
-import { ASTPluginBuilder, getTemplateLocals, preprocess, print } from '@glimmer/syntax';
+import {
+  ASTPluginBuilder,
+  ASTPluginEnvironment,
+  NodeVisitor,
+  preprocess,
+  print,
+} from '@glimmer/syntax';
 
 export * from './public-types';
 
@@ -372,11 +378,10 @@ function runtimeErrorIIFE(babel: typeof Babel, replacements: { ERROR_MESSAGE: st
 
 function buildScopeLocals(
   userTypedOptions: Record<string, unknown>,
-  formatOptions: ModuleConfig,
-  templateContent: string
+  formatOptions: ModuleConfig
 ): ScopeLocals {
   if (formatOptions.rfc931Support && userTypedOptions.eval) {
-    return discoverLocals(templateContent);
+    return new ScopeLocals();
   } else if (userTypedOptions.scope) {
     return userTypedOptions.scope as ScopeLocals;
   } else {
@@ -384,21 +389,69 @@ function buildScopeLocals(
   }
 }
 
-function discoverLocals(templateContent: string): ScopeLocals {
-  // this is wrong, but the right thing is unreleased in
-  // https://github.com/glimmerjs/glimmer-vm/pull/1421, so for the moment I'm
-  // sticking with the exact behavior that ember-templates-imports has.
-  //
-  // (the reason it's wrong is that the correct answer depends on not just the
-  // template, but the ambient javascript scope. Anything in locals needs to win
-  // over ember keywords. Otherwise we can never introduce new keywords.)
-  let scopeLocals = new ScopeLocals();
-  for (let local of getTemplateLocals(templateContent)) {
-    if (local.match(/^[$A-Z_][0-9A-Z_$]*$/i)) {
-      scopeLocals.add(local);
-    }
+function discoverLocals<EnvSpecificOptions>(
+  jsPath: NodePath<t.Expression>,
+  state: State<EnvSpecificOptions>,
+  locals: string[],
+  scope: ScopeLocals
+) {
+  function add(name: string) {
+    if (locals.includes(name)) return;
+    locals.push(name);
   }
-  return scopeLocals;
+
+  let astScope: string[] = [];
+  function isInScope(name: string) {
+    return astScope.flat().includes(name);
+  }
+
+  function isInJsScope(name: string) {
+    if (jsPath.scope.getBinding(name)) return true;
+    if (['this', 'globalThis'].includes(name)) return true;
+    if (scope.locals.includes(name)) return true;
+    if (state.originalImportedNames.has(name)) {
+      return true;
+    }
+    return false;
+  }
+
+  return (_env: ASTPluginEnvironment): { name: string; visitor: NodeVisitor } => {
+    return {
+      name: 'discover-locals',
+      visitor: {
+        All: {
+          enter(_node, path) {
+            const blockParams = (path.parentNode as any)?.blockParams;
+            if (blockParams && ['children', 'body'].includes(path.parentKey!)) {
+              astScope.push(blockParams);
+            }
+          },
+          exit(_node, path) {
+            const blockParams = (path.parentNode as any)?.blockParams;
+            if (blockParams && ['children', 'body'].includes(path.parentKey!)) {
+              const i = astScope.indexOf(blockParams);
+              astScope.splice(i, 1);
+            }
+          },
+        },
+        PathExpression(node) {
+          if (
+            node.head.type === 'VarHead' &&
+            !isInScope(node.head.name) &&
+            isInJsScope(node.head.name)
+          ) {
+            add(node.head.name);
+          }
+        },
+        ElementNode(node) {
+          const name = node.tag.split('.')[0];
+          if (!isInScope(name) && isInJsScope(name)) {
+            add(name);
+          }
+        },
+      },
+    };
+  };
 }
 
 function buildPrecompileOptions<EnvSpecificOptions>(
@@ -437,6 +490,9 @@ function buildPrecompileOptions<EnvSpecificOptions>(
     },
   };
 
+  const locals: string[] = [];
+  output.plugins?.ast?.push(discoverLocals(target, state, locals, scope));
+
   for (let [key, value] of Object.entries(userTypedOptions)) {
     if (key !== 'scope') {
       // `scope` in the user-facing API becomes `locals` in the low-level
@@ -445,7 +501,7 @@ function buildPrecompileOptions<EnvSpecificOptions>(
     }
   }
 
-  output.locals = scope.locals;
+  output.locals = locals;
 
   if (config.rfc931Support) {
     output.strictMode = true;
@@ -483,7 +539,7 @@ function insertCompiledTemplate<EnvSpecificOptions>(
   backingClass: NodePath<Parameters<typeof t.callExpression>[1][number]> | undefined
 ) {
   let t = babel.types;
-  let scopeLocals = buildScopeLocals(userTypedOptions, config, template);
+  let scopeLocals = buildScopeLocals(userTypedOptions, config);
   let options = buildPrecompileOptions(
     babel,
     target,
@@ -513,6 +569,8 @@ function insertCompiledTemplate<EnvSpecificOptions>(
     configFile: false,
   }) as t.File;
 
+  scopeLocals.locals.length = 0;
+  scopeLocals.locals.push(...options.locals!);
   ensureImportedNames(target, scopeLocals, state.util, state.originalImportedNames);
   remapIdentifiers(precompileResultAST, babel, scopeLocals);
 
@@ -560,7 +618,7 @@ function insertTransformedTemplate<EnvSpecificOptions>(
   backingClass: NodePath<Parameters<typeof t.callExpression>[1][number]> | undefined
 ) {
   let t = babel.types;
-  let scopeLocals = buildScopeLocals(userTypedOptions, formatOptions, template);
+  let scopeLocals = buildScopeLocals(userTypedOptions, formatOptions);
   let options = buildPrecompileOptions(
     babel,
     target,
@@ -574,14 +632,14 @@ function insertTransformedTemplate<EnvSpecificOptions>(
   let transformed = print(ast, { entityEncoding: 'raw' });
   if (target.isCallExpression()) {
     (target.get('arguments.0') as NodePath<t.Node>).replaceWith(t.stringLiteral(transformed));
-    if (!scopeLocals.isEmpty()) {
-      if (!formatOptions.enableScope) {
-        maybePruneImport(state.util, target.get('callee'));
-        target.set('callee', precompileTemplate(state.util, target));
-      }
-      ensureImportedNames(target, scopeLocals, state.util, state.originalImportedNames);
-      updateScope(babel, target, scopeLocals);
+    if (!formatOptions.enableScope) {
+      maybePruneImport(state.util, target.get('callee'));
+      target.set('callee', precompileTemplate(state.util, target));
     }
+    scopeLocals.locals.length = 0;
+    scopeLocals.locals.push(...options.locals!);
+    ensureImportedNames(target, scopeLocals, state.util, state.originalImportedNames);
+    updateScope(babel, target, scopeLocals);
 
     if (formatOptions.rfc931Support === 'polyfilled') {
       maybePruneImport(state.util, target.get('callee'));
@@ -615,6 +673,8 @@ function insertTransformedTemplate<EnvSpecificOptions>(
         t.callExpression(precompileTemplate(state.util, target), [t.stringLiteral(transformed)])
       )[0];
       ensureImportedNames(newCall, scopeLocals, state.util, state.originalImportedNames);
+      scopeLocals.locals.length = 0;
+      scopeLocals.locals.push(...options.locals!);
       updateScope(babel, newCall, scopeLocals);
     } else {
       (target.get('quasi').get('quasis.0') as NodePath<t.TemplateElement>).replaceWith(
@@ -635,6 +695,7 @@ function templateFactoryConfig(opts: NormalizedOpts) {
 
 function buildScope(babel: typeof Babel, locals: ScopeLocals) {
   let t = babel.types;
+
   return t.arrowFunctionExpression(
     [],
     t.objectExpression(
@@ -656,13 +717,16 @@ function updateScope(babel: typeof Babel, target: NodePath<t.CallExpression>, lo
     });
     if (scope) {
       scope.set('value', buildScope(babel, locals));
-    } else {
+      if (locals.isEmpty()) {
+        scope.remove();
+      }
+    } else if (!locals.isEmpty()) {
       secondArg.pushContainer(
         'properties',
         t.objectProperty(t.identifier('scope'), buildScope(babel, locals))
       );
     }
-  } else {
+  } else if (!locals.isEmpty()) {
     target.pushContainer(
       'arguments',
       t.objectExpression([t.objectProperty(t.identifier('scope'), buildScope(babel, locals))])

@@ -8,7 +8,6 @@
   "scripts": {
     "prepare": "tsc",
     "build": "tsc",
-    "pretest": "tsc",
     "lint": "eslint --cache --ext .ts .",
     "test": "jest",
     "clean": "git clean -d -f -x src __tests__"

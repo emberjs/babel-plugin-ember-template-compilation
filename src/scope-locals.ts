@@ -31,7 +31,15 @@ export class ScopeLocals {
   }
 
   entries() {
-    return Object.entries(this.#mapping);
+    let mapping: Record<string, string> = {};
+    this.locals.forEach((name) => {
+      mapping[name] = this.mapping[name] || name;
+    });
+    return Object.entries(mapping);
+  }
+
+  get mapping() {
+    return this.#mapping;
   }
 
   add(key: string, value?: string) {
