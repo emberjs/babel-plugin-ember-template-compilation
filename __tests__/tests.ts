@@ -1115,6 +1115,7 @@ describe('htmlbars-inline-precompile', function () {
         const template = precompileTemplate("<Message @text={{two}} />", {
           moduleName: 'customModuleName',
           scope: () => ({
+            Message,
             two
           })
         });
@@ -1529,7 +1530,7 @@ describe('htmlbars-inline-precompile', function () {
 
   describe('scope', function () {
     it('correctly handles scope function (non-block arrow function)', function () {
-      let source = 'hello';
+      let source = '<foo /><bar/>';
       let spy = sinon.spy(compiler, 'precompile');
 
       transform(
@@ -1539,7 +1540,7 @@ describe('htmlbars-inline-precompile', function () {
     });
 
     it('correctly handles scope function (block arrow function)', function () {
-      let source = 'hello';
+      let source = '<foo /><bar/>';
       let spy = sinon.spy(compiler, 'precompile');
 
       transform(
@@ -1550,7 +1551,7 @@ describe('htmlbars-inline-precompile', function () {
     });
 
     it('correctly handles scope function (normal function)', function () {
-      let source = 'hello';
+      let source = '<foo /><bar/>';
       let spy = sinon.spy(compiler, 'precompile');
 
       transform(
@@ -1561,7 +1562,7 @@ describe('htmlbars-inline-precompile', function () {
     });
 
     it('correctly handles scope function (object method)', function () {
-      let source = 'hello';
+      let source = '<foo /><bar/>';
       let spy = sinon.spy(compiler, 'precompile');
 
       transform(
@@ -1571,7 +1572,7 @@ describe('htmlbars-inline-precompile', function () {
     });
 
     it('correctly handles scope function with coverage', function () {
-      let source = 'hello';
+      let source = '<foo /><bar/>';
       let spy = sinon.spy(compiler, 'precompile');
 
       transform(
@@ -1662,7 +1663,7 @@ describe('htmlbars-inline-precompile', function () {
     // whether you've (for example) capitalized your variable identifier.
     //
     // needs https://github.com/glimmerjs/glimmer-vm/pull/1421
-    it.skip('shadows html elements with locals', function () {
+    it('shadows html elements with locals', function () {
       plugins = [
         [
           HTMLBarsInlinePrecompile,
@@ -1681,9 +1682,9 @@ describe('htmlbars-inline-precompile', function () {
       );
 
       expect(transformed).toEqualCode(`
-        import templateOnly from "@ember/component/template-only";
-        import { setComponentTemplate } from "@ember/component";
         import { precompileTemplate } from "@ember/template-compilation";
+        import { setComponentTemplate } from "@ember/component";
+        import templateOnly from "@ember/component/template-only";
         let div = 1;
         export default setComponentTemplate(precompileTemplate('<div></div>', { scope: () => ({ div }), strictMode: true }), templateOnly());
       `);
@@ -1717,7 +1718,7 @@ describe('htmlbars-inline-precompile', function () {
     });
 
     // needs https://github.com/glimmerjs/glimmer-vm/pull/1421
-    it.skip('leaves ember keywords alone when no local is defined', function () {
+    it('leaves ember keywords alone when no local is defined', function () {
       plugins = [
         [
           HTMLBarsInlinePrecompile,
@@ -1735,9 +1736,9 @@ describe('htmlbars-inline-precompile', function () {
       );
 
       expect(transformed).toEqualCode(`
-        import templateOnly from "@ember/component/template-only";
-        import { setComponentTemplate } from "@ember/component";
         import { precompileTemplate } from "@ember/template-compilation";
+        import { setComponentTemplate } from "@ember/component";
+        import templateOnly from "@ember/component/template-only";
         export default setComponentTemplate(precompileTemplate('{{hasBlock "thing"}}', { strictMode: true }), templateOnly());
       `);
     });
