@@ -1850,7 +1850,7 @@ describe('htmlbars-inline-precompile', function () {
         name: 'other',
         visitor: {
           ImportSpecifier(path) {
-            imports.push(node.source);
+            imports.push(path.node.source);
           },
         },
       };
@@ -1862,6 +1862,7 @@ describe('htmlbars-inline-precompile', function () {
             targetFormat: 'wire',
           },
         ],
+        otherPlugin,
         TransformTypescript,
       ];
 
