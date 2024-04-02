@@ -1845,6 +1845,15 @@ describe('htmlbars-inline-precompile', function () {
     });
 
     it('interoperates correctly with @babel/plugin-transform-typescript when handling locals with wire target', function () {
+      let imports: string[] = [];
+      let otherPlugin: babel.PluginObj = {
+        name: 'other',
+        visitor: {
+          ImportSpecifier(path) {
+            imports.push(node.source);
+          },
+        },
+      };
       plugins = [
         [
           HTMLBarsInlinePrecompile,
@@ -1862,6 +1871,12 @@ describe('htmlbars-inline-precompile', function () {
          export default template('<HelloWorld />', { eval: function() { return eval(arguments[0]) } })
         `
       );
+
+      expect(imports.length).toEqual(4);
+      expect(imports[0]).toEqual('somewhere');
+      expect(imports[1]).toEqual('@ember/template-factory');
+      expect(imports[2]).toEqual('@ember/component');
+      expect(imports[3]).toEqual('@ember/component/template-only');
 
       expect(normalizeWireFormat(transformed)).toEqualCode(`
     import HelloWorld from 'somewhere';
