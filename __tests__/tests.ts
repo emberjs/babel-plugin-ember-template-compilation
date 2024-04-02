@@ -1850,7 +1850,7 @@ describe('htmlbars-inline-precompile', function () {
         name: 'other',
         visitor: {
           ImportDeclaration(path) {
-            imports.push(path.node.source);
+            imports.push(path.node.source.value);
           },
         },
       };
