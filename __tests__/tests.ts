@@ -1849,7 +1849,7 @@ describe('htmlbars-inline-precompile', function () {
       let otherPlugin: babel.PluginObj = {
         name: 'other',
         visitor: {
-          ImportSpecifier(path) {
+          ImportDeclaration(path) {
             imports.push(path.node.source);
           },
         },
