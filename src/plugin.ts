@@ -398,6 +398,7 @@ function discoverLocals<EnvSpecificOptions>(
   function isInJsScope(name: string) {
     if (jsPath.scope.getBinding(name)) return true;
     if (['this', 'globalThis'].includes(name)) return true;
+    if (scope.mapping[name]) return true;
     if (state.originalImportedNames.has(name)) {
       return true;
     }
@@ -408,6 +409,9 @@ function discoverLocals<EnvSpecificOptions>(
     return {
       name: 'discover-locals',
       visitor: {
+        Template() {
+          scope.locals.length = 0;
+        },
         PathExpression(node, path) {
           if (
             node.head.type === 'VarHead' &&

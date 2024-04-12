@@ -1637,7 +1637,9 @@ describe('htmlbars-inline-precompile', function () {
       let spy = sinon.spy(compiler, 'precompile');
 
       transform(
-        `import { precompileTemplate } from '@ember/template-compilation';\nvar compiled = precompileTemplate('${source}', { scope: () => ({ foo, bar }) });`
+        `
+        let foo, bar;
+        import { precompileTemplate } from '@ember/template-compilation';\nvar compiled = precompileTemplate('${source}', { scope: () => ({ foo, bar }) });`
       );
       expect(spy.firstCall.lastArg).toHaveProperty('locals', ['foo', 'bar']);
     });
@@ -1647,7 +1649,9 @@ describe('htmlbars-inline-precompile', function () {
       let spy = sinon.spy(compiler, 'precompile');
 
       transform(
-        `import { precompileTemplate } from '@ember/template-compilation';\nvar compiled = precompileTemplate('${source}', { scope: () => { return { foo, bar }; }});`
+        `
+        let foo, bar;
+        import { precompileTemplate } from '@ember/template-compilation';\nvar compiled = precompileTemplate('${source}', { scope: () => { return { foo, bar }; }});`
       );
 
       expect(spy.firstCall.lastArg).toHaveProperty('locals', ['foo', 'bar']);
@@ -1658,7 +1662,9 @@ describe('htmlbars-inline-precompile', function () {
       let spy = sinon.spy(compiler, 'precompile');
 
       transform(
-        `import { precompileTemplate } from '@ember/template-compilation';\nvar compiled = precompileTemplate('${source}', { scope: function() { return { foo, bar }; }});`
+        `
+        let foo, bar;
+        import { precompileTemplate } from '@ember/template-compilation';\nvar compiled = precompileTemplate('${source}', { scope: function() { return { foo, bar }; }});`
       );
 
       expect(spy.firstCall.lastArg).toHaveProperty('locals', ['foo', 'bar']);
@@ -1669,7 +1675,9 @@ describe('htmlbars-inline-precompile', function () {
       let spy = sinon.spy(compiler, 'precompile');
 
       transform(
-        `import { precompileTemplate } from '@ember/template-compilation';\nvar compiled = precompileTemplate('${source}', { scope() { return { foo, bar }; }});`
+        `
+        let foo, bar;
+        import { precompileTemplate } from '@ember/template-compilation';\nvar compiled = precompileTemplate('${source}', { scope() { return { foo, bar }; }});`
       );
       expect(spy.firstCall.lastArg).toHaveProperty('locals', ['foo', 'bar']);
     });
@@ -1679,7 +1687,9 @@ describe('htmlbars-inline-precompile', function () {
       let spy = sinon.spy(compiler, 'precompile');
 
       transform(
-        `import { precompileTemplate } from '@ember/template-compilation';\nvar compiled = precompileTemplate('${source}', { scope() { ++cov_2rkfh72wo; return { foo, bar }; }});`
+        `
+        let foo, bar;
+        import { precompileTemplate } from '@ember/template-compilation';\nvar compiled = precompileTemplate('${source}', { scope() { ++cov_2rkfh72wo; return { foo, bar }; }});`
       );
       expect(spy.firstCall.lastArg).toHaveProperty('locals', ['foo', 'bar']);
     });
