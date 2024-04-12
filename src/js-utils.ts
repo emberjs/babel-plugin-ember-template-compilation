@@ -3,7 +3,7 @@ import type * as Babel from '@babel/core';
 import type { NodePath } from '@babel/traverse';
 import type { ASTPluginBuilder, ASTPluginEnvironment, ASTv1, WalkerPath } from '@glimmer/syntax';
 import type { ImportUtil } from 'babel-import-util';
-import { ScopeLocals } from './scope-locals';
+import { astNodeHasBinding } from './hbs-utils';
 
 interface State {
   program: NodePath<Babel.types.Program>;
@@ -16,23 +16,17 @@ export class JSUtils {
   #babel: typeof Babel;
   #state: State;
   #template: NodePath<t.Expression>;
-  #scopeLocals: ScopeLocals;
   #importer: ImportUtil;
 
   constructor(
     babel: typeof Babel,
     state: State,
     template: NodePath<t.Expression>,
-    // mapping of handlebars identifiers to javascript identifiers, as appears
-    // in the `scope` argument to precompileTemplate. This is both read and
-    // write -- we might put more stuff into it.
-    scopeLocals: ScopeLocals,
     importer: ImportUtil
   ) {
     this.#babel = babel;
     this.#state = state;
     this.#template = template;
-    this.#scopeLocals = scopeLocals;
     this.#importer = importer;
 
     if (!this.#state.lastInsertedPath) {
@@ -71,9 +65,7 @@ export class JSUtils {
     let name = unusedNameLike(
       opts?.nameHint ?? 'a',
       (candidate) =>
-        this.#template.scope.hasBinding(candidate) ||
-        this.#scopeLocals.has(candidate) ||
-        astNodeHasBinding(target, candidate)
+        this.#template.scope.hasBinding(candidate) || astNodeHasBinding(target, candidate)
     );
     let t = this.#babel.types;
     let declaration: NodePath<t.VariableDeclaration> = this.#emitStatement(
@@ -84,8 +76,7 @@ export class JSUtils {
         ),
       ])
     );
-    declaration.scope.registerBinding('module', declaration.get('declarations.0') as NodePath);
-    this.#scopeLocals.add(name);
+    declaration.scope.registerBinding('let', declaration.get('declarations.0') as NodePath);
     return name;
   }
 
@@ -130,7 +121,7 @@ export class JSUtils {
     // it's not shadowed at our target location in the template, we can reuse
     // the existing import.
     if (
-      this.#scopeLocals.has(importedIdentifier.name) &&
+      this.#template.scope.hasBinding(importedIdentifier.name) &&
       !astNodeHasBinding(target, importedIdentifier.name)
     ) {
       return importedIdentifier.name;
@@ -138,7 +129,8 @@ export class JSUtils {
 
     let identifier = unusedNameLike(
       importedIdentifier.name,
-      (candidate) => this.#scopeLocals.has(candidate) || astNodeHasBinding(target, candidate)
+      (candidate) =>
+        this.#template.scope.hasBinding(candidate) || astNodeHasBinding(target, candidate)
     );
     if (identifier !== importedIdentifier.name) {
       // The importedIdentifier that we have in Javascript is not usable within
@@ -149,13 +141,13 @@ export class JSUtils {
       // we might be re-using an existing import, and we don't want to go
       // rewriting all of its callsites that are unrelated to us.
       let t = this.#babel.types;
-      this.#emitStatement(
+      let declaration = this.#emitStatement(
         t.variableDeclaration('let', [
           t.variableDeclarator(t.identifier(identifier), importedIdentifier),
         ])
       );
+      declaration.scope.registerBinding('let', declaration.get('declarations.0') as NodePath);
     }
-    this.#scopeLocals.add(identifier);
     return identifier;
   }
 
@@ -221,33 +213,6 @@ function unusedNameLike(desiredName: string, isUsed: (name: string) => boolean):
     candidate = `${desiredName}${counter++}`;
   }
   return candidate;
-}
-
-function astNodeHasBinding(target: WalkerPath<ASTv1.Node>, name: string): boolean {
-  let cursor: WalkerPath<ASTv1.Node> | null = target;
-  while (cursor) {
-    let parentNode = cursor.parent?.node;
-    if (
-      parentNode?.type === 'ElementNode' &&
-      parentNode.blockParams.includes(name) &&
-      // an ElementNode's block params are valid only within its children
-      parentNode.children.includes(cursor.node as ASTv1.Statement)
-    ) {
-      return true;
-    }
-
-    if (
-      parentNode?.type === 'Block' &&
-      parentNode.blockParams.includes(name) &&
-      // a Block's blockParams are valid only within its body
-      parentNode.body.includes(cursor.node as ASTv1.Statement)
-    ) {
-      return true;
-    }
-
-    cursor = cursor.parent;
-  }
-  return false;
 }
 
 /**

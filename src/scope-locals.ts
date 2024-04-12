@@ -31,20 +31,17 @@ export class ScopeLocals {
   }
 
   entries() {
-    let mapping: Record<string, string> = {};
-    this.locals.forEach((name) => {
-      mapping[name] = this.mapping[name] || name;
-    });
-    return Object.entries(mapping);
-  }
-
-  get mapping() {
-    return this.#mapping;
+    return Object.entries(this.#mapping);
   }
 
   add(key: string, value?: string) {
-    this.#mapping[key] = value ?? key;
-    if (!this.#locals.includes(key)) {
+    if (this.#locals.includes(key)) {
+      // We already knew about this name. Only remap it if explicitly asked to.
+      if (value) {
+        this.#mapping[key] = value;
+      }
+    } else {
+      this.#mapping[key] = value ?? key;
       this.#locals.push(key);
     }
   }
