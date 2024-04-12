@@ -997,13 +997,13 @@ describe('htmlbars-inline-precompile', function () {
   });
 
   it('can emit side-effectful import', function () {
-    let compatTransform: ExtendedPluginBuilder = (env) => {
+    let compatTransform: ExtendedPluginBuilder = () => {
       return {
         name: 'compat-transform',
         visitor: {
           ElementNode(node) {
             if (node.tag === 'Thing') {
-              env.meta.jsutils.importForSideEffect('setup-the-things');
+              node.tag = 'NewThing';
             }
           },
         },
@@ -1014,12 +1014,115 @@ describe('htmlbars-inline-precompile', function () {
 
     let transformed = transform(stripIndent`
       import { precompileTemplate } from '@ember/template-compilation';
+      let NewThing = '';
       export default function() {
         const template = precompileTemplate('<Thing />');
       }
     `);
 
-    expect(transformed).toContain(`import "setup-the-things"`);
+    expect(transformed).toEqualCode(`
+      import { precompileTemplate } from '@ember/template-compilation';
+      let NewThing = '';
+      export default function () {
+        const template = precompileTemplate("<NewThing />", {
+          scope: () => ({
+            NewThing
+          })
+        });
+      }`);
+  });
+
+  it('updates scope correctly when renamed', function () {
+    let renameTransform: ExtendedPluginBuilder = () => {
+      return {
+        name: 'compat-transform',
+        visitor: {
+          ElementNode(node) {
+            if (node.tag === 'Thing') {
+              node.tag = 'NewThing';
+            }
+          },
+        },
+      };
+    };
+
+    plugins = [[HTMLBarsInlinePrecompile, { targetFormat: 'hbs', transforms: [] }]];
+
+    let transformed = transform(stripIndent`
+      import { precompileTemplate } from '@ember/template-compilation';
+      let Thing = '';
+      let NewThing = '';
+      export default function() {
+        const template = precompileTemplate('<Thing />');
+      }
+    `);
+
+    expect(transformed).toEqualCode(`
+      import { precompileTemplate } from '@ember/template-compilation';
+      let Thing = '';
+      let NewThing = '';
+      export default function () {
+        const template = precompileTemplate("<Thing />", {
+          scope: () => ({
+            Thing
+          })
+        });
+      }`);
+
+    plugins = [[HTMLBarsInlinePrecompile, { targetFormat: 'hbs', transforms: [renameTransform] }]];
+
+    transformed = transform(transformed);
+
+    expect(transformed).toEqualCode(`
+      import { precompileTemplate } from '@ember/template-compilation';
+      let Thing = '';
+      let NewThing = '';
+      export default function () {
+        const template = precompileTemplate("<NewThing />", {
+          scope: () => ({
+            NewThing
+          })
+        });
+      }`);
+  });
+
+  it('updates scope correctly when renamed', function () {
+    let compatTransform: ExtendedPluginBuilder = (env) => {
+      return {
+        name: 'compat-transform',
+        visitor: {
+          ElementNode(node, path) {
+            if (node.tag === 'Thing') {
+              env.meta.jsutils.importForSideEffect('setup-the-things');
+              node.tag = env.meta.jsutils.bindExpression('Thing', path, { nameHint: 'NewThing' });
+            }
+          },
+        },
+      };
+    };
+
+    plugins = [[HTMLBarsInlinePrecompile, { targetFormat: 'hbs', transforms: [compatTransform] }]];
+
+    let transformed = transform(stripIndent`
+      import { precompileTemplate } from '@ember/template-compilation';
+      let Thing = '';
+      export default function() {
+        const template = precompileTemplate('<Thing />');
+      }
+    `);
+
+    expect(transformed).toEqualCode(`
+      import { precompileTemplate } from '@ember/template-compilation';
+      let NewThing = Thing;
+      import "setup-the-things";
+      let Thing = '';
+      export default function () {
+        const template = precompileTemplate("<NewThing />", {
+          scope: () => ({
+            NewThing
+          })
+        });
+      }`);
   });
 
   describe('source-to-source', function () {
@@ -1626,6 +1729,16 @@ describe('htmlbars-inline-precompile', function () {
       }).toThrow(
         /Scope objects for `precompileTemplate` may only contain direct references to in-scope values, e.g. { bar } or { bar: bar }/
       );
+    });
+
+    it('correctly removes not used scope', function () {
+      let source = '<foo /><bar/>';
+      let spy = sinon.spy(compiler, 'precompile');
+
+      transform(
+        `import { precompileTemplate } from '@ember/template-compilation';\nvar compiled = precompileTemplate('${source}', { scope: () => ({ foo, bar, baz }) });`
+      );
+      expect(spy.firstCall.lastArg).toHaveProperty('locals', ['foo', 'bar']);
     });
   });
 
