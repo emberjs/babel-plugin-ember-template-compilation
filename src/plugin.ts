@@ -174,15 +174,6 @@ export function makePlugin<EnvSpecificOptions>(loadOptions: (opts: EnvSpecificOp
           },
         },
 
-        Identifier(path: NodePath<t.Identifier>) {
-          if (path.node.name) {
-            const binding = path.scope.getBinding(path.node.name);
-            if (binding && binding.path.node !== path.parent) {
-              binding.reference(path);
-            }
-          }
-        },
-
         TaggedTemplateExpression(
           path: NodePath<t.TaggedTemplateExpression>,
           state: State<EnvSpecificOptions>
@@ -545,6 +536,7 @@ function insertCompiledTemplate<EnvSpecificOptions>(
     );
   }
   target.replaceWith(expression);
+  target.scope.crawl();
 }
 
 function insertTransformedTemplate<EnvSpecificOptions>(
@@ -569,6 +561,7 @@ function insertTransformedTemplate<EnvSpecificOptions>(
   );
   let ast = preprocess(template, { ...options, mode: 'codemod' });
   let transformed = print(ast, { entityEncoding: 'raw' });
+  let needsScopeCrawl = false;
   if (target.isCallExpression()) {
     (target.get('arguments.0') as NodePath<t.Node>).replaceWith(t.stringLiteral(transformed));
     if (!scopeLocals.isEmpty()) {
@@ -577,6 +570,7 @@ function insertTransformedTemplate<EnvSpecificOptions>(
         target.set('callee', precompileTemplate(state.util, target));
       }
       updateScope(babel, target, scopeLocals);
+      needsScopeCrawl = true;
     }
 
     if (formatOptions.rfc931Support === 'polyfilled') {
@@ -586,7 +580,7 @@ function insertTransformedTemplate<EnvSpecificOptions>(
       removeEvalAndScope(target);
       target.node.arguments = target.node.arguments.slice(0, 2);
       state.recursionGuard.add(target.node);
-      target.replaceWith(
+      target = target.replaceWith(
         t.callExpression(state.util.import(target, '@ember/component', 'setComponentTemplate'), [
           target.node,
           backingClass?.node ??
@@ -600,7 +594,11 @@ function insertTransformedTemplate<EnvSpecificOptions>(
               []
             ),
         ])
-      );
+      )[0];
+      needsScopeCrawl = true;
+    }
+    if (needsScopeCrawl) {
+      target.scope.crawl();
     }
   } else {
     if (!scopeLocals.isEmpty()) {
@@ -611,6 +609,7 @@ function insertTransformedTemplate<EnvSpecificOptions>(
         t.callExpression(precompileTemplate(state.util, target), [t.stringLiteral(transformed)])
       )[0];
       updateScope(babel, newCall, scopeLocals);
+      newCall.scope.crawl();
     } else {
       (target.get('quasi').get('quasis.0') as NodePath<t.TemplateElement>).replaceWith(
         t.templateElement({ raw: transformed })
