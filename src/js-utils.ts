@@ -3,6 +3,7 @@ import type * as Babel from '@babel/core';
 import type { NodePath } from '@babel/traverse';
 import type { ASTPluginBuilder, ASTPluginEnvironment, ASTv1, WalkerPath } from '@glimmer/syntax';
 import type { ImportUtil } from 'babel-import-util';
+import { ScopeLocals } from './scope-locals';
 import { astNodeHasBinding } from './hbs-utils';
 
 interface State {
@@ -16,17 +17,23 @@ export class JSUtils {
   #babel: typeof Babel;
   #state: State;
   #template: NodePath<t.Expression>;
+  #scopeLocals: ScopeLocals;
   #importer: ImportUtil;
 
   constructor(
     babel: typeof Babel,
     state: State,
     template: NodePath<t.Expression>,
+    // mapping of handlebars identifiers to javascript identifiers, as appears
+    // in the `scope` argument to precompileTemplate. This is both read and
+    // write -- we might put more stuff into it.
+    scopeLocals: ScopeLocals,
     importer: ImportUtil
   ) {
     this.#babel = babel;
     this.#state = state;
     this.#template = template;
+    this.#scopeLocals = scopeLocals;
     this.#importer = importer;
 
     if (!this.#state.lastInsertedPath) {
@@ -65,7 +72,9 @@ export class JSUtils {
     let name = unusedNameLike(
       opts?.nameHint ?? 'a',
       (candidate) =>
-        this.#template.scope.hasBinding(candidate) || astNodeHasBinding(target, candidate)
+        this.#template.scope.hasBinding(candidate) ||
+        this.#scopeLocals.has(candidate) ||
+        astNodeHasBinding(target, candidate)
     );
     let t = this.#babel.types;
     let declaration: NodePath<t.VariableDeclaration> = this.#emitStatement(
@@ -76,7 +85,8 @@ export class JSUtils {
         ),
       ])
     );
-    declaration.scope.registerBinding('let', declaration.get('declarations.0') as NodePath);
+    declaration.scope.registerBinding('module', declaration.get('declarations.0') as NodePath);
+    this.#scopeLocals.add(name);
     return name;
   }
 
@@ -121,7 +131,7 @@ export class JSUtils {
     // it's not shadowed at our target location in the template, we can reuse
     // the existing import.
     if (
-      this.#template.scope.hasBinding(importedIdentifier.name) &&
+      this.#scopeLocals.has(importedIdentifier.name) &&
       !astNodeHasBinding(target, importedIdentifier.name)
     ) {
       return importedIdentifier.name;
@@ -129,8 +139,7 @@ export class JSUtils {
 
     let identifier = unusedNameLike(
       importedIdentifier.name,
-      (candidate) =>
-        this.#template.scope.hasBinding(candidate) || astNodeHasBinding(target, candidate)
+      (candidate) => this.#scopeLocals.has(candidate) || astNodeHasBinding(target, candidate)
     );
     if (identifier !== importedIdentifier.name) {
       // The importedIdentifier that we have in Javascript is not usable within
@@ -146,8 +155,9 @@ export class JSUtils {
           t.variableDeclarator(t.identifier(identifier), importedIdentifier),
         ])
       );
-      declaration.scope.registerBinding('let', declaration.get('declarations.0') as NodePath);
+      declaration.scope.registerBinding('let', declaration.get('declarations.0') as NodePath
     }
+    this.#scopeLocals.add(identifier);
     return identifier;
   }
 

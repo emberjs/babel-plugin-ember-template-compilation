@@ -13,13 +13,15 @@ import { ASTPluginEnvironment, NodeVisitor } from '@glimmer/syntax';
 import { astNodeHasBinding } from './hbs-utils';
 
 export class ScopeLocals {
-  constructor(jsPath: NodePath<t.Expression>) {
+  constructor(jsPath: NodePath<t.Expression>, checkJsScope: Boolean = false) {
     this.#jsPath = jsPath;
+    this.#checkJsScope = checkJsScope;
   }
 
   #mapping: Record<string, string> = {};
   #locals: string[] = [];
   #jsPath: NodePath<t.Expression>;
+  #checkJsScope: Boolean;
 
   get locals() {
     return this.#locals;
@@ -53,6 +55,9 @@ export class ScopeLocals {
   }
 
   #isInJsScope(hbsName: string) {
+    if (!this.#checkJsScope) {
+      return this.#locals.includes(hbsName);
+    }
     let jsName = this.#mapping[hbsName] ?? hbsName;
     return ['this', 'globalThis'].includes(jsName) || this.#jsPath.scope.getBinding(jsName);
   }
