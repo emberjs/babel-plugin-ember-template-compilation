@@ -996,14 +996,14 @@ describe('htmlbars-inline-precompile', function () {
     expect(transformed).toContain(`window.define('my-app/components/thing', thing)`);
   });
 
-  it('can emit side-effectful import', function () {
-    let compatTransform: ExtendedPluginBuilder = () => {
+  it('update scope correctly', function () {
+    let compatTransform: ExtendedPluginBuilder = (env) => {
       return {
         name: 'compat-transform',
         visitor: {
-          ElementNode(node) {
+          ElementNode(node, path) {
             if (node.tag === 'Thing') {
-              node.tag = 'NewThing';
+              node.tag = env.meta.jsutils.bindExpression('Thing', path, { nameHint: 'NewThing' });
             }
           },
         },
@@ -1014,7 +1014,6 @@ describe('htmlbars-inline-precompile', function () {
 
     let transformed = transform(stripIndent`
       import { precompileTemplate } from '@ember/template-compilation';
-      let NewThing = '';
       export default function() {
         const template = precompileTemplate('<Thing />');
       }
@@ -1022,7 +1021,7 @@ describe('htmlbars-inline-precompile', function () {
 
     expect(transformed).toEqualCode(`
       import { precompileTemplate } from '@ember/template-compilation';
-      let NewThing = '';
+      let NewThing = Thing;
       export default function () {
         const template = precompileTemplate("<NewThing />", {
           scope: () => ({
@@ -1033,25 +1032,36 @@ describe('htmlbars-inline-precompile', function () {
   });
 
   it('updates scope correctly when renamed', function () {
-    let renameTransform: ExtendedPluginBuilder = () => {
+    let importTransform: ExtendedPluginBuilder = (env) => {
       return {
         name: 'compat-transform',
         visitor: {
-          ElementNode(node) {
+          ElementNode(node, path) {
             if (node.tag === 'Thing') {
-              node.tag = 'NewThing';
+              env.meta.jsutils.bindImport('the-thing', 'Thing', path);
             }
           },
         },
       };
     };
 
-    plugins = [[HTMLBarsInlinePrecompile, { targetFormat: 'hbs', transforms: [] }]];
+    let renameTransform: ExtendedPluginBuilder = (env) => {
+      return {
+        name: 'compat-transform',
+        visitor: {
+          ElementNode(node, path) {
+            if (node.tag === 'Thing') {
+              node.tag = env.meta.jsutils.bindExpression('Thing', path, { nameHint: 'NewThing' });
+            }
+          },
+        },
+      };
+    };
+
+    plugins = [[HTMLBarsInlinePrecompile, { targetFormat: 'hbs', transforms: [importTransform] }]];
 
     let transformed = transform(stripIndent`
       import { precompileTemplate } from '@ember/template-compilation';
-      let Thing = '';
-      let NewThing = '';
       export default function() {
         const template = precompileTemplate('<Thing />');
       }
@@ -1059,8 +1069,7 @@ describe('htmlbars-inline-precompile', function () {
 
     expect(transformed).toEqualCode(`
       import { precompileTemplate } from '@ember/template-compilation';
-      let Thing = '';
-      let NewThing = '';
+      import { Thing } from "the-thing";
       export default function () {
         const template = precompileTemplate("<Thing />", {
           scope: () => ({
@@ -1075,8 +1084,8 @@ describe('htmlbars-inline-precompile', function () {
 
     expect(transformed).toEqualCode(`
       import { precompileTemplate } from '@ember/template-compilation';
-      let Thing = '';
-      let NewThing = '';
+      import { Thing } from "the-thing";
+      let NewThing = Thing;
       export default function () {
         const template = precompileTemplate("<NewThing />", {
           scope: () => ({
@@ -1086,7 +1095,7 @@ describe('htmlbars-inline-precompile', function () {
       }`);
   });
 
-  it('updates scope correctly when renamed', function () {
+  it('can emit side-effectful import', function () {
     let compatTransform: ExtendedPluginBuilder = (env) => {
       return {
         name: 'compat-transform',
@@ -1218,7 +1227,6 @@ describe('htmlbars-inline-precompile', function () {
         const template = precompileTemplate("<Message @text={{two}} />", {
           moduleName: 'customModuleName',
           scope: () => ({
-            Message,
             two
           })
         });

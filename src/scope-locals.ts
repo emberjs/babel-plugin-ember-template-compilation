@@ -13,7 +13,7 @@ import { ASTPluginEnvironment, NodeVisitor } from '@glimmer/syntax';
 import { astNodeHasBinding } from './hbs-utils';
 
 export class ScopeLocals {
-  constructor(jsPath: NodePath<t.Expression>, checkJsScope: Boolean = false) {
+  constructor(jsPath: NodePath<t.Expression>, checkJsScope = false) {
     this.#jsPath = jsPath;
     this.#checkJsScope = checkJsScope;
   }
@@ -21,7 +21,7 @@ export class ScopeLocals {
   #mapping: Record<string, string> = {};
   #locals: string[] = [];
   #jsPath: NodePath<t.Expression>;
-  #checkJsScope: Boolean;
+  #checkJsScope: boolean;
 
   get locals() {
     return this.#locals;

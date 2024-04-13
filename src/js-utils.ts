@@ -155,7 +155,7 @@ export class JSUtils {
           t.variableDeclarator(t.identifier(identifier), importedIdentifier),
         ])
       );
-      declaration.scope.registerBinding('let', declaration.get('declarations.0') as NodePath
+      declaration.scope.registerBinding('let', declaration.get('declarations.0') as NodePath);
     }
     this.#scopeLocals.add(identifier);
     return identifier;
