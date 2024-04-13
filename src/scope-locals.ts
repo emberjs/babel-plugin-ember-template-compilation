@@ -6,16 +6,23 @@
    - those scope mutations need to update both the original `locals` array and
      our own name mapping, keeping them in sync.
 */
+
+import type { NodePath } from '@babel/traverse';
+import type { types as t } from '@babel/core';
+import { ASTPluginEnvironment, NodeVisitor } from '@glimmer/syntax';
+import { astNodeHasBinding } from './hbs-utils';
+
 export class ScopeLocals {
+  constructor(jsPath: NodePath<t.Expression>) {
+    this.#jsPath = jsPath;
+  }
+
   #mapping: Record<string, string> = {};
   #locals: string[] = [];
+  #jsPath: NodePath<t.Expression>;
 
   get locals() {
     return this.#locals;
-  }
-
-  get mapping() {
-    return this.#mapping;
   }
 
   has(key: string): boolean {
@@ -35,18 +42,63 @@ export class ScopeLocals {
   }
 
   entries() {
-    return Object.entries(this.#mapping).filter(([key]) => this.#locals.includes(key));
+    return Object.entries(this.#mapping);
   }
 
-  add(key: string, value?: string) {
-    if (this.#locals.includes(key)) {
-      // We already knew about this name. Only remap it if explicitly asked to.
-      if (value) {
-        this.#mapping[key] = value;
-      }
-    } else {
-      this.#mapping[key] = value ?? (this.#mapping[key] || key);
-      this.#locals.push(key);
+  add(hbsName: string, jsName?: string) {
+    this.#mapping[hbsName] = jsName ?? hbsName;
+    if (!this.#locals.includes(hbsName)) {
+      this.#locals.push(hbsName);
     }
+  }
+
+  #isInJsScope(hbsName: string) {
+    let jsName = this.#mapping[hbsName] ?? hbsName;
+    return ['this', 'globalThis'].includes(jsName) || this.#jsPath.scope.getBinding(jsName);
+  }
+
+  get l() {
+    return this.#locals;
+  }
+
+  crawl() {
+    return (_env: ASTPluginEnvironment): { name: string; visitor: NodeVisitor } => {
+      let seen: Set<string>;
+      return {
+        name: 'scope-locals-crawl',
+        visitor: {
+          Template: {
+            enter: () => {
+              seen = new Set();
+            },
+            exit: (_node, _path) => {
+              for (let name of Object.keys(this.#mapping)) {
+                if (!seen.has(name)) {
+                  this.#locals.splice(this.#locals.indexOf(name), 1);
+                  delete this.#mapping[name];
+                }
+              }
+            },
+          },
+          PathExpression: (node, path) => {
+            if (node.head.type !== 'VarHead') {
+              return;
+            }
+            const name = node.head.name;
+            if (!astNodeHasBinding(path, name) && this.#isInJsScope(name)) {
+              seen.add(name);
+              this.add(name, this.#mapping[name]);
+            }
+          },
+          ElementNode: (node, path) => {
+            const name = node.tag.split('.')[0];
+            if (!astNodeHasBinding(path, name) && this.#isInJsScope(name)) {
+              seen.add(name);
+              this.add(name, this.#mapping[name]);
+            }
+          },
+        },
+      };
+    };
   }
 }

@@ -1742,12 +1742,12 @@ describe('htmlbars-inline-precompile', function () {
     });
 
     it('correctly removes not used scope', function () {
-      let source = '<foo /><bar/>';
       let spy = sinon.spy(compiler, 'precompile');
-
-      transform(
-        `import { precompileTemplate } from '@ember/template-compilation';\nvar compiled = precompileTemplate('${source}', { scope: () => ({ foo, bar, baz }) });`
-      );
+      transform(`
+        import { precompileTemplate } from '@ember/template-compilation';
+        let foo, bar;
+        var compiled = precompileTemplate('<foo /><bar/>', { scope: () => ({ foo, bar, baz }) });
+      `);
       expect(spy.firstCall.lastArg).toHaveProperty('locals', ['foo', 'bar']);
     });
   });

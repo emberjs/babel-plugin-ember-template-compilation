@@ -7,14 +7,7 @@ import { JSUtils, ExtendedPluginBuilder } from './js-utils';
 import type { EmberTemplateCompiler, PreprocessOptions } from './ember-template-compiler';
 import { LegacyModuleName } from './public-types';
 import { ScopeLocals } from './scope-locals';
-import {
-  ASTPluginBuilder,
-  ASTPluginEnvironment,
-  NodeVisitor,
-  preprocess,
-  print,
-} from '@glimmer/syntax';
-import { astNodeHasBinding } from './hbs-utils';
+import { ASTPluginBuilder, preprocess, print } from '@glimmer/syntax';
 
 export * from './public-types';
 
@@ -287,7 +280,7 @@ export function makePlugin<EnvSpecificOptions>(loadOptions: (opts: EnvSpecificOp
             userTypedOptions = new ExpressionParser(babel).parseObjectExpression(
               calleePath.node.name,
               secondArg,
-              config.enableScope,
+              config.enableScope ? path : false,
               Boolean(config.rfc931Support)
             );
             if (config.rfc931Support && userTypedOptions.component) {
@@ -368,50 +361,16 @@ function runtimeErrorIIFE(babel: typeof Babel, replacements: { ERROR_MESSAGE: st
 
 function buildScopeLocals(
   userTypedOptions: Record<string, unknown>,
-  formatOptions: ModuleConfig
+  formatOptions: ModuleConfig,
+  target: NodePath<t.Expression>
 ): ScopeLocals {
   if (formatOptions.rfc931Support && userTypedOptions.eval) {
-    return new ScopeLocals();
+    return new ScopeLocals(target);
   } else if (userTypedOptions.scope) {
     return userTypedOptions.scope as ScopeLocals;
   } else {
-    return new ScopeLocals();
+    return new ScopeLocals(target);
   }
-}
-
-function discoverLocals(jsPath: NodePath<t.Expression>, scope: ScopeLocals) {
-  function isInJsScope(name: string) {
-    if (jsPath.scope.getBinding(name)) return true;
-    if (['this', 'globalThis'].includes(name)) return true;
-    if (scope.mapping[name]) return true;
-    return false;
-  }
-
-  return (_env: ASTPluginEnvironment): { name: string; visitor: NodeVisitor } => {
-    return {
-      name: 'discover-locals',
-      visitor: {
-        Template() {
-          scope.locals.length = 0;
-        },
-        PathExpression(node, path) {
-          if (
-            node.head.type === 'VarHead' &&
-            !astNodeHasBinding(path, node.head.name) &&
-            isInJsScope(node.head.name)
-          ) {
-            scope.add(node.head.name);
-          }
-        },
-        ElementNode(node, path) {
-          const name = node.tag.split('.')[0];
-          if (!astNodeHasBinding(path, name) && isInJsScope(name)) {
-            scope.add(name);
-          }
-        },
-      },
-    };
-  };
 }
 
 function buildPrecompileOptions<EnvSpecificOptions>(
@@ -446,10 +405,7 @@ function buildPrecompileOptions<EnvSpecificOptions>(
     plugins: {
       // the cast is needed here only because our meta is extended. That is,
       // these plugins can access meta.jsutils.
-      ast: [
-        ...state.normalizedOpts.transforms,
-        discoverLocals(target, scope),
-      ] as ASTPluginBuilder[],
+      ast: [...state.normalizedOpts.transforms, scope.crawl()] as ASTPluginBuilder[],
     },
   };
 
@@ -499,7 +455,7 @@ function insertCompiledTemplate<EnvSpecificOptions>(
   backingClass: NodePath<Parameters<typeof t.callExpression>[1][number]> | undefined
 ) {
   let t = babel.types;
-  let scopeLocals = buildScopeLocals(userTypedOptions, config);
+  let scopeLocals = buildScopeLocals(userTypedOptions, config, target);
   let options = buildPrecompileOptions(
     babel,
     target,
@@ -576,7 +532,7 @@ function insertTransformedTemplate<EnvSpecificOptions>(
   backingClass: NodePath<Parameters<typeof t.callExpression>[1][number]> | undefined
 ) {
   let t = babel.types;
-  let scopeLocals = buildScopeLocals(userTypedOptions, formatOptions);
+  let scopeLocals = buildScopeLocals(userTypedOptions, formatOptions, target);
   let options = buildPrecompileOptions(
     babel,
     target,
