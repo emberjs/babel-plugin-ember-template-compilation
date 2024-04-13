@@ -1750,6 +1750,16 @@ describe('htmlbars-inline-precompile', function () {
       `);
       expect(spy.firstCall.lastArg).toHaveProperty('locals', ['foo', 'bar']);
     });
+
+    it('does not automagically add to scope when not using implicit-scope-form', function () {
+      let spy = sinon.spy(compiler, 'precompile');
+      transform(`
+        import { precompileTemplate } from '@ember/template-compilation';
+        let foo, bar;
+        var compiled = precompileTemplate('<foo /><bar/>', { scope: () => ({ bar }) });
+      `);
+      expect(spy.firstCall.lastArg).toHaveProperty('locals', ['bar']);
+    });
   });
 
   describe('implicit-scope-form', function () {
