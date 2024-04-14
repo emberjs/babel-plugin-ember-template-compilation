@@ -996,14 +996,15 @@ describe('htmlbars-inline-precompile', function () {
     expect(transformed).toContain(`window.define('my-app/components/thing', thing)`);
   });
 
-  it('update scope correctly', function () {
+  it('update scope correctly when adding to locals', function () {
     let compatTransform: ExtendedPluginBuilder = (env) => {
       return {
         name: 'compat-transform',
         visitor: {
-          ElementNode(node, path) {
+          ElementNode(node) {
             if (node.tag === 'Thing') {
-              node.tag = env.meta.jsutils.bindExpression('Thing', path, { nameHint: 'NewThing' });
+              node.tag = 'NewThing';
+              (env as any).locals.push('NewThing');
             }
           },
         },
@@ -1014,6 +1015,7 @@ describe('htmlbars-inline-precompile', function () {
 
     let transformed = transform(stripIndent`
       import { precompileTemplate } from '@ember/template-compilation';
+      let NewThing = Thing;
       export default function() {
         const template = precompileTemplate('<Thing />');
       }
