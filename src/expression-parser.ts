@@ -36,11 +36,7 @@ export class ExpressionParser {
     });
   }
 
-  parseScope(
-    invokedName: string,
-    path: NodePath<t.ObjectProperty | t.ObjectMethod>,
-    scopeTarget: NodePath<t.Expression>
-  ): ScopeLocals {
+  parseScope(invokedName: string, path: NodePath<t.ObjectProperty | t.ObjectMethod>): ScopeLocals {
     let body: t.BlockStatement | t.Expression | undefined = undefined;
 
     if (path.node.type === 'ObjectMethod') {
@@ -111,7 +107,7 @@ export class ExpressionParser {
 
       res.add(propName, value.name);
       return res;
-    }, new ScopeLocals(scopeTarget, 'explicit'));
+    }, new ScopeLocals({ mode: 'explicit' }));
   }
 
   parseEval(
@@ -190,7 +186,7 @@ export class ExpressionParser {
   parseObjectExpression(
     invokedName: string,
     path: NodePath<t.ObjectExpression>,
-    shouldParseScope: false | NodePath<t.Expression> = false,
+    shouldParseScope = false,
     shouldSupportRFC931 = false
   ) {
     let result: Record<string, unknown> = {};
@@ -213,11 +209,7 @@ export class ExpressionParser {
       let propertyName = name(key);
 
       if (shouldParseScope && propertyName === 'scope') {
-        result.scope = this.parseScope(
-          invokedName,
-          property as NodePath<typeof node>,
-          shouldParseScope
-        );
+        result.scope = this.parseScope(invokedName, property as NodePath<typeof node>);
       } else if (shouldSupportRFC931 && propertyName === 'eval') {
         result.eval = this.parseEval(invokedName, property as NodePath<typeof node>);
       } else if (shouldSupportRFC931 && propertyName === 'component') {

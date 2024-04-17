@@ -8,13 +8,11 @@
 */
 
 import type { NodePath } from '@babel/traverse';
-import type { types as t } from '@babel/core';
 import { ASTPluginEnvironment, NodeVisitor } from '@glimmer/syntax';
 import { astNodeHasBinding } from './hbs-utils';
 import { readOnlyArray } from './read-only-array';
 
-export class ScopeLocals {
-  /*
+/*
     `mode` refers to the implicit and explicit formats defined here:
 
       https://github.com/emberjs/rfcs/blob/9fd6ceac2559bee1c33acf0d7834e675125a4f16/text/0931-template-compiler-api.md#explicit-form
@@ -23,16 +21,24 @@ export class ScopeLocals {
     This class needs to know the difference because in implicit format, upvars
     in hbs are automagically connected with outer Javascript bindings, and in
     explicit form they are not.
-  */
-  constructor(jsPath: NodePath<t.Expression>, mode: 'implicit' | 'explicit') {
-    this.#jsPath = jsPath;
-    this.#mode = mode;
+*/
+type Params =
+  | {
+      mode: 'explicit';
+    }
+  | {
+      mode: 'implicit';
+      jsPath: NodePath;
+    };
+
+export class ScopeLocals {
+  constructor(params: Params) {
+    this.#params = params;
   }
 
   #mapping: Record<string, string> = {};
   #locals: string[] = [];
-  #jsPath: NodePath<t.Expression>;
-  #mode: 'implicit' | 'explicit';
+  #params: Params;
 
   get locals() {
     return readOnlyArray(
@@ -68,9 +74,9 @@ export class ScopeLocals {
     }
   }
 
-  #isInJsScope(hbsName: string) {
+  #isInJsScope(hbsName: string, jsPath: NodePath) {
     let jsName = this.#mapping[hbsName] ?? hbsName;
-    return ['this', 'globalThis'].includes(jsName) || this.#jsPath.scope.getBinding(jsName);
+    return ['this', 'globalThis'].includes(jsName) || jsPath.scope.getBinding(jsName);
   }
 
   // this AST transform discovers all possible upvars in HBS that refer to valid
@@ -87,11 +93,11 @@ export class ScopeLocals {
               seen = new Set();
             },
             exit: (_node, _path) => {
-              if (this.#mode === 'implicit') {
+              if (this.#params.mode === 'implicit') {
                 // all hbs upvars that have matching JS bindings go into the
                 // scope
                 for (let name of seen) {
-                  if (this.#isInJsScope(name)) {
+                  if (this.#isInJsScope(name, this.#params.jsPath)) {
                     this.add(name);
                   }
                 }

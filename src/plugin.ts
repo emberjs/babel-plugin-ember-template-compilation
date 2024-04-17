@@ -280,7 +280,7 @@ export function makePlugin<EnvSpecificOptions>(loadOptions: (opts: EnvSpecificOp
             userTypedOptions = new ExpressionParser(babel).parseObjectExpression(
               calleePath.node.name,
               secondArg,
-              config.enableScope ? path : false,
+              config.enableScope,
               Boolean(config.rfc931Support)
             );
             if (config.rfc931Support && userTypedOptions.component) {
@@ -365,11 +365,11 @@ function buildScopeLocals(
   target: NodePath<t.Expression>
 ): ScopeLocals {
   if (formatOptions.rfc931Support && userTypedOptions.eval) {
-    return new ScopeLocals(target, 'implicit');
+    return new ScopeLocals({ mode: 'implicit', jsPath: target });
   } else if (userTypedOptions.scope) {
     return userTypedOptions.scope as ScopeLocals;
   } else {
-    return new ScopeLocals(target, 'explicit');
+    return new ScopeLocals({ mode: 'explicit' });
   }
 }
 
