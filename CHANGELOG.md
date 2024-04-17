@@ -5,6 +5,16 @@
 
 
 
+
+## v2.2.2 (2024-04-17)
+
+#### :bug: Bug Fix
+* [#33](https://github.com/emberjs/babel-plugin-ember-template-compilation/pull/33) pass correct scope to glimmer ([@patricklx](https://github.com/patricklx))
+* [#34](https://github.com/emberjs/babel-plugin-ember-template-compilation/pull/34) fix gts ts imports issue ([@patricklx](https://github.com/patricklx))
+
+#### Committers: 1
+- Patrick Pircher ([@patricklx](https://github.com/patricklx))
+
 ## v2.2.1 (2023-11-01)
 
 #### :bug: Bug Fix
