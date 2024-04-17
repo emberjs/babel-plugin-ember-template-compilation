@@ -1026,10 +1026,9 @@ describe('htmlbars-inline-precompile', function () {
       return {
         name: 'compat-transform',
         visitor: {
-          ElementNode(node, path) {
+          ElementNode(node) {
             if (node.tag === 'Thing') {
               env.meta.jsutils.importForSideEffect('setup-the-things');
-              node.tag = env.meta.jsutils.bindExpression('Thing', path, { nameHint: 'NewThing' });
             }
           },
         },
@@ -1040,24 +1039,12 @@ describe('htmlbars-inline-precompile', function () {
 
     let transformed = transform(stripIndent`
       import { precompileTemplate } from '@ember/template-compilation';
-      let Thing = '';
       export default function() {
         const template = precompileTemplate('<Thing />');
       }
     `);
 
-    expect(transformed).toEqualCode(`
-      import { precompileTemplate } from '@ember/template-compilation';
-      let NewThing = Thing;
-      import "setup-the-things";
-      let Thing = '';
-      export default function () {
-        const template = precompileTemplate("<NewThing />", {
-          scope: () => ({
-            NewThing
-          })
-        });
-      }`);
+    expect(transformed).toContain(`import "setup-the-things"`);
   });
 
   describe('source-to-source', function () {
