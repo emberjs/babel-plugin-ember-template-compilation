@@ -121,37 +121,33 @@ export class JSUtils {
       opts?.nameHint
     );
 
-    // If we're already referencing the imported name from the outer scope and
-    // it's not shadowed at our target location in the template, we can reuse
-    // the existing import.
-    if (
-      this.#template.scope.hasBinding(importedIdentifier.name) &&
-      !astNodeHasBinding(target, importedIdentifier.name)
-    ) {
+    // Simple base case: the JS name that's available is also unused at our spot
+    // in HBS, so just use it.
+    if (!astNodeHasBinding(target, importedIdentifier.name)) {
+      this.#addedBinding(importedIdentifier.name);
       return importedIdentifier.name;
     }
 
+    // The importedIdentifier that we have in Javascript is not usable within
+    // our HBS because it's shadowed by a block param. So we will introduce a
+    // second name via a variable declaration.
+    //
+    // The reason we don't force the import itself to have this name is that
+    // we might be re-using an existing import, and we don't want to go
+    // rewriting all of its callsites that are unrelated to us.
     let identifier = unusedNameLike(
       importedIdentifier.name,
       (candidate) =>
         this.#template.scope.hasBinding(candidate) || astNodeHasBinding(target, candidate)
     );
-    if (identifier !== importedIdentifier.name) {
-      // The importedIdentifier that we have in Javascript is not usable within
-      // our HBS because it's shadowed by a block param. So we will introduce a
-      // second name via a variable declaration.
-      //
-      // The reason we don't force the import itself to have this name is that
-      // we might be re-using an existing import, and we don't want to go
-      // rewriting all of its callsites that are unrelated to us.
-      let t = this.#babel.types;
-      let declaration = this.#emitStatement(
-        t.variableDeclaration('let', [
-          t.variableDeclarator(t.identifier(identifier), importedIdentifier),
-        ])
-      );
-      declaration.scope.registerBinding('let', declaration.get('declarations.0') as NodePath);
-    }
+    let t = this.#babel.types;
+    let declaration = this.#emitStatement(
+      t.variableDeclaration('let', [
+        t.variableDeclarator(t.identifier(identifier), importedIdentifier),
+      ])
+    );
+    declaration.scope.registerBinding('let', declaration.get('declarations.0') as NodePath);
+
     this.#addedBinding(identifier);
     return identifier;
   }

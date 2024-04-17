@@ -11,6 +11,7 @@ import type { NodePath } from '@babel/traverse';
 import type { types as t } from '@babel/core';
 import { ASTPluginEnvironment, NodeVisitor } from '@glimmer/syntax';
 import { astNodeHasBinding } from './hbs-utils';
+import { readOnlyArray } from './read-only-array';
 
 export class ScopeLocals {
   /*
@@ -34,7 +35,10 @@ export class ScopeLocals {
   #mode: 'implicit' | 'explicit';
 
   get locals() {
-    return this.#locals;
+    return readOnlyArray(
+      this.#locals,
+      'The only supported way to manipulate locals is via the jsutils API\nhttps://github.com/emberjs/babel-plugin-ember-template-compilation#jsutils-manipulating-javascript-from-within-ast-transforms'
+    );
   }
 
   has(key: string): boolean {
@@ -84,9 +88,12 @@ export class ScopeLocals {
             },
             exit: (_node, _path) => {
               if (this.#mode === 'implicit') {
-                // what we discovered *is* the scope
+                // all hbs upvars that have matching JS bindings go into the
+                // scope
                 for (let name of seen) {
-                  this.add(name);
+                  if (this.#isInJsScope(name)) {
+                    this.add(name);
+                  }
                 }
               } else {
                 // in explicit form, we might prune back the preexising scope in
@@ -109,13 +116,13 @@ export class ScopeLocals {
               return;
             }
             const name = node.head.name;
-            if (!astNodeHasBinding(path, name) && this.#isInJsScope(name)) {
+            if (!astNodeHasBinding(path, name)) {
               seen.add(name);
             }
           },
           ElementNode: (node, path) => {
             const name = node.tag.split('.')[0];
-            if (!astNodeHasBinding(path, name) && this.#isInJsScope(name)) {
+            if (!astNodeHasBinding(path, name)) {
               seen.add(name);
             }
           },

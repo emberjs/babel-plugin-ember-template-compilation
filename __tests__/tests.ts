@@ -996,16 +996,13 @@ describe('htmlbars-inline-precompile', function () {
     expect(transformed).toContain(`window.define('my-app/components/thing', thing)`);
   });
 
-  it('update scope correctly when adding to locals', function () {
+  it('prevents inconsistent external manipulation of the locals array', function () {
     let compatTransform: ExtendedPluginBuilder = (env) => {
       return {
         name: 'compat-transform',
         visitor: {
-          ElementNode(node) {
-            if (node.tag === 'Thing') {
-              node.tag = 'NewThing';
-              (env as any).locals.push('NewThing');
-            }
+          Template() {
+            (env as any).locals.push('NewThing');
           },
         },
       };
@@ -1013,24 +1010,15 @@ describe('htmlbars-inline-precompile', function () {
 
     plugins = [[HTMLBarsInlinePrecompile, { targetFormat: 'hbs', transforms: [compatTransform] }]];
 
-    let transformed = transform(stripIndent`
+    expect(() => {
+      transform(stripIndent`
       import { precompileTemplate } from '@ember/template-compilation';
       let NewThing = Thing;
       export default function() {
         const template = precompileTemplate('<Thing />');
       }
     `);
-
-    expect(transformed).toEqualCode(`
-      import { precompileTemplate } from '@ember/template-compilation';
-      let NewThing = Thing;
-      export default function () {
-        const template = precompileTemplate("<NewThing />", {
-          scope: () => ({
-            NewThing
-          })
-        });
-      }`);
+    }).toThrow(/The only supported way to manipulate locals is via the jsutils API/);
   });
 
   it('updates scope correctly when renamed', function () {
@@ -1040,7 +1028,7 @@ describe('htmlbars-inline-precompile', function () {
         visitor: {
           ElementNode(node, path) {
             if (node.tag === 'Thing') {
-              env.meta.jsutils.bindImport('the-thing', 'Thing', path);
+              node.tag = env.meta.jsutils.bindImport('the-thing', 'Thing', path);
             }
           },
         },
