@@ -365,11 +365,11 @@ function buildScopeLocals(
   target: NodePath<t.Expression>
 ): ScopeLocals {
   if (formatOptions.rfc931Support && userTypedOptions.eval) {
-    return new ScopeLocals(target, !!userTypedOptions.eval);
+    return new ScopeLocals(target, 'implicit');
   } else if (userTypedOptions.scope) {
     return userTypedOptions.scope as ScopeLocals;
   } else {
-    return new ScopeLocals(target);
+    return new ScopeLocals(target, 'explicit');
   }
 }
 
@@ -382,7 +382,7 @@ function buildPrecompileOptions<EnvSpecificOptions>(
   config: ModuleConfig,
   scope: ScopeLocals
 ): PreprocessOptions & Record<string, unknown> {
-  let jsutils = new JSUtils(babel, state, target, scope, state.util);
+  let jsutils = new JSUtils(babel, state, target, scope.add.bind(scope), state.util);
   let meta = Object.assign({ jsutils }, userTypedOptions?.meta);
 
   let output: PreprocessOptions & Record<string, unknown> = {

@@ -13,15 +13,25 @@ import { ASTPluginEnvironment, NodeVisitor } from '@glimmer/syntax';
 import { astNodeHasBinding } from './hbs-utils';
 
 export class ScopeLocals {
-  constructor(jsPath: NodePath<t.Expression>, checkJsScope = false) {
+  /*
+    `mode` refers to the implicit and explicit formats defined here:
+
+      https://github.com/emberjs/rfcs/blob/9fd6ceac2559bee1c33acf0d7834e675125a4f16/text/0931-template-compiler-api.md#explicit-form
+      https://github.com/emberjs/rfcs/blob/9fd6ceac2559bee1c33acf0d7834e675125a4f16/text/0931-template-compiler-api.md#implicit-form
+
+    This class needs to know the difference because in implicit format, upvars
+    in hbs are automagically connected with outer Javascript bindings, and in
+    explicit form they are not.
+  */
+  constructor(jsPath: NodePath<t.Expression>, mode: 'implicit' | 'explicit') {
     this.#jsPath = jsPath;
-    this.#checkJsScope = checkJsScope;
+    this.#mode = mode;
   }
 
   #mapping: Record<string, string> = {};
   #locals: string[] = [];
   #jsPath: NodePath<t.Expression>;
-  #checkJsScope: boolean;
+  #mode: 'implicit' | 'explicit';
 
   get locals() {
     return this.#locals;
@@ -55,17 +65,13 @@ export class ScopeLocals {
   }
 
   #isInJsScope(hbsName: string) {
-    if (!this.#checkJsScope) {
-      return this.#locals.includes(hbsName);
-    }
     let jsName = this.#mapping[hbsName] ?? hbsName;
     return ['this', 'globalThis'].includes(jsName) || this.#jsPath.scope.getBinding(jsName);
   }
 
-  get l() {
-    return this.#locals;
-  }
-
+  // this AST transform discovers all possible upvars in HBS that refer to valid
+  // bindings in JS, and then depending on the mode adjusts our actual scope bag
+  // contents.
   crawl() {
     return (_env: ASTPluginEnvironment): { name: string; visitor: NodeVisitor } => {
       let seen: Set<string>;
@@ -77,10 +83,23 @@ export class ScopeLocals {
               seen = new Set();
             },
             exit: (_node, _path) => {
-              for (let name of Object.keys(this.#mapping)) {
-                if (!seen.has(name)) {
-                  this.#locals.splice(this.#locals.indexOf(name), 1);
-                  delete this.#mapping[name];
+              if (this.#mode === 'implicit') {
+                // what we discovered *is* the scope
+                for (let name of seen) {
+                  this.add(name);
+                }
+              } else {
+                // in explicit form, we might prune back the preexising scope in
+                // the case where another AST transform has eliminated the use
+                // of the original binding. But we don't add anything new. The
+                // only way for new bindings to be introduced into scope is for
+                // another AST transform to explicitly call the jsutils, which
+                // calls our `add`.
+                for (let name of Object.keys(this.#mapping)) {
+                  if (!seen.has(name)) {
+                    this.#locals.splice(this.#locals.indexOf(name), 1);
+                    delete this.#mapping[name];
+                  }
                 }
               }
             },
@@ -92,14 +111,12 @@ export class ScopeLocals {
             const name = node.head.name;
             if (!astNodeHasBinding(path, name) && this.#isInJsScope(name)) {
               seen.add(name);
-              this.add(name, this.#mapping[name]);
             }
           },
           ElementNode: (node, path) => {
             const name = node.tag.split('.')[0];
             if (!astNodeHasBinding(path, name) && this.#isInJsScope(name)) {
               seen.add(name);
-              this.add(name, this.#mapping[name]);
             }
           },
         },

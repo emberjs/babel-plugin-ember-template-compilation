@@ -111,7 +111,7 @@ export class ExpressionParser {
 
       res.add(propName, value.name);
       return res;
-    }, new ScopeLocals(scopeTarget));
+    }, new ScopeLocals(scopeTarget, 'explicit'));
   }
 
   parseEval(
