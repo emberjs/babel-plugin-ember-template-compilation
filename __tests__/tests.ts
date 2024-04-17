@@ -996,6 +996,31 @@ describe('htmlbars-inline-precompile', function () {
     expect(transformed).toContain(`window.define('my-app/components/thing', thing)`);
   });
 
+  it('prevents inconsistent external manipulation of the locals array', function () {
+    let compatTransform: ExtendedPluginBuilder = (env) => {
+      return {
+        name: 'compat-transform',
+        visitor: {
+          Template() {
+            (env as any).locals.push('NewThing');
+          },
+        },
+      };
+    };
+
+    plugins = [[HTMLBarsInlinePrecompile, { targetFormat: 'hbs', transforms: [compatTransform] }]];
+
+    expect(() => {
+      transform(stripIndent`
+      import { precompileTemplate } from '@ember/template-compilation';
+      let NewThing = Thing;
+      export default function() {
+        const template = precompileTemplate('<Thing />');
+      }
+    `);
+    }).toThrow(/The only supported way to manipulate locals is via the jsutils API/);
+  });
+
   it('can emit side-effectful import', function () {
     let compatTransform: ExtendedPluginBuilder = (env) => {
       return {
@@ -1529,7 +1554,7 @@ describe('htmlbars-inline-precompile', function () {
 
   describe('scope', function () {
     it('correctly handles scope function (non-block arrow function)', function () {
-      let source = 'hello';
+      let source = '<foo /><bar/>';
       let spy = sinon.spy(compiler, 'precompile');
 
       transform(
@@ -1539,7 +1564,7 @@ describe('htmlbars-inline-precompile', function () {
     });
 
     it('correctly handles scope function (block arrow function)', function () {
-      let source = 'hello';
+      let source = '<foo /><bar/>';
       let spy = sinon.spy(compiler, 'precompile');
 
       transform(
@@ -1550,7 +1575,7 @@ describe('htmlbars-inline-precompile', function () {
     });
 
     it('correctly handles scope function (normal function)', function () {
-      let source = 'hello';
+      let source = '<foo /><bar/>';
       let spy = sinon.spy(compiler, 'precompile');
 
       transform(
@@ -1561,7 +1586,7 @@ describe('htmlbars-inline-precompile', function () {
     });
 
     it('correctly handles scope function (object method)', function () {
-      let source = 'hello';
+      let source = '<foo /><bar/>';
       let spy = sinon.spy(compiler, 'precompile');
 
       transform(
@@ -1571,7 +1596,7 @@ describe('htmlbars-inline-precompile', function () {
     });
 
     it('correctly handles scope function with coverage', function () {
-      let source = 'hello';
+      let source = '<foo /><bar/>';
       let spy = sinon.spy(compiler, 'precompile');
 
       transform(
@@ -1626,6 +1651,26 @@ describe('htmlbars-inline-precompile', function () {
         /Scope objects for `precompileTemplate` may only contain direct references to in-scope values, e.g. { bar } or { bar: bar }/
       );
     });
+
+    it('correctly removes not used scope', function () {
+      let spy = sinon.spy(compiler, 'precompile');
+      transform(`
+        import { precompileTemplate } from '@ember/template-compilation';
+        let foo, bar;
+        var compiled = precompileTemplate('<foo /><bar/>', { scope: () => ({ foo, bar, baz }) });
+      `);
+      expect(spy.firstCall.lastArg).toHaveProperty('locals', ['foo', 'bar']);
+    });
+
+    it('does not automagically add to scope when not using implicit-scope-form', function () {
+      let spy = sinon.spy(compiler, 'precompile');
+      transform(`
+        import { precompileTemplate } from '@ember/template-compilation';
+        let foo, bar;
+        var compiled = precompileTemplate('<foo /><bar/>', { scope: () => ({ bar }) });
+      `);
+      expect(spy.firstCall.lastArg).toHaveProperty('locals', ['bar']);
+    });
   });
 
   describe('implicit-scope-form', function () {
@@ -1660,9 +1705,7 @@ describe('htmlbars-inline-precompile', function () {
     // that's what the lint rules are for. When it comes to correctness, we need
     // our scope to behave like real Javascript, and Javascript doesn't care
     // whether you've (for example) capitalized your variable identifier.
-    //
-    // needs https://github.com/glimmerjs/glimmer-vm/pull/1421
-    it.skip('shadows html elements with locals', function () {
+    it('shadows html elements with locals', function () {
       plugins = [
         [
           HTMLBarsInlinePrecompile,
@@ -1681,9 +1724,9 @@ describe('htmlbars-inline-precompile', function () {
       );
 
       expect(transformed).toEqualCode(`
-        import templateOnly from "@ember/component/template-only";
-        import { setComponentTemplate } from "@ember/component";
         import { precompileTemplate } from "@ember/template-compilation";
+        import { setComponentTemplate } from "@ember/component";
+        import templateOnly from "@ember/component/template-only";
         let div = 1;
         export default setComponentTemplate(precompileTemplate('<div></div>', { scope: () => ({ div }), strictMode: true }), templateOnly());
       `);
@@ -1716,8 +1759,7 @@ describe('htmlbars-inline-precompile', function () {
       `);
     });
 
-    // needs https://github.com/glimmerjs/glimmer-vm/pull/1421
-    it.skip('leaves ember keywords alone when no local is defined', function () {
+    it('leaves ember keywords alone when no local is defined', function () {
       plugins = [
         [
           HTMLBarsInlinePrecompile,
@@ -1735,9 +1777,9 @@ describe('htmlbars-inline-precompile', function () {
       );
 
       expect(transformed).toEqualCode(`
-        import templateOnly from "@ember/component/template-only";
-        import { setComponentTemplate } from "@ember/component";
         import { precompileTemplate } from "@ember/template-compilation";
+        import { setComponentTemplate } from "@ember/component";
+        import templateOnly from "@ember/component/template-only";
         export default setComponentTemplate(precompileTemplate('{{hasBlock "thing"}}', { strictMode: true }), templateOnly());
       `);
     });

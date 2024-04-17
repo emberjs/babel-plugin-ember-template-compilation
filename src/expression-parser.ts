@@ -107,7 +107,7 @@ export class ExpressionParser {
 
       res.add(propName, value.name);
       return res;
-    }, new ScopeLocals());
+    }, new ScopeLocals({ mode: 'explicit' }));
   }
 
   parseEval(

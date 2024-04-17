@@ -7,7 +7,7 @@ import { JSUtils, ExtendedPluginBuilder } from './js-utils';
 import type { EmberTemplateCompiler, PreprocessOptions } from './ember-template-compiler';
 import { LegacyModuleName } from './public-types';
 import { ScopeLocals } from './scope-locals';
-import { ASTPluginBuilder, getTemplateLocals, preprocess, print } from '@glimmer/syntax';
+import { ASTPluginBuilder, preprocess, print } from '@glimmer/syntax';
 
 export * from './public-types';
 
@@ -362,32 +362,15 @@ function runtimeErrorIIFE(babel: typeof Babel, replacements: { ERROR_MESSAGE: st
 function buildScopeLocals(
   userTypedOptions: Record<string, unknown>,
   formatOptions: ModuleConfig,
-  templateContent: string
+  target: NodePath<t.Expression>
 ): ScopeLocals {
   if (formatOptions.rfc931Support && userTypedOptions.eval) {
-    return discoverLocals(templateContent);
+    return new ScopeLocals({ mode: 'implicit', jsPath: target });
   } else if (userTypedOptions.scope) {
     return userTypedOptions.scope as ScopeLocals;
   } else {
-    return new ScopeLocals();
+    return new ScopeLocals({ mode: 'explicit' });
   }
-}
-
-function discoverLocals(templateContent: string): ScopeLocals {
-  // this is wrong, but the right thing is unreleased in
-  // https://github.com/glimmerjs/glimmer-vm/pull/1421, so for the moment I'm
-  // sticking with the exact behavior that ember-templates-imports has.
-  //
-  // (the reason it's wrong is that the correct answer depends on not just the
-  // template, but the ambient javascript scope. Anything in locals needs to win
-  // over ember keywords. Otherwise we can never introduce new keywords.)
-  let scopeLocals = new ScopeLocals();
-  for (let local of getTemplateLocals(templateContent)) {
-    if (local.match(/^[$A-Z_][0-9A-Z_$]*$/i)) {
-      scopeLocals.add(local);
-    }
-  }
-  return scopeLocals;
 }
 
 function buildPrecompileOptions<EnvSpecificOptions>(
@@ -399,7 +382,7 @@ function buildPrecompileOptions<EnvSpecificOptions>(
   config: ModuleConfig,
   scope: ScopeLocals
 ): PreprocessOptions & Record<string, unknown> {
-  let jsutils = new JSUtils(babel, state, target, scope, state.util);
+  let jsutils = new JSUtils(babel, state, target, scope.add.bind(scope), state.util);
   let meta = Object.assign({ jsutils }, userTypedOptions?.meta);
 
   let output: PreprocessOptions & Record<string, unknown> = {
@@ -422,7 +405,7 @@ function buildPrecompileOptions<EnvSpecificOptions>(
     plugins: {
       // the cast is needed here only because our meta is extended. That is,
       // these plugins can access meta.jsutils.
-      ast: state.normalizedOpts.transforms as ASTPluginBuilder[],
+      ast: [...state.normalizedOpts.transforms, scope.crawl()] as ASTPluginBuilder[],
     },
   };
 
@@ -472,7 +455,7 @@ function insertCompiledTemplate<EnvSpecificOptions>(
   backingClass: NodePath<Parameters<typeof t.callExpression>[1][number]> | undefined
 ) {
   let t = babel.types;
-  let scopeLocals = buildScopeLocals(userTypedOptions, config, template);
+  let scopeLocals = buildScopeLocals(userTypedOptions, config, target);
   let options = buildPrecompileOptions(
     babel,
     target,
@@ -549,7 +532,7 @@ function insertTransformedTemplate<EnvSpecificOptions>(
   backingClass: NodePath<Parameters<typeof t.callExpression>[1][number]> | undefined
 ) {
   let t = babel.types;
-  let scopeLocals = buildScopeLocals(userTypedOptions, formatOptions, template);
+  let scopeLocals = buildScopeLocals(userTypedOptions, formatOptions, target);
   let options = buildPrecompileOptions(
     babel,
     target,
@@ -561,17 +544,14 @@ function insertTransformedTemplate<EnvSpecificOptions>(
   );
   let ast = preprocess(template, { ...options, mode: 'codemod' });
   let transformed = print(ast, { entityEncoding: 'raw' });
-  let needsScopeCrawl = false;
   if (target.isCallExpression()) {
     (target.get('arguments.0') as NodePath<t.Node>).replaceWith(t.stringLiteral(transformed));
-    if (!scopeLocals.isEmpty()) {
-      if (!formatOptions.enableScope) {
-        maybePruneImport(state.util, target.get('callee'));
-        target.set('callee', precompileTemplate(state.util, target));
-      }
-      updateScope(babel, target, scopeLocals);
-      needsScopeCrawl = true;
+    if (!formatOptions.enableScope) {
+      maybePruneImport(state.util, target.get('callee'));
+      target.set('callee', precompileTemplate(state.util, target));
     }
+
+    updateScope(babel, target, scopeLocals);
 
     if (formatOptions.rfc931Support === 'polyfilled') {
       maybePruneImport(state.util, target.get('callee'));
@@ -595,11 +575,8 @@ function insertTransformedTemplate<EnvSpecificOptions>(
             ),
         ])
       )[0];
-      needsScopeCrawl = true;
     }
-    if (needsScopeCrawl) {
-      target.scope.crawl();
-    }
+    target.scope.crawl();
   } else {
     if (!scopeLocals.isEmpty()) {
       // need to add scope, so need to replace the backticks form with a call
@@ -629,6 +606,7 @@ function templateFactoryConfig(opts: NormalizedOpts) {
 
 function buildScope(babel: typeof Babel, locals: ScopeLocals) {
   let t = babel.types;
+
   return t.arrowFunctionExpression(
     [],
     t.objectExpression(
@@ -650,13 +628,16 @@ function updateScope(babel: typeof Babel, target: NodePath<t.CallExpression>, lo
     });
     if (scope) {
       scope.set('value', buildScope(babel, locals));
-    } else {
+      if (locals.isEmpty()) {
+        scope.remove();
+      }
+    } else if (!locals.isEmpty()) {
       secondArg.pushContainer(
         'properties',
         t.objectProperty(t.identifier('scope'), buildScope(babel, locals))
       );
     }
-  } else {
+  } else if (!locals.isEmpty()) {
     target.pushContainer(
       'arguments',
       t.objectExpression([t.objectProperty(t.identifier('scope'), buildScope(babel, locals))])
