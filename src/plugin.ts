@@ -159,7 +159,7 @@ export function makePlugin<EnvSpecificOptions>(loadOptions: (opts: EnvSpecificOp
       visitor: {
         Program: {
           enter(path: NodePath<t.Program>, state: State<EnvSpecificOptions>) {
-            state.normalizedOpts = normalizeOpts(loadOptions(state.opts));
+            state.normalizedOpts = normalizeOpts(loadOptions(state.opts.arg || state.opts));
             state.templateFactory = templateFactoryConfig(state.normalizedOpts);
             state.util = new ImportUtil(t, path);
             state.program = path;
