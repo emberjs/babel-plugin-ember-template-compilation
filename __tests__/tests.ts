@@ -2040,8 +2040,9 @@ describe('htmlbars-inline-precompile', function () {
           import { precompileTemplate } from "@ember/template-compilation";
           import { setComponentTemplate } from "@ember/component";
           export default class {
+            h = HelloWorld;
             static {
-              setComponentTemplate(precompileTemplate('<this.h />', { scope: () => ({  }), strictMode: true }), this);
+              setComponentTemplate(precompileTemplate('<this.h />', { strictMode: true }), this);
             }
           }
         `);

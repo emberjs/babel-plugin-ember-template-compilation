@@ -79,6 +79,10 @@ export class ScopeLocals {
     return ['this', 'globalThis'].includes(jsName) || jsPath.scope.getBinding(jsName);
   }
 
+  #isImplicitScope(name: string) {
+    return name === 'this';
+  }
+
   // this AST transform discovers all possible upvars in HBS that refer to valid
   // bindings in JS, and then depending on the mode adjusts our actual scope bag
   // contents.
@@ -98,6 +102,8 @@ export class ScopeLocals {
                 // scope
                 for (let name of seen) {
                   if (this.#isInJsScope(name, this.#params.jsPath)) {
+                    if (this.#isImplicitScope(name)) continue;
+
                     this.add(name);
                   }
                 }
