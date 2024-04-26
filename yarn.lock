@@ -2023,10 +2023,10 @@ available-typed-arrays@^1.0.5:
   resolved "https://registry.yarnpkg.com/available-typed-arrays/-/available-typed-arrays-1.0.5.tgz#92f95616501069d07d10edb2fc37d3e1c65123b7"
   integrity sha512-DMD0KiN46eipeziST1LPP/STfDU0sufISXmjSgvVsoU2tqxctQeASejWcfNtxYKqETM1UxQ8sp2OrSBWpHY6sw==
 
-babel-import-util@^2.1.0:
-  version "2.1.0"
-  resolved "https://registry.yarnpkg.com/babel-import-util/-/babel-import-util-2.1.0.tgz#fa1ff9082165343d24a1260d2874b3ce1fef3246"
-  integrity sha512-iL9toY75NhvsNfy4dtjA/9C8B2X1IXSho5KVamya8z9jbozyPW0Fj70xBV+Quki/Cijdj/ANMb85sncTnvIvZg==
+babel-import-util@^3.0.0:
+  version "3.0.0"
+  resolved "https://registry.yarnpkg.com/babel-import-util/-/babel-import-util-3.0.0.tgz#5814c6a58e7b80e64156b48fdfd34d48e6e0b1df"
+  integrity sha512-4YNPkuVsxAW5lnSTa6cn4Wk49RX6GAB6vX+M6LqEtN0YePqoFczv1/x0EyLK/o+4E1j9jEuYj5Su7IEPab5JHQ==
 
 babel-jest@^29.6.4:
   version "29.6.4"
