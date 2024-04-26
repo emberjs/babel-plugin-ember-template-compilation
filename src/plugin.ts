@@ -1,7 +1,7 @@
 import type { NodePath } from '@babel/traverse';
 import type * as Babel from '@babel/core';
 import type { types as t } from '@babel/core';
-import { ImportUtil } from 'babel-import-util';
+import { ImportUtil, type Importer } from 'babel-import-util';
 import { ExpressionParser } from './expression-parser';
 import { JSUtils, ExtendedPluginBuilder } from './js-utils';
 import type { EmberTemplateCompiler, PreprocessOptions } from './ember-template-compiler';
@@ -161,7 +161,7 @@ export function makePlugin<EnvSpecificOptions>(loadOptions: (opts: EnvSpecificOp
           enter(path: NodePath<t.Program>, state: State<EnvSpecificOptions>) {
             state.normalizedOpts = normalizeOpts(loadOptions(state.opts));
             state.templateFactory = templateFactoryConfig(state.normalizedOpts);
-            state.util = new ImportUtil(t, path);
+            state.util = new ImportUtil(babel, path);
             state.program = path;
             state.recursionGuard = new Set();
           },
@@ -426,22 +426,27 @@ function buildPrecompileOptions<EnvSpecificOptions>(
   return output;
 }
 
-// if scope has different keys and values, this function will remap the keys to the values
-// you can see an example of this in the test "correctly handles scope if it contains keys and values"
-function remapIdentifiers(ast: Babel.types.File, babel: typeof Babel, scopeLocals: ScopeLocals) {
-  if (!scopeLocals.needsRemapping()) {
-    // do nothing if all keys are the same as their values
-    return;
-  }
-
-  babel.traverse(ast, {
-    Identifier(path: NodePath<t.Identifier>) {
-      if (scopeLocals.has(path.node.name) && path.node.name !== scopeLocals.get(path.node.name)) {
-        // replace the path only if the key is different from the value
-        path.replaceWith(babel.types.identifier(scopeLocals.get(path.node.name)));
-      }
+function remapAndBindIdentifiers(target: NodePath, babel: typeof Babel, scopeLocals: ScopeLocals) {
+  babel.traverse(
+    target.node,
+    {
+      Identifier(path: NodePath<t.Identifier>) {
+        if (scopeLocals.has(path.node.name) && path.node.name !== scopeLocals.get(path.node.name)) {
+          // this identifier has different names in hbs vs js, so we need to
+          // replace the hbs name in the template compiler output with the js
+          // name
+          path.replaceWith(babel.types.identifier(scopeLocals.get(path.node.name)));
+        }
+        // this is where we tell babel's scope system about the new reference we
+        // just introduced. @babel/plugin-transform-typescript in particular
+        // cares a lot about those references being present.
+        path.scope.getBinding(path.node.name)?.reference(path);
+      },
     },
-  });
+    target.scope,
+    {},
+    target.parentPath ?? undefined
+  );
 }
 
 function insertCompiledTemplate<EnvSpecificOptions>(
@@ -485,8 +490,6 @@ function insertCompiledTemplate<EnvSpecificOptions>(
     configFile: false,
   }) as t.File;
 
-  remapIdentifiers(precompileResultAST, babel, scopeLocals);
-
   let templateExpression = (precompileResultAST.program.body[0] as t.VariableDeclaration)
     .declarations[0].init as t.Expression;
 
@@ -497,29 +500,28 @@ function insertCompiledTemplate<EnvSpecificOptions>(
     /* line comment? */ false
   );
 
-  let templateFactoryIdentifier = state.util.import(
-    target,
-    state.templateFactory.moduleName,
-    state.templateFactory.exportName
-  );
+  state.util.replaceWith(target, (i) => {
+    let templateFactoryIdentifier = i.import(
+      state.templateFactory.moduleName,
+      state.templateFactory.exportName
+    );
 
-  let expression = t.callExpression(templateFactoryIdentifier, [templateExpression]);
+    let expression = t.callExpression(templateFactoryIdentifier, [templateExpression]);
 
-  if (config.rfc931Support) {
-    expression = t.callExpression(
-      state.util.import(target, '@ember/component', 'setComponentTemplate'),
-      [
+    if (config.rfc931Support) {
+      expression = t.callExpression(i.import('@ember/component', 'setComponentTemplate'), [
         expression,
         backingClass?.node ??
           t.callExpression(
-            state.util.import(target, '@ember/component/template-only', 'default', 'templateOnly'),
+            i.import('@ember/component/template-only', 'default', 'templateOnly'),
             []
           ),
-      ]
-    );
-  }
-  target.replaceWith(expression);
-  target.scope.crawl();
+      ]);
+    }
+    return expression;
+  });
+
+  remapAndBindIdentifiers(target, babel, scopeLocals);
 }
 
 function insertTransformedTemplate<EnvSpecificOptions>(
@@ -544,55 +546,105 @@ function insertTransformedTemplate<EnvSpecificOptions>(
   );
   let ast = preprocess(template, { ...options, mode: 'codemod' });
   let transformed = print(ast, { entityEncoding: 'raw' });
+
   if (target.isCallExpression()) {
-    (target.get('arguments.0') as NodePath<t.Node>).replaceWith(t.stringLiteral(transformed));
-    if (!formatOptions.enableScope) {
-      maybePruneImport(state.util, target.get('callee'));
-      target.set('callee', precompileTemplate(state.util, target));
-    }
-
-    updateScope(babel, target, scopeLocals);
-
-    if (formatOptions.rfc931Support === 'polyfilled') {
-      maybePruneImport(state.util, target.get('callee'));
-      target.set('callee', precompileTemplate(state.util, target));
-      convertStrictMode(babel, target);
-      removeEvalAndScope(target);
-      target.node.arguments = target.node.arguments.slice(0, 2);
-      state.recursionGuard.add(target.node);
-      target = target.replaceWith(
-        t.callExpression(state.util.import(target, '@ember/component', 'setComponentTemplate'), [
-          target.node,
-          backingClass?.node ??
-            t.callExpression(
-              state.util.import(
-                target,
-                '@ember/component/template-only',
-                'default',
-                'templateOnly'
-              ),
-              []
-            ),
-        ])
-      )[0];
-    }
-    target.scope.crawl();
+    updateCallForm<EnvSpecificOptions>(
+      target,
+      transformed,
+      formatOptions,
+      scopeLocals,
+      state,
+      babel,
+      backingClass
+    );
   } else {
-    if (!scopeLocals.isEmpty()) {
-      // need to add scope, so need to replace the backticks form with a call
-      // expression to precompileTemplate
-      maybePruneImport(state.util, target.get('tag'));
-      let newCall = target.replaceWith(
-        t.callExpression(precompileTemplate(state.util, target), [t.stringLiteral(transformed)])
-      )[0];
-      updateScope(babel, newCall, scopeLocals);
-      newCall.scope.crawl();
-    } else {
-      (target.get('quasi').get('quasis.0') as NodePath<t.TemplateElement>).replaceWith(
-        t.templateElement({ raw: transformed })
-      );
-    }
+    updateBacktickForm<EnvSpecificOptions>(scopeLocals, state, target, t, transformed, babel);
   }
+}
+
+function updateBacktickForm<EnvSpecificOptions>(
+  scopeLocals: ScopeLocals,
+  state: State<EnvSpecificOptions>,
+  target: NodePath<t.TaggedTemplateExpression>,
+  t: typeof Babel.types,
+  transformed: string,
+  babel: typeof Babel
+) {
+  if (scopeLocals.isEmpty()) {
+    // simple case: just replace the string literal part with the transformed
+    // template contents
+    (target.get('quasi').get('quasis.0') as NodePath<t.TemplateElement>).replaceWith(
+      t.templateElement({ raw: transformed })
+    );
+    return;
+  }
+
+  // need to add scope, so need to replace the backticks form with a call
+  // expression to precompileTemplate
+  maybePruneImport(state.util, target.get('tag'));
+  let newCall = state.util.replaceWith(target, (i) =>
+    t.callExpression(precompileTemplate(i), [t.stringLiteral(transformed)])
+  );
+  updateScope(babel, newCall, scopeLocals);
+}
+
+function updateCallForm<EnvSpecificOptions>(
+  target: NodePath<Babel.types.CallExpression>,
+  transformed: string,
+  formatOptions: ModuleConfig,
+  scopeLocals: ScopeLocals,
+  state: State<EnvSpecificOptions>,
+  babel: typeof Babel,
+  backingClass:
+    | NodePath<
+        | Babel.types.Expression
+        | Babel.types.ArgumentPlaceholder
+        | Babel.types.JSXNamespacedName
+        | Babel.types.SpreadElement
+      >
+    | undefined
+) {
+  // first the simple part: replacing the string literal with the actual body of
+  // the rewritten template
+  (target.get('arguments.0') as NodePath<t.Node>).replaceWith(
+    babel.types.stringLiteral(transformed)
+  );
+
+  if (!formatOptions.enableScope && !scopeLocals.isEmpty()) {
+    // an AST transform added lexically scoped values to a template that
+    // wasn't already in a form that supports them, so convert form.
+    maybePruneImport(state.util, target.get('callee'));
+    state.util.replaceWith(target.get('callee'), (i) => precompileTemplate(i));
+  }
+
+  if (formatOptions.rfc931Support === 'polyfilled') {
+    maybePruneImport(state.util, target.get('callee'));
+    state.util.replaceWith(target.get('callee'), (i) => precompileTemplate(i));
+    convertStrictMode(babel, target);
+    removeEvalAndScope(target);
+    target.node.arguments = target.node.arguments.slice(0, 2);
+    state.recursionGuard.add(target.node);
+    state.util.replaceWith(target, (i) =>
+      babel.types.callExpression(i.import('@ember/component', 'setComponentTemplate'), [
+        target.node,
+        backingClass?.node ??
+          babel.types.callExpression(
+            i.import('@ember/component/template-only', 'default', 'templateOnly'),
+            []
+          ),
+      ])
+    );
+    // we just wrapped the target callExpression in the call to
+    // setComponentTemplate. Adjust `target` back to point at the
+    // precompileTemplate call for the final updateScope below.
+    //
+    target = target.get('arguments.0') as NodePath<t.CallExpression>;
+  }
+
+  // We deliberately do updateScope at the end so that when it updates
+  // references, those references will point to the accurate paths in the
+  // final AST.
+  updateScope(babel, target, scopeLocals);
 }
 
 function templateFactoryConfig(opts: NormalizedOpts) {
@@ -618,6 +670,12 @@ function buildScope(babel: typeof Babel, locals: ScopeLocals) {
     )
   );
 }
+
+// this is responsible both for adjusting the AST for our scope argument *and*
+// ensuring that babel's scope system will see that these new identifiers
+// reference their bindings. @babel/plugin-transform-typescript in particular
+// cares an awful lot about whether an import has valid non-type references, so
+// these newly introducd references need to be valid.
 function updateScope(babel: typeof Babel, target: NodePath<t.CallExpression>, locals: ScopeLocals) {
   let t = babel.types;
   let secondArg = target.get('arguments.1') as NodePath<t.ObjectExpression> | undefined;
@@ -627,21 +685,31 @@ function updateScope(babel: typeof Babel, target: NodePath<t.CallExpression>, lo
       return key.isIdentifier() && key.node.name === 'scope';
     });
     if (scope) {
-      scope.set('value', buildScope(babel, locals));
       if (locals.isEmpty()) {
         scope.remove();
+      } else {
+        scope.set('value', buildScope(babel, locals));
+        // funny-looking naming here, but it actually makes sense because we're
+        // connecting the glimmer scope system with the babel scope system.
+        scope.scope.crawl();
       }
     } else if (!locals.isEmpty()) {
       secondArg.pushContainer(
         'properties',
         t.objectProperty(t.identifier('scope'), buildScope(babel, locals))
       );
+      (
+        secondArg.get(
+          `properties.${secondArg.node.properties.length - 1}`
+        ) as NodePath<t.ObjectProperty>
+      ).scope.crawl();
     }
   } else if (!locals.isEmpty()) {
     target.pushContainer(
       'arguments',
       t.objectExpression([t.objectProperty(t.identifier('scope'), buildScope(babel, locals))])
     );
+    (target.get('arguments.1') as NodePath<t.ObjectExpression>).scope.crawl();
   }
 }
 
@@ -715,8 +783,8 @@ function maybePruneImport(
   identifier.removed = true;
 }
 
-function precompileTemplate(util: ImportUtil, target: NodePath<t.Node>) {
-  return util.import(target, '@ember/template-compilation', 'precompileTemplate');
+function precompileTemplate(i: Importer) {
+  return i.import('@ember/template-compilation', 'precompileTemplate');
 }
 
 function name(node: t.StringLiteral | t.Identifier) {

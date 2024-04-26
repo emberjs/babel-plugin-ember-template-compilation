@@ -258,6 +258,11 @@ class ExpressionContext {
    * @return the local identifier for the imported value
    */
   import(moduleSpecifier: string, exportedName: string, nameHint?: string): string {
+    // this method in babel-import-util is the lower-level one that doesn't try
+    // to create valid references for us. It's our responsibility to do so. But
+    // that's OK here, because we have the same responsibility for every
+    // scope-bag identifier, not just the imported ones, and it will be easier
+    // to handle them all at once.
     return this.#importer.import(this.#target, moduleSpecifier, exportedName, nameHint).name;
   }
 }
