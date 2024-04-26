@@ -59,10 +59,6 @@ export class ScopeLocals {
     return this.#locals.length === 0;
   }
 
-  needsRemapping(): boolean {
-    return Object.entries(this.#mapping).some(([k, v]) => k !== v);
-  }
-
   entries() {
     return Object.entries(this.#mapping);
   }
