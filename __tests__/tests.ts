@@ -2078,6 +2078,43 @@ describe('htmlbars-inline-precompile', function () {
           }
         `);
     });
+
+    it('works for class member form with `this` references', function () {
+      plugins = [
+        [
+          HTMLBarsInlinePrecompile,
+          {
+            compiler,
+            targetFormat: 'hbs',
+          },
+        ],
+      ];
+
+      let p = new Preprocessor();
+
+      let transformed = transform(
+        p.process(
+          `import HelloWorld from 'somewhere';
+           export default class {
+             h = HelloWorld;
+             <template><this.h /></template>
+           }
+          `
+        )
+      );
+
+      expect(transformed).toEqualCode(`
+          import HelloWorld from "somewhere";
+          import { precompileTemplate } from "@ember/template-compilation";
+          import { setComponentTemplate } from "@ember/component";
+          export default class {
+            h = HelloWorld;
+            static {
+              setComponentTemplate(precompileTemplate('<this.h />', { strictMode: true }), this);
+            }
+          }
+        `);
+    });
   });
 });
 

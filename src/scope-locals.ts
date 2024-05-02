@@ -72,7 +72,7 @@ export class ScopeLocals {
 
   #isInJsScope(hbsName: string, jsPath: NodePath) {
     let jsName = this.#mapping[hbsName] ?? hbsName;
-    return ['this', 'globalThis'].includes(jsName) || jsPath.scope.getBinding(jsName);
+    return ['globalThis'].includes(jsName) || jsPath.scope.getBinding(jsName);
   }
 
   // this AST transform discovers all possible upvars in HBS that refer to valid
