@@ -18,16 +18,13 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v1
-      - uses: actions/setup-node@v3
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v2
+      - uses: actions/setup-node@v4
         with:
-          node-version: 18.x
-      - name: install yarn
-        run: npm install -g yarn
-      - name: install dependencies
-        run: yarn install --frozen-lockfile
-      - name: linting
-        run: yarn lint
+          cache: 'pnpm'
+      - run: pnpm install
+      - run: pnpm lint
 
   test:
     name: Tests
@@ -35,32 +32,27 @@ jobs:
 
     strategy:
       matrix:
-        node: ['14', '18']
+        node: ['14', '18', '20']
 
     steps:
-      - uses: actions/checkout@v1
-      - uses: actions/setup-node@v3
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v2
+      - uses: actions/setup-node@v4
         with:
+          cache: 'pnpm'
           node-version: ${{ matrix.node }}
-      - name: install yarn
-        run: npm install -g yarn
-      - name: install dependencies
-        run: yarn install --frozen-lockfile
-      - name: test
-        run: yarn test
+      - run: pnpm install
+      - run: pnpm test
 
   floating-test:
     name: Floating dependencies
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v1
-      - uses: actions/setup-node@v3
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v2
+      - uses: actions/setup-node@v4
         with:
-          node-version: '18.x'
-      - name: install yarn
-        run: npm install -g yarn
-      - name: install dependencies
-        run: yarn install --no-lockfile
-      - name: test
-        run: yarn test
+          cache: 'pnpm'
+      - run: pnpm install --no-lockfile
+      - run: pnpm test
