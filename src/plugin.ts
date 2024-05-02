@@ -596,12 +596,7 @@ function updateCallForm<EnvSpecificOptions>(
   state: State<EnvSpecificOptions>,
   babel: typeof Babel,
   backingClass:
-    | NodePath<
-        | Babel.types.Expression
-        | Babel.types.ArgumentPlaceholder
-        | Babel.types.JSXNamespacedName
-        | Babel.types.SpreadElement
-      >
+    | NodePath<Babel.types.Expression | Babel.types.ArgumentPlaceholder | Babel.types.SpreadElement>
     | undefined
 ) {
   // first the simple part: replacing the string literal with the actual body of
