@@ -5,21 +5,6 @@
   "repository": "https://github.com/emberjs/babel-plugin-ember-template-compilation",
   "license": "MIT",
   "author": "Edward Faulkner <edward@eaf4.com>",
-  "scripts": {
-    "prepare": "tsc",
-    "build": "tsc",
-    "pretest": "tsc",
-    "lint": "eslint --cache --ext .ts .",
-    "test": "jest",
-    "clean": "git clean -d -f -x src __tests__"
-  },
-  "jest": {
-    "testPathIgnorePatterns": [
-      "mock-precompile",
-      ".*\\.ts"
-    ]
-  },
-  "main": "src/node-main.js",
   "exports": {
     ".": {
       "browser": "./src/plugin.js",
@@ -28,11 +13,26 @@
     "./browser": "./src/plugin.js",
     "./node": "./src/node-main.js"
   },
+  "main": "src/node-main.js",
   "files": [
     "src/**/*.js",
     "src/**/*.d.ts",
     "src/**/*.js.map"
   ],
+  "scripts": {
+    "build": "tsc",
+    "clean": "git clean -d -f -x src __tests__",
+    "lint": "eslint --cache --ext .ts .",
+    "prepare": "tsc",
+    "pretest": "tsc",
+    "test": "jest"
+  },
+  "jest": {
+    "testPathIgnorePatterns": [
+      "mock-precompile",
+      ".*\\.ts"
+    ]
+  },
   "dependencies": {
     "@glimmer/syntax": "^0.84.3",
     "babel-import-util": "^3.0.0"
@@ -64,11 +64,17 @@
     "prettier": "^2.2.1",
     "release-it": "^14.10.0",
     "release-it-lerna-changelog": "^3.1.0",
+    "release-plan": "^0.9.0",
     "sinon": "^14.0.0",
     "typescript": "^4.3.5"
   },
+  "packageManager": "pnpm@9.0.6",
   "engines": {
     "node": ">= 12.*"
+  },
+  "volta": {
+    "node": "18.20.2",
+    "pnpm": "9.0.6"
   },
   "release-it": {
     "plugins": {
@@ -84,10 +90,5 @@
       "release": true,
       "tokenRef": "GITHUB_AUTH"
     }
-  },
-  "packageManager": "pnpm@9.0.6",
-  "volta": {
-    "node": "18.20.2",
-    "pnpm": "9.0.6"
   }
 }
