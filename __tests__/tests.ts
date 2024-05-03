@@ -2118,12 +2118,13 @@ describe('htmlbars-inline-precompile', function () {
 
     it('handles multiple components', function () {
       plugins = [
-        TransformTypescript,
+        // Settings from the v2 addon blueprint
+        [TransformTypescript, { onlyRemoveTypeImports: true } as any],
         [
           HTMLBarsInlinePrecompile,
           {
-            compiler,
             targetFormat: 'hbs',
+            transforms: [],
           },
         ],
       ];
