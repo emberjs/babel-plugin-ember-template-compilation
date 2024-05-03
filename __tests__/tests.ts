@@ -2115,6 +2115,24 @@ describe('htmlbars-inline-precompile', function () {
           }
         `);
     });
+
+    it('why does this fail?', function () {
+      plugins = [
+        [
+          HTMLBarsInlinePrecompile,
+          {
+            compiler,
+            targetFormat: 'hbs',
+          },
+        ],
+      ];
+
+      let p = new Preprocessor();
+
+      let transformed = transform(p.process(`<template>hi</template>`));
+
+      expect(transformed).toEqualCode('');
+    });
   });
 });
 
