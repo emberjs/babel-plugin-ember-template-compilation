@@ -2116,8 +2116,9 @@ describe('htmlbars-inline-precompile', function () {
         `);
     });
 
-    it('why does this fail?', function () {
+    it('handles multiple components', function () {
       plugins = [
+        TransformTypescript,
         [
           HTMLBarsInlinePrecompile,
           {
@@ -2129,7 +2130,30 @@ describe('htmlbars-inline-precompile', function () {
 
       let p = new Preprocessor();
 
-      let transformed = transform(p.process(`<template>hi</template>`));
+      let code = `
+import { assert } from '@ember/debug';
+import Component from '@glimmer/component';
+
+export const BreadcrumbDivider = <template>
+  hi
+</template>;
+
+export default class LunaLayoutListView extends Component<Signature> {
+  constructor(owner: unknown, args) {
+    super(owner, args);
+
+    assert('some assertion', args.foo !== undefined);
+  }
+
+  <template>
+    hello
+  </template>
+}
+          `;
+
+      let processed = p.process(code);
+
+      let transformed = transform(processed);
 
       expect(transformed).toEqualCode('');
     });
