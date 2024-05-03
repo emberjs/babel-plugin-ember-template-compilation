@@ -1,5 +1,26 @@
 # Changelog
 
+## Release (2024-05-03)
+
+babel-plugin-ember-template-compilation 2.2.3 (patch)
+
+#### :bug: Bug Fix
+* `babel-plugin-ember-template-compilation`
+  * [#40](https://github.com/emberjs/babel-plugin-ember-template-compilation/pull/40) `this` should not be added to the scope bag ([@NullVoxPopuli](https://github.com/NullVoxPopuli))
+
+#### :house: Internal
+* `babel-plugin-ember-template-compilation`
+  * [#47](https://github.com/emberjs/babel-plugin-ember-template-compilation/pull/47) Remove withVersion for ci's pnpm version in the release plan workflows ([@NullVoxPopuli](https://github.com/NullVoxPopuli))
+  * [#44](https://github.com/emberjs/babel-plugin-ember-template-compilation/pull/44) setup release-plan ([@NullVoxPopuli](https://github.com/NullVoxPopuli))
+  * [#45](https://github.com/emberjs/babel-plugin-ember-template-compilation/pull/45) Switch to pnpm ([@NullVoxPopuli](https://github.com/NullVoxPopuli))
+  * [#46](https://github.com/emberjs/babel-plugin-ember-template-compilation/pull/46) Fix `tsc` error on the floating deps test ([@NullVoxPopuli](https://github.com/NullVoxPopuli))
+  * [#43](https://github.com/emberjs/babel-plugin-ember-template-compilation/pull/43) upgrade babel-import-util to 3.0 ([@ef4](https://github.com/ef4))
+  * [#42](https://github.com/emberjs/babel-plugin-ember-template-compilation/pull/42) Update babel-import-util and use it to manage babel bindings more precisely ([@ef4](https://github.com/ef4))
+
+#### Committers: 2
+- Edward Faulkner ([@ef4](https://github.com/ef4))
+- [@NullVoxPopuli](https://github.com/NullVoxPopuli)
+
 
 
 
