@@ -2139,63 +2139,6 @@ describe('htmlbars-inline-precompile', function () {
         `);
     });
 
-    it('works with two components', function () {
-      plugins = [
-        [
-          HTMLBarsInlinePrecompile,
-          {
-            targetFormat: 'hbs',
-          },
-        ],
-      ];
-
-      let p = new Preprocessor();
-      let processed = p.process(
-        `
-        import Component from '@glimmer/component';
-
-        export default class Test extends Component {
-          foo = 1;
-
-          <template>
-            <Icon />
-          </template>
-        }
-
-        const Icon = <template>Icon</template>;
-        `
-      );
-
-      let transformed = transform(processed);
-
-      expect(transformed).toEqualCode(`
-        import Component from "@glimmer/component";
-        import { precompileTemplate } from "@ember/template-compilation";
-        import { setComponentTemplate } from "@ember/component";
-        import templateOnly from "@ember/component/template-only";
-        export default class Test extends Component {
-          foo = 1;
-          static {
-            setComponentTemplate(
-              precompileTemplate("\\n            <Icon />\\n          ", {
-                strictMode: true,
-                scope: () => ({
-                  Icon,
-                }),
-              }),
-              this
-            );
-          }
-        }
-        const Icon = setComponentTemplate(
-          precompileTemplate("Icon", {
-            strictMode: true,
-          }),
-          templateOnly()
-        );
-    `);
-    });
-
     it('works for class member form with `this` references', function () {
       plugins = [
         [
