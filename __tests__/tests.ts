@@ -1478,6 +1478,66 @@ describe('htmlbars-inline-precompile', function () {
       `);
     });
 
+    it('cleans up leftover imports when polyfilling rfc931 with hbs target', function () {
+      plugins = [
+        [
+          HTMLBarsInlinePrecompile,
+          {
+            targetFormat: 'hbs',
+          },
+        ],
+      ];
+      let code = `
+        import { template } from "@ember/template-compiler";
+        import Component from '@glimmer/component';
+        export default class Test extends Component {
+            foo = 1;
+            static{
+                template("<Icon />", {
+                    component: this,
+                    eval () {
+                        return eval(arguments[0]);
+                    }
+                });
+            }
+        }
+        const Icon = template("Icon", {
+            eval () {
+                return eval(arguments[0]);
+            }
+        });
+      `;
+
+      let transformed = transform(code);
+
+      expect(transformed).toEqualCode(`
+        import Component from "@glimmer/component";
+        import { precompileTemplate } from "@ember/template-compilation";
+        import { setComponentTemplate } from "@ember/component";
+        import templateOnly from "@ember/component/template-only";
+        export default class Test extends Component {
+          foo = 1;
+          static {
+            setComponentTemplate(
+              precompileTemplate("<Icon />", {
+                strictMode: true,
+                scope: () => ({
+                  Icon,
+                }),
+              }),
+              this
+            );
+          }
+        }
+        const Icon = setComponentTemplate(
+          precompileTemplate("Icon", {
+            strictMode: true,
+          }),
+          templateOnly()
+        );
+      `);
+    });
+
     it("respects user's strict option on template()", function () {
       plugins = [
         [
@@ -2090,24 +2150,23 @@ describe('htmlbars-inline-precompile', function () {
       ];
 
       let p = new Preprocessor();
+      let processed = p.process(
+        `
+        import Component from '@glimmer/component';
 
-      let transformed = transform(
-        p.process(
-          `
-          import Component from '@glimmer/component';
+        export default class Test extends Component {
+          foo = 1;
 
-          export default class Test extends Component {
-            foo = 1;
+          <template>
+            <Icon />
+          </template>
+        }
 
-            <template>
-              <Icon />
-            </template>
-          }
-
-          const Icon = <template>Icon</template>;
-          `
-        )
+        const Icon = <template>Icon</template>;
+        `
       );
+
+      let transformed = transform(processed);
 
       expect(transformed).toEqualCode(`
         import Component from "@glimmer/component";
@@ -2118,7 +2177,7 @@ describe('htmlbars-inline-precompile', function () {
           foo = 1;
           static {
             setComponentTemplate(
-              precompileTemplate("\\n              <Icon />\\n            ", {
+              precompileTemplate("\\n            <Icon />\\n          ", {
                 strictMode: true,
                 scope: () => ({
                   Icon,
