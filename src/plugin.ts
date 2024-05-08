@@ -629,23 +629,12 @@ function updateCallForm<EnvSpecificOptions>(
           ),
       ])
     );
-
     // we just wrapped the target callExpression in the call to
     // setComponentTemplate. Adjust `target` back to point at the
     // precompileTemplate call for the final updateScope below.
     //
     target = target.get('arguments.0') as NodePath<t.CallExpression>;
   }
-
-  // Changing imports/identifiers doesn't automatically update the scope.
-  //
-  // NOTE: https://github.com/babel/babel/issues/7974
-  //
-  // We need to refresh ourselves
-  // This is expensive, but required so that maybePruneImport
-  // has a chance to prune imports when their specifiers are no longer used.
-  state.program.scope.crawl();
-
   // We deliberately do updateScope at the end so that when it updates
   // references, those references will point to the accurate paths in the
   // final AST.
@@ -774,18 +763,26 @@ function maybePruneImport(
     return;
   }
   let binding = identifier.scope.getBinding(identifier.node.name);
-  // this checks if the identifier (that we're about to remove) is used in
-  // exactly one place.
-  if (
-    binding?.referencePaths.reduce((count, path) => (path.removed ? count : count + 1), 0) === 1
-  ) {
+
+  if (!binding) {
+    return;
+  }
+
+  let found = binding.referencePaths.find((path) => path.node === identifier.node);
+  if (!found) {
+    return;
+  }
+
+  binding.referencePaths.splice(binding.referencePaths.indexOf(found), 1);
+  binding.references--;
+
+  if (binding.references === 0) {
     let specifier = binding.path;
     if (specifier.isImportSpecifier()) {
       let declaration = specifier.parentPath as NodePath<t.ImportDeclaration>;
       util.removeImport(declaration.node.source.value, name(specifier.node.imported));
     }
   }
-  identifier.removed = true;
 }
 
 function precompileTemplate(i: Importer) {

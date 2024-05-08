@@ -1478,7 +1478,7 @@ describe('htmlbars-inline-precompile', function () {
       `);
     });
 
-    it('cleans up leftover imports when polyfilling rfc931 with hbs target', function () {
+    it('cleans up leftover imports when there is more than one template', function () {
       plugins = [
         [
           HTMLBarsInlinePrecompile,
