@@ -1478,6 +1478,66 @@ describe('htmlbars-inline-precompile', function () {
       `);
     });
 
+    it('cleans up leftover imports when there is more than one template', function () {
+      plugins = [
+        [
+          HTMLBarsInlinePrecompile,
+          {
+            targetFormat: 'hbs',
+          },
+        ],
+      ];
+      let code = `
+        import { template } from "@ember/template-compiler";
+        import Component from '@glimmer/component';
+        export default class Test extends Component {
+            foo = 1;
+            static{
+                template("<Icon />", {
+                    component: this,
+                    eval () {
+                        return eval(arguments[0]);
+                    }
+                });
+            }
+        }
+        const Icon = template("Icon", {
+            eval () {
+                return eval(arguments[0]);
+            }
+        });
+      `;
+
+      let transformed = transform(code);
+
+      expect(transformed).toEqualCode(`
+        import Component from "@glimmer/component";
+        import { precompileTemplate } from "@ember/template-compilation";
+        import { setComponentTemplate } from "@ember/component";
+        import templateOnly from "@ember/component/template-only";
+        export default class Test extends Component {
+          foo = 1;
+          static {
+            setComponentTemplate(
+              precompileTemplate("<Icon />", {
+                strictMode: true,
+                scope: () => ({
+                  Icon,
+                }),
+              }),
+              this
+            );
+          }
+        }
+        const Icon = setComponentTemplate(
+          precompileTemplate("Icon", {
+            strictMode: true,
+          }),
+          templateOnly()
+        );
+      `);
+    });
+
     it("respects user's strict option on template()", function () {
       plugins = [
         [
