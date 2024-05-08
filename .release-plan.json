@@ -2,20 +2,16 @@
   "solution": {
     "babel-plugin-ember-template-compilation": {
       "impact": "patch",
-      "oldVersion": "2.2.2",
-      "newVersion": "2.2.3",
+      "oldVersion": "2.2.3",
+      "newVersion": "2.2.4",
       "constraints": [
         {
           "impact": "patch",
           "reason": "Appears in changelog section :bug: Bug Fix"
-        },
-        {
-          "impact": "patch",
-          "reason": "Appears in changelog section :house: Internal"
         }
       ],
       "pkgJSONPath": "./package.json"
     }
   },
-  "description": "## Release (2024-05-03)\n\nbabel-plugin-ember-template-compilation 2.2.3 (patch)\n\n#### :bug: Bug Fix\n* `babel-plugin-ember-template-compilation`\n  * [#40](https://github.com/emberjs/babel-plugin-ember-template-compilation/pull/40) `this` should not be added to the scope bag ([@NullVoxPopuli](https://github.com/NullVoxPopuli))\n\n#### :house: Internal\n* `babel-plugin-ember-template-compilation`\n  * [#47](https://github.com/emberjs/babel-plugin-ember-template-compilation/pull/47) Remove withVersion for ci's pnpm version in the release plan workflows ([@NullVoxPopuli](https://github.com/NullVoxPopuli))\n  * [#44](https://github.com/emberjs/babel-plugin-ember-template-compilation/pull/44) setup release-plan ([@NullVoxPopuli](https://github.com/NullVoxPopuli))\n  * [#45](https://github.com/emberjs/babel-plugin-ember-template-compilation/pull/45) Switch to pnpm ([@NullVoxPopuli](https://github.com/NullVoxPopuli))\n  * [#46](https://github.com/emberjs/babel-plugin-ember-template-compilation/pull/46) Fix `tsc` error on the floating deps test ([@NullVoxPopuli](https://github.com/NullVoxPopuli))\n  * [#43](https://github.com/emberjs/babel-plugin-ember-template-compilation/pull/43) upgrade babel-import-util to 3.0 ([@ef4](https://github.com/ef4))\n  * [#42](https://github.com/emberjs/babel-plugin-ember-template-compilation/pull/42) Update babel-import-util and use it to manage babel bindings more precisely ([@ef4](https://github.com/ef4))\n\n#### Committers: 2\n- Edward Faulkner ([@ef4](https://github.com/ef4))\n- [@NullVoxPopuli](https://github.com/NullVoxPopuli)\n"
+  "description": "## Release (2024-05-08)\n\nbabel-plugin-ember-template-compilation 2.2.4 (patch)\n\n#### :bug: Bug Fix\n* `babel-plugin-ember-template-compilation`\n  * [#51](https://github.com/emberjs/babel-plugin-ember-template-compilation/pull/51) Remove extraneous import from `@ember/template-compiler` ([@NullVoxPopuli](https://github.com/NullVoxPopuli))\n\n#### Committers: 1\n- [@NullVoxPopuli](https://github.com/NullVoxPopuli)\n"
 }

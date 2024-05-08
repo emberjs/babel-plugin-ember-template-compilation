@@ -1,5 +1,16 @@
 # Changelog
 
+## Release (2024-05-08)
+
+babel-plugin-ember-template-compilation 2.2.4 (patch)
+
+#### :bug: Bug Fix
+* `babel-plugin-ember-template-compilation`
+  * [#51](https://github.com/emberjs/babel-plugin-ember-template-compilation/pull/51) Remove extraneous import from `@ember/template-compiler` ([@NullVoxPopuli](https://github.com/NullVoxPopuli))
+
+#### Committers: 1
+- [@NullVoxPopuli](https://github.com/NullVoxPopuli)
+
 ## Release (2024-05-03)
 
 babel-plugin-ember-template-compilation 2.2.3 (patch)
