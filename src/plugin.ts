@@ -487,7 +487,8 @@ function insertCompiledTemplate<EnvSpecificOptions>(
     // the scope that we pass to precompile tells the compiler what to expect will be
     // in scope at runtime.
     // but when we emit the final scope array, we need to make sure we map back to
-    // the assignments / renames in the scope-bag from the pre-wireformat
+    // the assignments / renames in the scope-bag from the pre-wirenformat
+    // (which can be seen in target.toString())
     precompileResultString = opts.compiler.precompile(template, options);
   }
 
