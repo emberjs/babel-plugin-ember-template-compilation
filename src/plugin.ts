@@ -482,6 +482,12 @@ function insertCompiledTemplate<EnvSpecificOptions>(
       return;
     }
   } else {
+    // The emitted `scope: () => []` here could potentially be wrong,
+    // as it does not know about the values in JS Scope.
+    // the scope that we pass to precompile tells the compiler what to expect will be
+    // in scope at runtime.
+    // but when we emit the final scope array, we need to make sure we map back to
+    // the assignments / renames in the scope-bag from the pre-wireformat
     precompileResultString = opts.compiler.precompile(template, options);
   }
 
