@@ -500,6 +500,8 @@ function insertCompiledTemplate<EnvSpecificOptions>(
   let templateExpression = (precompileResultAST.program.body[0] as t.VariableDeclaration)
     .declarations[0].init as t.Expression;
 
+  updateGlimmerScopeWithBabelScope(babel, templateExpression, scopeLocals);
+
   t.addComment(
     templateExpression,
     'leading',
@@ -670,6 +672,43 @@ function buildScope(babel: typeof Babel, locals: ScopeLocals) {
         )
     )
   );
+}
+
+// templateExpression.properties[]:
+//   [0]: key.value = id
+//   [1]: key.value = block
+//   [2]: key.value = moduleName
+//   [3]: key.value = scope         <-- this is what needs updating
+//   [4]: key.value = isStrictMode
+function updateGlimmerScopeWithBabelScope(
+  babel: typeof Babel,
+  templateExpression: t.Expression,
+  scopeLocals: ScopeLocals
+) {
+  let t = babel.types;
+
+  if (t.isObjectExpression(templateExpression)) {
+    let scopeObjectProperty = templateExpression.properties.find((property) => {
+      if (t.isObjectProperty(property)) {
+        return t.isStringLiteral(property.key) && property.key.value === 'scope';
+      }
+      return false;
+    });
+
+    if (t.isObjectProperty(scopeObjectProperty)) {
+      let scopeValue = scopeObjectProperty.value;
+
+      if (t.isArrowFunctionExpression(scopeValue)) {
+        if (t.isArrayExpression(scopeValue.body)) {
+          scopeValue.body.elements.map((element) => {
+            if (t.isIdentifier(element)) {
+              element.name = scopeLocals.get(element.name);
+            }
+          });
+        }
+      }
+    }
+  }
 }
 
 // this is responsible both for adjusting the AST for our scope argument *and*
