@@ -377,16 +377,29 @@ describe('htmlbars-inline-precompile', function () {
 
     let transformed = transform(code);
 
-    /**
-     * Have to choose our line because `moduleName` differs per-machine.
-     */
-    let scope = transformed
-      .split('\n')
-      .find((line) => line.includes('scope'))
-      ?.trim();
+    let normalized = normalizeWireFormat(transformed);
 
-    // Not [Foo]
-    expect(scope).toEqual('"scope": () => [Setup],');
+    expect(normalized).toEqualCode(`
+      import { Setup } from "./foo.js";
+      import { setComponentTemplate } from "@ember/component";
+      import templateOnly from "@ember/component/template-only";
+      import { createTemplateFactory } from "@ember/template-factory";
+      export default setComponentTemplate(
+        createTemplateFactory(
+          /*
+            <Foo />
+          */
+          {
+            id: "<id>",
+            block: "[[[8,[32,0],null,null,null]],[],false,[]]",
+            moduleName: "<moduleName>",
+            scope: () => [Setup],
+            isStrictMode: true,
+          }
+        ),
+        templateOnly()
+      );
+    `);
   });
 
   it('does not fully remove imports that have other imports', function () {
