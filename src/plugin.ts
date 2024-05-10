@@ -479,13 +479,7 @@ function insertCompiledTemplate<EnvSpecificOptions>(
     precompileResultString = opts.compiler.precompile(template, options);
   }
 
-  let precompileResultAST = babel.parse(`var precompileResult = ${precompileResultString}; `, {
-    babelrc: false,
-    configFile: false,
-  }) as t.File;
-
-  let templateExpression = (precompileResultAST.program.body[0] as t.VariableDeclaration)
-    .declarations[0].init as t.Expression;
+  let templateExpression = babel.template.expression.ast(precompileResultString);
 
   t.addComment(
     templateExpression,
