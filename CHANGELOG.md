@@ -1,5 +1,22 @@
 # Changelog
 
+## Release (2024-05-10)
+
+babel-plugin-ember-template-compilation 2.2.5 (patch)
+
+#### :bug: Bug Fix
+* `babel-plugin-ember-template-compilation`
+  * [#53](https://github.com/emberjs/babel-plugin-ember-template-compilation/pull/53) Problem with generating scope locals (the wire format array) when scope bag (the object) has aliasing properties (non-shorthand) ([@NullVoxPopuli](https://github.com/NullVoxPopuli))
+  * [#54](https://github.com/emberjs/babel-plugin-ember-template-compilation/pull/54) fix 🎬 2 ([@patricklx](https://github.com/patricklx))
+
+#### :house: Internal
+* `babel-plugin-ember-template-compilation`
+  * [#55](https://github.com/emberjs/babel-plugin-ember-template-compilation/pull/55) replace babel.parse with babel.template.expression.ast ([@patricklx](https://github.com/patricklx))
+
+#### Committers: 2
+- Patrick Pircher ([@patricklx](https://github.com/patricklx))
+- [@NullVoxPopuli](https://github.com/NullVoxPopuli)
+
 ## Release (2024-05-08)
 
 babel-plugin-ember-template-compilation 2.2.4 (patch)

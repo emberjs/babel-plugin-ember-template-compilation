@@ -2,16 +2,20 @@
   "solution": {
     "babel-plugin-ember-template-compilation": {
       "impact": "patch",
-      "oldVersion": "2.2.3",
-      "newVersion": "2.2.4",
+      "oldVersion": "2.2.4",
+      "newVersion": "2.2.5",
       "constraints": [
         {
           "impact": "patch",
           "reason": "Appears in changelog section :bug: Bug Fix"
+        },
+        {
+          "impact": "patch",
+          "reason": "Appears in changelog section :house: Internal"
         }
       ],
       "pkgJSONPath": "./package.json"
     }
   },
-  "description": "## Release (2024-05-08)\n\nbabel-plugin-ember-template-compilation 2.2.4 (patch)\n\n#### :bug: Bug Fix\n* `babel-plugin-ember-template-compilation`\n  * [#51](https://github.com/emberjs/babel-plugin-ember-template-compilation/pull/51) Remove extraneous import from `@ember/template-compiler` ([@NullVoxPopuli](https://github.com/NullVoxPopuli))\n\n#### Committers: 1\n- [@NullVoxPopuli](https://github.com/NullVoxPopuli)\n"
+  "description": "## Release (2024-05-10)\n\nbabel-plugin-ember-template-compilation 2.2.5 (patch)\n\n#### :bug: Bug Fix\n* `babel-plugin-ember-template-compilation`\n  * [#53](https://github.com/emberjs/babel-plugin-ember-template-compilation/pull/53) Problem with generating scope locals (the wire format array) when scope bag (the object) has aliasing properties (non-shorthand) ([@NullVoxPopuli](https://github.com/NullVoxPopuli))\n  * [#54](https://github.com/emberjs/babel-plugin-ember-template-compilation/pull/54) fix 🎬 2 ([@patricklx](https://github.com/patricklx))\n\n#### :house: Internal\n* `babel-plugin-ember-template-compilation`\n  * [#55](https://github.com/emberjs/babel-plugin-ember-template-compilation/pull/55) replace babel.parse with babel.template.expression.ast ([@patricklx](https://github.com/patricklx))\n\n#### Committers: 2\n- Patrick Pircher ([@patricklx](https://github.com/patricklx))\n- [@NullVoxPopuli](https://github.com/NullVoxPopuli)\n"
 }
