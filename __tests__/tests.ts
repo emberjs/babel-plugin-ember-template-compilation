@@ -336,6 +336,72 @@ describe('htmlbars-inline-precompile', function () {
     `);
   });
 
+  it('works with renamed scope', function () {
+    plugins = [
+      [
+        HTMLBarsInlinePrecompile,
+        {
+          compiler,
+
+          targetFormat: 'wire',
+          enableLegacyModules: [
+            'ember-cli-htmlbars',
+            'ember-cli-htmlbars-inline-precompile',
+            'htmlbars-inline-precompile',
+          ],
+        },
+      ],
+    ];
+
+    /**
+     * This scenario happens within Babel (somewhere) when
+     * import { Setup as Foo } from '...' is done.
+     * The import alias is undone, and the aliasing is moved to the usage location.
+     *
+     * Being wrapped in setComponentTemplate is required, else the scope bag is correct
+     * (ie: [Setup]).
+     */
+    let code = `
+      import { Setup } from './foo.js';
+      import { precompileTemplate } from '@ember/template-compilation';
+      import { setComponentTemplate } from '@ember/component';
+      import templateOnly from '@ember/component/template-only';
+
+      export default setComponentTemplate(precompileTemplate("<Foo />", {
+        strictMode: true,
+        scope: () => ({
+          Foo: Setup
+        })
+      }), templateOnly());
+    `;
+
+    let transformed = transform(code);
+
+    let normalized = normalizeWireFormat(transformed);
+
+    expect(normalized).toEqualCode(`
+      import { Setup } from "./foo.js";
+      import { setComponentTemplate } from "@ember/component";
+      import templateOnly from "@ember/component/template-only";
+      import { createTemplateFactory } from "@ember/template-factory";
+      export default setComponentTemplate(
+        createTemplateFactory(
+          /*
+            <Foo />
+          */
+          {
+            id: "<id>",
+            block: "[[[8,[32,0],null,null,null]],[],false,[]]",
+            moduleName: "<moduleName>",
+            scope: () => [Setup],
+            isStrictMode: true,
+          }
+        ),
+        templateOnly()
+      );
+    `);
+  });
+
   it('does not fully remove imports that have other imports', function () {
     let transformed = transform(`
       import { precompileTemplate, compileTemplate } from '@ember/template-compilation';

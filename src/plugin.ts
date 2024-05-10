@@ -427,26 +427,20 @@ function buildPrecompileOptions<EnvSpecificOptions>(
 }
 
 function remapAndBindIdentifiers(target: NodePath, babel: typeof Babel, scopeLocals: ScopeLocals) {
-  babel.traverse(
-    target.node,
-    {
-      Identifier(path: NodePath<t.Identifier>) {
-        if (scopeLocals.has(path.node.name) && path.node.name !== scopeLocals.get(path.node.name)) {
-          // this identifier has different names in hbs vs js, so we need to
-          // replace the hbs name in the template compiler output with the js
-          // name
-          path.replaceWith(babel.types.identifier(scopeLocals.get(path.node.name)));
-        }
-        // this is where we tell babel's scope system about the new reference we
-        // just introduced. @babel/plugin-transform-typescript in particular
-        // cares a lot about those references being present.
-        path.scope.getBinding(path.node.name)?.reference(path);
-      },
+  target.traverse({
+    Identifier(path: NodePath<t.Identifier>) {
+      if (scopeLocals.has(path.node.name) && path.node.name !== scopeLocals.get(path.node.name)) {
+        // this identifier has different names in hbs vs js, so we need to
+        // replace the hbs name in the template compiler output with the js
+        // name
+        path.replaceWith(babel.types.identifier(scopeLocals.get(path.node.name)));
+      }
+      // this is where we tell babel's scope system about the new reference we
+      // just introduced. @babel/plugin-transform-typescript in particular
+      // cares a lot about those references being present.
+      path.scope.getBinding(path.node.name)?.reference(path);
     },
-    target.scope,
-    {},
-    target.parentPath ?? undefined
-  );
+  });
 }
 
 function insertCompiledTemplate<EnvSpecificOptions>(
