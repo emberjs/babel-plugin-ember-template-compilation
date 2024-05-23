@@ -2053,6 +2053,41 @@ describe('htmlbars-inline-precompile', function () {
       `);
     });
 
+    it('interoperates correctly with @babel/plugin-transform-typescript when referencing an enum', function () {
+      plugins = [
+        [
+          HTMLBarsInlinePrecompile,
+          {
+            compiler,
+            targetFormat: 'hbs',
+          },
+        ],
+        TransformTypescript,
+      ];
+
+      let transformed = transform(
+        `import { template } from '@ember/template-compiler'; 
+          enum DoNotUseEnums {
+            Foo,
+            Bar,
+          }
+         export default template('{{DoNotUseEnums.Foo}}', { eval: function() { return eval(arguments[0]) } })
+        `
+      );
+
+      expect(transformed).toEqualCode(`
+        import { precompileTemplate } from "@ember/template-compilation";
+        import { setComponentTemplate } from "@ember/component";
+        import templateOnly from "@ember/component/template-only";
+        var DoNotUseEnums = /*#__PURE__*/ (function (DoNotUseEnums) {
+          DoNotUseEnums[(DoNotUseEnums["Foo"] = 0)] = "Foo";
+          DoNotUseEnums[(DoNotUseEnums["Bar"] = 1)] = "Bar";
+          return DoNotUseEnums;
+        })(DoNotUseEnums || {});
+        export default setComponentTemplate(precompileTemplate('{{DoNotUseEnums.Foo}}', { strictMode: true, scope: () => ({ DoNotUseEnums }) }), templateOnly());
+      `);
+    });
+
     it('respects local priority when inter-operating with @babel/plugin-transform-typescript', function () {
       plugins = [
         [
