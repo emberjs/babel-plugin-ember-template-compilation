@@ -1468,7 +1468,7 @@ describe('htmlbars-inline-precompile', function () {
         import { precompileTemplate } from "@ember/template-compilation";
         import { setComponentTemplate } from "@ember/component";
         import templateOnly from "@ember/component/template-only";
-        export default setComponentTemplate(precompileTemplate('<HelloWorld @color={{"#ff0000"}} />', { scope: () => ({ HelloWorld }), strictMode: true }), templateOnly());
+        export default setComponentTemplate(precompileTemplate('<HelloWorld @color={{"#ff0000"}} />', { scope: () => ({ HelloWorld }), strictMode: true }), templateOnly(undefined, "foo-bar"));
       `);
     });
 
@@ -1599,7 +1599,7 @@ describe('htmlbars-inline-precompile', function () {
           precompileTemplate("Icon", {
             strictMode: true,
           }),
-          templateOnly()
+          templateOnly(undefined, "Icon")
         );
       `);
     });
@@ -1626,7 +1626,7 @@ describe('htmlbars-inline-precompile', function () {
         import { precompileTemplate } from "@ember/template-compilation";
         import { setComponentTemplate } from "@ember/component";
         import templateOnly from "@ember/component/template-only";
-        export default setComponentTemplate(precompileTemplate('<HelloWorld />', { strictMode: false, scope: () => ({ HelloWorld }) }), templateOnly());
+        export default setComponentTemplate(precompileTemplate('<HelloWorld />', { strictMode: false, scope: () => ({ HelloWorld }) }), templateOnly(undefined, "foo-bar"));
       `);
     });
   });
@@ -1698,7 +1698,7 @@ describe('htmlbars-inline-precompile', function () {
           scope: () => [HelloWorld],
           isStrictMode: true,
         }
-      ), templateOnly());    
+      ), templateOnly(undefined, "foo-bar"));    
     `);
   });
 
@@ -1897,7 +1897,7 @@ describe('htmlbars-inline-precompile', function () {
         import { precompileTemplate } from "@ember/template-compilation";
         import { setComponentTemplate } from "@ember/component";
         import templateOnly from "@ember/component/template-only";
-        export default setComponentTemplate(precompileTemplate('<HelloWorld />', { strictMode: true, scope: () => ({ HelloWorld }) }), templateOnly());
+        export default setComponentTemplate(precompileTemplate('<HelloWorld />', { strictMode: true, scope: () => ({ HelloWorld }) }), templateOnly(undefined, "foo-bar"));
       `);
     });
 
@@ -1928,7 +1928,7 @@ describe('htmlbars-inline-precompile', function () {
         import { setComponentTemplate } from "@ember/component";
         import templateOnly from "@ember/component/template-only";
         let div = 1;
-        export default setComponentTemplate(precompileTemplate('<div></div>', { strictMode: true, scope: () => ({ div })}), templateOnly());
+        export default setComponentTemplate(precompileTemplate('<div></div>', { strictMode: true, scope: () => ({ div })}), templateOnly(undefined, "foo-bar"));
       `);
     });
 
@@ -1955,7 +1955,7 @@ describe('htmlbars-inline-precompile', function () {
         import { setComponentTemplate } from "@ember/component";
         import templateOnly from "@ember/component/template-only";
         let hasBlock = 1;
-        export default setComponentTemplate(precompileTemplate('{{hasBlock "thing"}}', { strictMode: true, scope: () => ({ hasBlock }) }), templateOnly());
+        export default setComponentTemplate(precompileTemplate('{{hasBlock "thing"}}', { strictMode: true, scope: () => ({ hasBlock }) }), templateOnly(undefined, "foo-bar"));
       `);
     });
 
@@ -1980,7 +1980,7 @@ describe('htmlbars-inline-precompile', function () {
         import { precompileTemplate } from "@ember/template-compilation";
         import { setComponentTemplate } from "@ember/component";
         import templateOnly from "@ember/component/template-only";
-        export default setComponentTemplate(precompileTemplate('{{hasBlock "thing"}}', { strictMode: true }), templateOnly());
+        export default setComponentTemplate(precompileTemplate('{{hasBlock "thing"}}', { strictMode: true }), templateOnly(undefined, "foo-bar"));
       `);
     });
 
@@ -2020,7 +2020,7 @@ describe('htmlbars-inline-precompile', function () {
               isStrictMode: true,
             }
           ),
-           templateOnly()
+           templateOnly(undefined, "foo-bar")
         );
       `);
     });
@@ -2049,7 +2049,7 @@ describe('htmlbars-inline-precompile', function () {
         import { precompileTemplate } from "@ember/template-compilation";
         import { setComponentTemplate } from "@ember/component";
         import templateOnly from "@ember/component/template-only";
-        export default setComponentTemplate(precompileTemplate('<HelloWorld />', { strictMode: true, scope: () => ({ HelloWorld }) }), templateOnly());
+        export default setComponentTemplate(precompileTemplate('<HelloWorld />', { strictMode: true, scope: () => ({ HelloWorld }) }), templateOnly(undefined, "foo-bar"));
       `);
     });
 
@@ -2081,7 +2081,7 @@ describe('htmlbars-inline-precompile', function () {
         import templateOnly from "@ember/component/template-only";
         export default function() {
           let { HelloWorld } = globalThis;
-          return setComponentTemplate(precompileTemplate('<HelloWorld />', { strictMode: true, scope: () => ({ HelloWorld })}), templateOnly());
+          return setComponentTemplate(precompileTemplate('<HelloWorld />', { strictMode: true, scope: () => ({ HelloWorld })}), templateOnly(undefined, undefined));
         }
       `);
     });
@@ -2133,7 +2133,7 @@ describe('htmlbars-inline-precompile', function () {
           isStrictMode: true,
         }
       ),
-      templateOnly()
+      templateOnly(undefined, "foo-bar")
     );
       `);
     });
@@ -2166,7 +2166,7 @@ describe('htmlbars-inline-precompile', function () {
           import { precompileTemplate } from "@ember/template-compilation";
           import { setComponentTemplate } from "@ember/component";
           import templateOnly from "@ember/component/template-only";
-          const MyComponent = setComponentTemplate(precompileTemplate('<HelloWorld />', { strictMode: true, scope: () => ({ HelloWorld })  }), templateOnly());
+          const MyComponent = setComponentTemplate(precompileTemplate('<HelloWorld />', { strictMode: true, scope: () => ({ HelloWorld })  }), templateOnly(undefined, "MyComponent"));
         `);
     });
 

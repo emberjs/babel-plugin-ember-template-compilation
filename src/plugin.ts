@@ -8,6 +8,7 @@ import type { EmberTemplateCompiler, PreprocessOptions } from './ember-template-
 import { LegacyModuleName } from './public-types';
 import { ScopeLocals } from './scope-locals';
 import { ASTPluginBuilder, preprocess, print } from '@glimmer/syntax';
+import { basename, extname } from 'path';
 
 export * from './public-types';
 
@@ -497,23 +498,26 @@ function insertCompiledTemplate<EnvSpecificOptions>(
     let expression = t.callExpression(templateFactoryIdentifier, [templateExpression]);
 
     let assignment = target.parent;
-    let assignmentName: string | null = null;
+    let assignmentName: t.StringLiteral = t.stringLiteral(state.filename);
     if (assignment.type === 'AssignmentExpression' && assignment.left.type === 'Identifier') {
-      assignmentName = assignment.left.name;
+      assignmentName = t.stringLiteral(assignment.left.name);
     }
-
     if (assignment.type === 'VariableDeclarator' && assignment.id.type === 'Identifier') {
-      assignmentName = assignment.id.name;
+      assignmentName = t.stringLiteral(assignment.id.name);
+    }
+    if (assignment.type === 'ExportDefaultDeclaration') {
+      const name = basename(state.filename).slice(0, -extname(state.filename).length);
+      assignmentName = t.stringLiteral(name);
     }
 
     if (config.rfc931Support) {
       expression = t.callExpression(i.import('@ember/component', 'setComponentTemplate'), [
         expression,
         backingClass?.node ??
-          t.callExpression(
-            i.import('@ember/component/template-only', 'default', 'templateOnly'),
-            ['@ember/component/template-only', assignmentName]
-          ),
+          t.callExpression(i.import('@ember/component/template-only', 'default', 'templateOnly'), [
+            t.identifier('undefined'),
+            assignmentName,
+          ]),
       ]);
     }
     return expression;
@@ -616,14 +620,19 @@ function updateCallForm<EnvSpecificOptions>(
     convertStrictMode(babel, target);
     removeEvalAndScope(target);
     target.node.arguments = target.node.arguments.slice(0, 2);
-    let assignment = target.parent;
-    let assignmentName: string | null = null;
-    if (assignment.type === 'AssignmentExpression' && assignment.left.type === 'Identifier') {
-      assignmentName = assignment.left.name;
-    }
 
+    let assignment = target.parent;
+    let assignmentName: Babel.types.Identifier | Babel.types.StringLiteral =
+      babel.types.identifier('undefined');
+    if (assignment.type === 'AssignmentExpression' && assignment.left.type === 'Identifier') {
+      assignmentName = babel.types.stringLiteral(assignment.left.name);
+    }
     if (assignment.type === 'VariableDeclarator' && assignment.id.type === 'Identifier') {
-      assignmentName = assignment.id.name;
+      assignmentName = babel.types.stringLiteral(assignment.id.name);
+    }
+    if (assignment.type === 'ExportDefaultDeclaration') {
+      const name = basename(state.filename).slice(0, -extname(state.filename).length);
+      assignmentName = babel.types.stringLiteral(name);
     }
 
     state.recursionGuard.add(target.node);
@@ -633,7 +642,7 @@ function updateCallForm<EnvSpecificOptions>(
         backingClass?.node ??
           babel.types.callExpression(
             i.import('@ember/component/template-only', 'default', 'templateOnly'),
-            ['@ember/component/template-only', assignmentName]
+            [babel.types.identifier('undefined'), assignmentName]
           ),
       ])
     );
