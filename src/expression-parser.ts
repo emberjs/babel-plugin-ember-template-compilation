@@ -78,36 +78,39 @@ export class ExpressionParser {
       );
     }
 
-    return objExpression.properties.reduce((res, prop) => {
-      if (this.t.isSpreadElement(prop)) {
-        throw path.buildCodeFrameError(
-          `Scope objects for \`${invokedName}\` may not contain spread elements`
-        );
-      }
-      if (this.t.isObjectMethod(prop)) {
-        throw path.buildCodeFrameError(
-          `Scope objects for \`${invokedName}\` may not contain methods`
-        );
-      }
+    return objExpression.properties.reduce(
+      (res, prop) => {
+        if (this.t.isSpreadElement(prop)) {
+          throw path.buildCodeFrameError(
+            `Scope objects for \`${invokedName}\` may not contain spread elements`
+          );
+        }
+        if (this.t.isObjectMethod(prop)) {
+          throw path.buildCodeFrameError(
+            `Scope objects for \`${invokedName}\` may not contain methods`
+          );
+        }
 
-      let { key, value } = prop;
-      if (!this.t.isStringLiteral(key) && !this.t.isIdentifier(key)) {
-        throw path.buildCodeFrameError(
-          `Scope objects for \`${invokedName}\` may only contain static property names`
-        );
-      }
+        let { key, value } = prop;
+        if (!this.t.isStringLiteral(key) && !this.t.isIdentifier(key)) {
+          throw path.buildCodeFrameError(
+            `Scope objects for \`${invokedName}\` may only contain static property names`
+          );
+        }
 
-      let propName = name(key);
+        let propName = name(key);
 
-      if (value.type !== 'Identifier') {
-        throw path.buildCodeFrameError(
-          `Scope objects for \`${invokedName}\` may only contain direct references to in-scope values, e.g. { ${propName} } or { ${propName}: ${propName} }`
-        );
-      }
+        if (value.type !== 'Identifier') {
+          throw path.buildCodeFrameError(
+            `Scope objects for \`${invokedName}\` may only contain direct references to in-scope values, e.g. { ${propName} } or { ${propName}: ${propName} }`
+          );
+        }
 
-      res.add(propName, value.name);
-      return res;
-    }, new ScopeLocals({ mode: 'explicit' }));
+        res.add(propName, value.name);
+        return res;
+      },
+      new ScopeLocals({ mode: 'explicit' })
+    );
   }
 
   parseEval(
