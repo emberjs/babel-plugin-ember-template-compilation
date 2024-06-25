@@ -33,6 +33,7 @@ export class ExpressionParser {
       } else if (element.isExpression()) {
         return this.parseExpression(invokedName, element);
       }
+      return null;
     });
   }
 
