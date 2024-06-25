@@ -496,13 +496,23 @@ function insertCompiledTemplate<EnvSpecificOptions>(
 
     let expression = t.callExpression(templateFactoryIdentifier, [templateExpression]);
 
+    let assignment = target.parent;
+    let assignmentName: string | null = null;
+    if (assignment.type === 'AssignmentExpression' && assignment.left.type === 'Identifier') {
+      assignmentName = assignment.left.name;
+    }
+
+    if (assignment.type === 'VariableDeclarator' && assignment.id.type === 'Identifier') {
+      assignmentName = assignment.id.name;
+    }
+
     if (config.rfc931Support) {
       expression = t.callExpression(i.import('@ember/component', 'setComponentTemplate'), [
         expression,
         backingClass?.node ??
           t.callExpression(
             i.import('@ember/component/template-only', 'default', 'templateOnly'),
-            []
+            ['@ember/component/template-only', assignmentName]
           ),
       ]);
     }
@@ -606,6 +616,16 @@ function updateCallForm<EnvSpecificOptions>(
     convertStrictMode(babel, target);
     removeEvalAndScope(target);
     target.node.arguments = target.node.arguments.slice(0, 2);
+    let assignment = target.parent;
+    let assignmentName: string | null = null;
+    if (assignment.type === 'AssignmentExpression' && assignment.left.type === 'Identifier') {
+      assignmentName = assignment.left.name;
+    }
+
+    if (assignment.type === 'VariableDeclarator' && assignment.id.type === 'Identifier') {
+      assignmentName = assignment.id.name;
+    }
+
     state.recursionGuard.add(target.node);
     state.util.replaceWith(target, (i) =>
       babel.types.callExpression(i.import('@ember/component', 'setComponentTemplate'), [
@@ -613,7 +633,7 @@ function updateCallForm<EnvSpecificOptions>(
         backingClass?.node ??
           babel.types.callExpression(
             i.import('@ember/component/template-only', 'default', 'templateOnly'),
-            []
+            ['@ember/component/template-only', assignmentName]
           ),
       ])
     );
