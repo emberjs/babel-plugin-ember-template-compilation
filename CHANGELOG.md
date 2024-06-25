@@ -1,5 +1,16 @@
 # Changelog
 
+## Release (2024-06-25)
+
+babel-plugin-ember-template-compilation 2.2.6 (patch)
+
+#### :house: Internal
+* `babel-plugin-ember-template-compilation`
+  * [#59](https://github.com/emberjs/babel-plugin-ember-template-compilation/pull/59) update dependencies ([@patricklx](https://github.com/patricklx))
+
+#### Committers: 1
+- Patrick Pircher ([@patricklx](https://github.com/patricklx))
+
 ## Release (2024-05-10)
 
 babel-plugin-ember-template-compilation 2.2.5 (patch)
