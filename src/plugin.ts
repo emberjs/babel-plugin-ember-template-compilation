@@ -498,15 +498,15 @@ function insertCompiledTemplate<EnvSpecificOptions>(
     let expression = t.callExpression(templateFactoryIdentifier, [templateExpression]);
 
     let assignment = target.parent;
+    let rootName = basename(state.filename).slice(0, -extname(state.filename).length);
     let assignmentName: t.StringLiteral | t.Identifier = t.identifier('undefined');
     if (assignment.type === 'AssignmentExpression' && assignment.left.type === 'Identifier') {
-      assignmentName = t.stringLiteral(assignment.left.name);
+      assignmentName = t.stringLiteral(rootName + ':' + assignment.left.name);
     }
     if (assignment.type === 'VariableDeclarator' && assignment.id.type === 'Identifier') {
-      assignmentName = t.stringLiteral(assignment.id.name);
+      assignmentName = t.stringLiteral(rootName + ':' + assignment.id.name);
     }
     if (assignment.type === 'ExportDefaultDeclaration') {
-      const name = basename(state.filename).slice(0, -extname(state.filename).length);
       assignmentName = t.stringLiteral(name);
     }
 
@@ -622,13 +622,14 @@ function updateCallForm<EnvSpecificOptions>(
     target.node.arguments = target.node.arguments.slice(0, 2);
 
     let assignment = target.parent;
+    let rootName = basename(state.filename).slice(0, -extname(state.filename).length);
     let assignmentName: Babel.types.Identifier | Babel.types.StringLiteral =
       babel.types.identifier('undefined');
     if (assignment.type === 'AssignmentExpression' && assignment.left.type === 'Identifier') {
-      assignmentName = babel.types.stringLiteral(assignment.left.name);
+      assignmentName = babel.types.stringLiteral(rootName + ':' + assignment.left.name);
     }
     if (assignment.type === 'VariableDeclarator' && assignment.id.type === 'Identifier') {
-      assignmentName = babel.types.stringLiteral(assignment.id.name);
+      assignmentName = babel.types.stringLiteral(rootName + ':' + assignment.id.name);
     }
     if (assignment.type === 'ExportDefaultDeclaration') {
       const name = basename(state.filename).slice(0, -extname(state.filename).length);
