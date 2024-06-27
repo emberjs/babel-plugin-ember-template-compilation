@@ -1599,7 +1599,7 @@ describe('htmlbars-inline-precompile', function () {
           precompileTemplate("Icon", {
             strictMode: true,
           }),
-          templateOnly(undefined, "Icon")
+          templateOnly(undefined, "foo-bar:Icon")
         );
       `);
     });
@@ -2166,7 +2166,7 @@ describe('htmlbars-inline-precompile', function () {
           import { precompileTemplate } from "@ember/template-compilation";
           import { setComponentTemplate } from "@ember/component";
           import templateOnly from "@ember/component/template-only";
-          const MyComponent = setComponentTemplate(precompileTemplate('<HelloWorld />', { strictMode: true, scope: () => ({ HelloWorld })  }), templateOnly(undefined, "MyComponent"));
+          const MyComponent = setComponentTemplate(precompileTemplate('<HelloWorld />', { strictMode: true, scope: () => ({ HelloWorld })  }), templateOnly(undefined, "foo-bar:MyComponent"));
         `);
     });
 
