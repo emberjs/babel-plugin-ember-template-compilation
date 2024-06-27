@@ -507,7 +507,7 @@ function insertCompiledTemplate<EnvSpecificOptions>(
       assignmentName = t.stringLiteral(rootName + ':' + assignment.id.name);
     }
     if (assignment.type === 'ExportDefaultDeclaration') {
-      assignmentName = t.stringLiteral(name);
+      assignmentName = t.stringLiteral(rootName);
     }
 
     if (config.rfc931Support) {
