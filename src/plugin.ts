@@ -498,7 +498,7 @@ function insertCompiledTemplate<EnvSpecificOptions>(
     let expression = t.callExpression(templateFactoryIdentifier, [templateExpression]);
 
     let assignment = target.parent;
-    let assignmentName: t.StringLiteral = t.stringLiteral(state.filename);
+    let assignmentName: t.StringLiteral | t.Identifier = t.identifier('undefined');
     if (assignment.type === 'AssignmentExpression' && assignment.left.type === 'Identifier') {
       assignmentName = t.stringLiteral(assignment.left.name);
     }
