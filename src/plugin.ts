@@ -497,6 +497,7 @@ function insertCompiledTemplate<EnvSpecificOptions>(
 
     let expression = t.callExpression(templateFactoryIdentifier, [templateExpression]);
 
+    let params = [];
     let assignment = target.parent;
     let rootName = basename(state.filename).slice(0, -extname(state.filename).length);
     let assignmentName: t.StringLiteral | t.Identifier = t.identifier('undefined');
@@ -510,14 +511,18 @@ function insertCompiledTemplate<EnvSpecificOptions>(
       assignmentName = t.stringLiteral(rootName);
     }
 
+    if (process.env.EMBER_ENV !== 'production') {
+      params.push(t.identifier('undefined'), assignmentName);
+    }
+
     if (config.rfc931Support) {
       expression = t.callExpression(i.import('@ember/component', 'setComponentTemplate'), [
         expression,
         backingClass?.node ??
-          t.callExpression(i.import('@ember/component/template-only', 'default', 'templateOnly'), [
-            t.identifier('undefined'),
-            assignmentName,
-          ]),
+          t.callExpression(
+            i.import('@ember/component/template-only', 'default', 'templateOnly'),
+            params
+          ),
       ]);
     }
     return expression;
@@ -621,6 +626,7 @@ function updateCallForm<EnvSpecificOptions>(
     removeEvalAndScope(target);
     target.node.arguments = target.node.arguments.slice(0, 2);
 
+    let params: (Babel.types.Identifier | Babel.types.StringLiteral)[] = [];
     let assignment = target.parent;
     let rootName = basename(state.filename).slice(0, -extname(state.filename).length);
     let assignmentName: Babel.types.Identifier | Babel.types.StringLiteral =
@@ -636,6 +642,10 @@ function updateCallForm<EnvSpecificOptions>(
       assignmentName = babel.types.stringLiteral(name);
     }
 
+    if (process.env.EMBER_ENV !== 'production') {
+      params.push(babel.types.identifier('undefined'), assignmentName);
+    }
+
     state.recursionGuard.add(target.node);
     state.util.replaceWith(target, (i) =>
       babel.types.callExpression(i.import('@ember/component', 'setComponentTemplate'), [
@@ -643,7 +653,7 @@ function updateCallForm<EnvSpecificOptions>(
         backingClass?.node ??
           babel.types.callExpression(
             i.import('@ember/component/template-only', 'default', 'templateOnly'),
-            [babel.types.identifier('undefined'), assignmentName]
+            params
           ),
       ])
     );
