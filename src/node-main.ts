@@ -10,12 +10,15 @@ export * from './public-types';
 export type Transform = ExtendedPluginBuilder | string | [string, unknown];
 
 export type Options = Omit<SharedOptions, 'transforms' | 'compiler'> & {
-  // The on-disk path to the ember-template-comipler.js module for our current
-  // ember version. You need to either set `compilerPath` or set `compiler`.
+  // The on-disk path to the ember-template-compiler.js module for our current
+  // ember version. You can set either `compilerPath` or set `compiler`. If you
+  // set neither, we will attempt to resolve
+  // "ember-source/dist/ember-template-compiler.js" from the current working
+  // directory.
   compilerPath?: string;
 
   // The ember-template-compiler.js module that ships within your ember-source
-  // version. You need to set either `compilerPath` or `compiler`.
+  // version. You can set either `compilerPath` or `compiler`.
   compiler?: EmberTemplateCompiler;
 
   // List of custom transformations to apply to the handlebars AST before
@@ -42,6 +45,10 @@ function handleNodeSpecificOptions(opts: Options): SharedOptions {
   } else if (opts.compiler) {
     assertTemplateCompiler(opts.compiler);
     compiler = opts.compiler;
+  } else {
+    let mod: any = cwdRequire('ember-source/dist/ember-template-compiler.js');
+    assertTemplateCompiler(mod);
+    compiler = mod;
   }
 
   let transforms = [];

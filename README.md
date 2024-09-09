@@ -44,9 +44,9 @@ interface Options {
   compiler?: EmberTemplateCompiler;
 
   // The on-disk path to the ember-template-compiler.js module for our current
-  // ember version. You need to either set `compilerPath` or set `compiler`.
+  // ember version. You may set `compilerPath` or set `compiler`.
   // This will get resolved from the current working directory, so a package name
-  // like "ember-source/dist/ember-template-compiler" is acceptable.
+  // like "ember-source/dist/ember-template-compiler" (the default value) is acceptable. 
   compilerPath?: string;
 
   // Allows you to remap what imports will be emitted in our compiled output. By
