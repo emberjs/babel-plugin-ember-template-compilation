@@ -1,13 +1,13 @@
 {
   "solution": {
     "babel-plugin-ember-template-compilation": {
-      "impact": "patch",
-      "oldVersion": "2.2.4",
-      "newVersion": "2.2.5",
+      "impact": "minor",
+      "oldVersion": "2.2.5",
+      "newVersion": "2.3.0",
       "constraints": [
         {
-          "impact": "patch",
-          "reason": "Appears in changelog section :bug: Bug Fix"
+          "impact": "minor",
+          "reason": "Appears in changelog section :rocket: Enhancement"
         },
         {
           "impact": "patch",
@@ -17,5 +17,5 @@
       "pkgJSONPath": "./package.json"
     }
   },
-  "description": "## Release (2024-05-10)\n\nbabel-plugin-ember-template-compilation 2.2.5 (patch)\n\n#### :bug: Bug Fix\n* `babel-plugin-ember-template-compilation`\n  * [#53](https://github.com/emberjs/babel-plugin-ember-template-compilation/pull/53) Problem with generating scope locals (the wire format array) when scope bag (the object) has aliasing properties (non-shorthand) ([@NullVoxPopuli](https://github.com/NullVoxPopuli))\n  * [#54](https://github.com/emberjs/babel-plugin-ember-template-compilation/pull/54) fix 🎬 2 ([@patricklx](https://github.com/patricklx))\n\n#### :house: Internal\n* `babel-plugin-ember-template-compilation`\n  * [#55](https://github.com/emberjs/babel-plugin-ember-template-compilation/pull/55) replace babel.parse with babel.template.expression.ast ([@patricklx](https://github.com/patricklx))\n\n#### Committers: 2\n- Patrick Pircher ([@patricklx](https://github.com/patricklx))\n- [@NullVoxPopuli](https://github.com/NullVoxPopuli)\n"
+  "description": "## Release (2024-09-09)\n\nbabel-plugin-ember-template-compilation 2.3.0 (minor)\n\n#### :rocket: Enhancement\n* `babel-plugin-ember-template-compilation`\n  * [#62](https://github.com/emberjs/babel-plugin-ember-template-compilation/pull/62) Provide a default compilerPath ([@ef4](https://github.com/ef4))\n\n#### :house: Internal\n* `babel-plugin-ember-template-compilation`\n  * [#59](https://github.com/emberjs/babel-plugin-ember-template-compilation/pull/59) update dependencies ([@patricklx](https://github.com/patricklx))\n\n#### Committers: 2\n- Edward Faulkner ([@ef4](https://github.com/ef4))\n- Patrick Pircher ([@patricklx](https://github.com/patricklx))\n"
 }

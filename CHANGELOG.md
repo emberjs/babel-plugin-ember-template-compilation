@@ -1,5 +1,21 @@
 # Changelog
 
+## Release (2024-09-09)
+
+babel-plugin-ember-template-compilation 2.3.0 (minor)
+
+#### :rocket: Enhancement
+* `babel-plugin-ember-template-compilation`
+  * [#62](https://github.com/emberjs/babel-plugin-ember-template-compilation/pull/62) Provide a default compilerPath ([@ef4](https://github.com/ef4))
+
+#### :house: Internal
+* `babel-plugin-ember-template-compilation`
+  * [#59](https://github.com/emberjs/babel-plugin-ember-template-compilation/pull/59) update dependencies ([@patricklx](https://github.com/patricklx))
+
+#### Committers: 2
+- Edward Faulkner ([@ef4](https://github.com/ef4))
+- Patrick Pircher ([@patricklx](https://github.com/patricklx))
+
 ## Release (2024-05-10)
 
 babel-plugin-ember-template-compilation 2.2.5 (patch)
