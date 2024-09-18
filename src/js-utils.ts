@@ -16,7 +16,7 @@ export class JSUtils {
   #babel: typeof Babel;
   #state: State;
   #template: NodePath<t.Expression>;
-  #addedBinding: (name: string) => void;
+  #addedBinding: (name: string, jsName?: string) => void;
   #importer: ImportUtil;
 
   constructor(
@@ -82,6 +82,20 @@ export class JSUtils {
     declaration.scope.registerBinding('let', declaration.get('declarations.0') as NodePath);
     this.#addedBinding(name);
     return name;
+  }
+
+  /**
+   * Allows (re)use of binding that you already have in the js code or created with bindExpression
+   * Especially useful if you have a custom transform that creates a binding that you want to reuse
+   *
+   * @param hbsName the name you are using in your template to access the binding
+   * @param jsName the name of a js variable
+   *
+   * @return The name you can use in your template to access the binding.
+   */
+  bindVariable(hbsName: string, jsName?: string) {
+    this.#addedBinding(hbsName, jsName);
+    return hbsName;
   }
 
   #emitStatement<T extends t.Statement>(statement: T): NodePath<T> {
