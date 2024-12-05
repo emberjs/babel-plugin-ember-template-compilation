@@ -34,7 +34,7 @@
     ]
   },
   "dependencies": {
-    "@glimmer/syntax": "^0.84.3",
+    "@glimmer/syntax": ">= 0.84.3",
     "babel-import-util": "^3.0.0"
   },
   "devDependencies": {
