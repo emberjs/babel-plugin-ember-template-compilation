@@ -16,7 +16,9 @@ import { ALLOWED_GLOBALS } from '../src/scope-locals';
 
 describe('htmlbars-inline-precompile', function () {
   // eslint-disable-next-line @typescript-eslint/no-var-requires
-  let compiler: EmberTemplateCompiler = { ...require('ember-source/dist/ember-template-compiler') };
+  let compiler: EmberTemplateCompiler = {
+    ...require('ember-source/dist/ember-template-compiler.js'),
+  };
   let plugins: ([typeof HTMLBarsInlinePrecompile, Options] | [unknown])[];
 
   async function transform(code: string) {
@@ -392,7 +394,7 @@ describe('htmlbars-inline-precompile', function () {
           */
           {
             id: "<id>",
-            block: "[[[8,[32,0],null,null,null]],[],false,[]]",
+            block: "[[[8,[32,0],null,null,null]],[],[]]",
             moduleName: "<moduleName>",
             scope: () => [Setup],
             isStrictMode: true,
@@ -797,7 +799,7 @@ describe('htmlbars-inline-precompile', function () {
        */
       {
         id: "<id>",
-        block: '[[[8,[39,0],null,[["@text"],[[32,0]]],null]],[],false,["message"]]',
+        block: '[[[8,[39,0],null,[["@text"],[[32,0]]],null]],[],["message"]]',
         moduleName: "<moduleName>",
         scope: () => [two],
         isStrictMode: false,
@@ -1694,7 +1696,7 @@ describe('htmlbars-inline-precompile', function () {
       */
         {
           id: "<id>",
-          block: "[[[8,[32,0],null,null,null]],[],false,[]]",
+          block: "[[[8,[32,0],null,null,null]],[],[]]",
           moduleName: "<moduleName>",
           scope: () => [HelloWorld],
           isStrictMode: true,
@@ -1740,7 +1742,7 @@ describe('htmlbars-inline-precompile', function () {
           */
               {
                 id: "<id>",
-                block: "[[[8,[32,0],null,null,null]],[],false,[]]",
+                block: "[[[8,[32,0],null,null,null]],[],[]]",
                 moduleName: "<moduleName>",
                 scope: () => [HelloWorld],
                 isStrictMode: true,
@@ -1824,7 +1826,7 @@ describe('htmlbars-inline-precompile', function () {
           */
           {
             id: "<id>",
-            block: "[[[8,[32,0],null,null,null],[8,[32,1],null,null,null]],[],false,[]]",
+            block: "[[[8,[32,0],null,null,null],[8,[32,1],null,null,null]],[],[]]",
             moduleName: "<moduleName>",
             scope: () => [bar, MyButton],
             isStrictMode: false,
@@ -1871,6 +1873,34 @@ describe('htmlbars-inline-precompile', function () {
         var compiled = precompileTemplate('<foo /><bar/>', { scope: () => ({ bar }) });
       `);
       expect(spy.firstCall.lastArg).toHaveProperty('locals', ['bar']);
+    });
+
+    it('can pass lexically scoped "this"', async function () {
+      let spy = sinon.spy(compiler, 'precompile');
+      let transformed = await transform(`
+        import { precompileTemplate } from '@ember/template-compilation';
+        export function example() {
+          return precompileTemplate('{{this.message}}', { scope: () => ({ "this": this }) });
+        }
+      `);
+      expect(spy.firstCall.lastArg).toHaveProperty('locals', ['this']);
+      expect(normalizeWireFormat(transformed)).toEqualCode(`
+        import { createTemplateFactory } from "@ember/template-factory";
+        export function example() {
+          return createTemplateFactory(
+            /*
+              {{this.message}}
+            */
+            {
+              id: "<id>",
+              block: '[[[1,[32,0,["message"]]]],[],[]]',
+              moduleName: "<moduleName>",
+              scope: () => [this],
+              isStrictMode: false,
+            }
+          );
+        }
+      `);
     });
   });
 
@@ -1991,6 +2021,136 @@ describe('htmlbars-inline-precompile', function () {
       `);
     });
 
+    it('captures lexical "this" in mustache when template is used as an expression', async function () {
+      plugins = [
+        [
+          HTMLBarsInlinePrecompile,
+          {
+            compiler,
+            targetFormat: 'hbs',
+          },
+        ],
+      ];
+
+      let transformed = await transform(
+        `import { template } from '@ember/template-compiler'; 
+        function upper(s) { return s.toUpperCase() }
+        export function exampleTest() {
+          this.message = "hello";
+          render(template('{{upper this.message}}', { eval: function() { return eval(arguments[0]) } }))
+        }
+        `
+      );
+
+      expect(transformed).toEqualCode(`
+        import { precompileTemplate } from "@ember/template-compilation";
+        import { setComponentTemplate } from "@ember/component";
+        import templateOnly from "@ember/component/template-only";
+        function upper(s) {
+          return s.toUpperCase();
+        }
+        export function exampleTest() {
+          this.message = "hello";
+          render(
+            setComponentTemplate(
+              precompileTemplate("{{upper this.message}}", {
+                strictMode: true,
+                scope: () => ({
+                  upper,
+                  this: this,
+                }),
+              }),
+              templateOnly()
+            )
+          );
+        }
+      `);
+    });
+
+    it('captures lexical "this" in Element when template is used as an expression', async function () {
+      plugins = [
+        [
+          HTMLBarsInlinePrecompile,
+          {
+            compiler,
+            targetFormat: 'hbs',
+          },
+        ],
+      ];
+
+      let transformed = await transform(
+        `import { template } from '@ember/template-compiler'; 
+        import SomeComponent from './elsewhere.js';
+        export function exampleTest() {
+          this.message = SomeComponent;
+          render(template('<this.message />', { eval: function() { return eval(arguments[0]) } }))
+        }
+        `
+      );
+
+      expect(transformed).toEqualCode(`
+        import SomeComponent from './elsewhere.js';
+        import { precompileTemplate } from "@ember/template-compilation";
+        import { setComponentTemplate } from "@ember/component";
+        import templateOnly from "@ember/component/template-only";
+        export function exampleTest() {
+          this.message = SomeComponent;
+          render(
+            setComponentTemplate(
+              precompileTemplate("<this.message />", {
+                strictMode: true,
+                scope: () => ({
+                  this: this,
+                }),
+              }),
+              templateOnly()
+            )
+          );
+        }
+      `);
+    });
+
+    it('does not captures lexical "this" when template is used in class body', async function () {
+      plugins = [
+        [
+          HTMLBarsInlinePrecompile,
+          {
+            compiler,
+            targetFormat: 'hbs',
+          },
+        ],
+      ];
+
+      let transformed = await transform(
+        `import { template } from '@ember/template-compiler'; 
+        import Component from '@glimmer/component';
+        export class Example extends Component {
+          upper(s) { return s.toUpperCase() }
+          message = "hi";
+          static {
+            template('{{this.upper this.message}}', { component: this, eval: function() { return eval(arguments[0]) } })
+          }
+        }
+        `
+      );
+
+      expect(transformed).toEqualCode(`
+        import Component from '@glimmer/component';
+        import { precompileTemplate } from "@ember/template-compilation";
+        import { setComponentTemplate } from "@ember/component";
+        export class Example extends Component {
+          upper(s) { return s.toUpperCase() }
+          message = "hi";
+          static {
+            setComponentTemplate(
+              precompileTemplate("{{this.upper this.message}}", {
+                strictMode: true,
+              }), this)
+          }
+        }
+      `);
+    });
+
     it('leaves ember keywords alone when no local is defined', async function () {
       plugins = [
         [
@@ -2046,7 +2206,7 @@ describe('htmlbars-inline-precompile', function () {
             */
             {
               id: "<id>",
-              block: "[[[8,[32,0],null,null,null]],[],false,[]]",
+              block: "[[[8,[32,0],null,null,null]],[],[]]",
               moduleName: "<moduleName>",
               scope: () => [HelloWorld],
               isStrictMode: true,
@@ -2159,7 +2319,7 @@ describe('htmlbars-inline-precompile', function () {
        */
         {
           id: "<id>",
-          block: "[[[8,[32,0],null,null,null]],[],false,[]]",
+          block: "[[[8,[32,0],null,null,null]],[],[]]",
           moduleName: "<moduleName>",
           scope: () => [HelloWorld],
           isStrictMode: true,
@@ -2199,6 +2359,39 @@ describe('htmlbars-inline-precompile', function () {
           import { setComponentTemplate } from "@ember/component";
           import templateOnly from "@ember/component/template-only";
           const MyComponent = setComponentTemplate(precompileTemplate('<HelloWorld />', { strictMode: true, scope: () => ({ HelloWorld })  }), templateOnly());
+        `);
+    });
+
+    it('expression form can capture lexical "this"', async function () {
+      plugins = [
+        [
+          HTMLBarsInlinePrecompile,
+          {
+            compiler,
+            targetFormat: 'hbs',
+          },
+        ],
+      ];
+
+      let p = new Preprocessor();
+
+      let transformed = await transform(
+        p.process(
+          `
+          export function example() {
+            return <template>{{this.message}}</template>;
+          }
+          `
+        )
+      );
+
+      expect(transformed).toEqualCode(`
+          import { precompileTemplate } from "@ember/template-compilation";
+          import { setComponentTemplate } from "@ember/component";
+          import templateOnly from "@ember/component/template-only";
+          export function example() {
+            return setComponentTemplate(precompileTemplate('{{this.message}}', { strictMode: true, scope: () => ({ this: this })  }), templateOnly());
+          }
         `);
     });
 

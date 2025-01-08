@@ -34,7 +34,7 @@
     ]
   },
   "dependencies": {
-    "@glimmer/syntax": ">= 0.84.3",
+    "@glimmer/syntax": ">= 0.94.9",
     "babel-import-util": "^3.0.0"
   },
   "devDependencies": {
@@ -52,10 +52,10 @@
     "@types/sinon": "^10.0.13",
     "@typescript-eslint/eslint-plugin": "^7.14.1",
     "@typescript-eslint/parser": "^7.14.1",
-    "code-equality-assertions": "^0.7.0",
+    "code-equality-assertions": "^1.0.1",
     "common-tags": "^1.8.0",
     "content-tag": "^0.1.0",
-    "ember-source": "^3.28.9",
+    "ember-source": "^6.4.0-beta.1",
     "eslint": "^8.57.0",
     "eslint-config-prettier": "^6.15.0",
     "eslint-plugin-node": "^11.1.0",
@@ -66,7 +66,7 @@
     "release-it-lerna-changelog": "^3.1.0",
     "release-plan": "^0.9.0",
     "sinon": "^14.0.0",
-    "typescript": "^5.5.2"
+    "typescript": "^5.8.2"
   },
   "packageManager": "pnpm@9.0.6",
   "engines": {
