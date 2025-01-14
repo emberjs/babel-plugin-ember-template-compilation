@@ -1901,6 +1901,34 @@ describe('htmlbars-inline-precompile', function () {
       `);
     });
 
+    it('uses allowed platform globals when used', function () {
+      plugins = [
+        [
+          HTMLBarsInlinePrecompile,
+          {
+            compiler,
+            targetFormat: 'hbs',
+          },
+        ],
+      ];
+
+      let transformed = transform(
+        `import { template } from '@ember/template-compiler'; 
+         const data = {};
+         export default template('{{JSON.stringify data}}', { eval: function() { return eval(arguments[0]) } })
+        `
+      );
+
+      expect(transformed).toEqualCode(`
+        import HelloWorld from "somewhere";
+        import { precompileTemplate } from "@ember/template-compilation";
+        import { setComponentTemplate } from "@ember/component";
+        import templateOnly from "@ember/component/template-only";
+        const data = {};
+        export default setComponentTemplate(precompileTemplate('{{JSON.stringify data}}', { strictMode: true, scope: () => ({ JSON, data }) }), templateOnly());
+      `);
+    });
+
     // You might think this would be confusing style, and you'd be correct. But
     // that's what the lint rules are for. When it comes to correctness, we need
     // our scope to behave like real Javascript, and Javascript doesn't care
