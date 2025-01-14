@@ -1920,7 +1920,6 @@ describe('htmlbars-inline-precompile', function () {
       );
 
       expect(transformed).toEqualCode(`
-        import HelloWorld from "somewhere";
         import { precompileTemplate } from "@ember/template-compilation";
         import { setComponentTemplate } from "@ember/component";
         import templateOnly from "@ember/component/template-only";

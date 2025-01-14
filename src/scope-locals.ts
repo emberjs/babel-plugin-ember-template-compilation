@@ -12,6 +12,45 @@ import { ASTPluginEnvironment, NodeVisitor } from '@glimmer/syntax';
 import { astNodeHasBinding } from './hbs-utils';
 import { readOnlyArray } from './read-only-array';
 
+/**
+ * RFC: Pending....
+ *
+ * tl;dr:
+ *   - utilities that begin with uppercase letter
+ *     OR are guaranteed to never be added to glimmer as a keyword (e.g.: globalThis)
+ *   - must not need `new` to invoke
+ *
+ * Ref:
+ * - https://tc39.es/ecma262/#sec-global-object
+ * - https://tc39.es/ecma262/#sec-function-properties-of-the-global-object
+ */
+const ALLOWED_GLOBALS = new Set([
+  // namespaces
+  'globalThis',
+  'JSON',
+  'Math',
+  'Atomics',
+  'Reflect',
+  // functions
+  'isNaN',
+  'isFinite',
+  'parseInt',
+  'parseFloat',
+  'decodeURI',
+  'decodeURIComponent',
+  'encodeURI',
+  'encodeURIComponent',
+  // new-less Constructors (still functions)
+  'Number',
+  'Object', // different behavior from (hash)
+  'Array', // different behavior from (array)
+  'String',
+  'BigInt',
+  'Date',
+  // Values
+  'Infinity',
+]);
+
 /*
     `mode` refers to the implicit and explicit formats defined here:
 
@@ -72,7 +111,7 @@ export class ScopeLocals {
 
   #isInJsScope(hbsName: string, jsPath: NodePath) {
     let jsName = this.#mapping[hbsName] ?? hbsName;
-    return ['globalThis'].includes(jsName) || jsPath.scope.getBinding(jsName);
+    return ALLOWED_GLOBALS.has(jsName) || jsPath.scope.getBinding(jsName);
   }
 
   // this AST transform discovers all possible upvars in HBS that refer to valid
