@@ -33,6 +33,7 @@ describe('htmlbars-inline-precompile', function () {
   });
 
   afterEach(function () {
+    sharedStateToBabel = null;
     sinon.restore();
   });
 
@@ -654,13 +655,23 @@ describe('htmlbars-inline-precompile', function () {
     );
   });
 
+  let sharedStateToBabel = null as any;
+
   let expressionTransform: ExtendedPluginBuilder = (env) => {
     return {
       name: 'expression-transform',
       visitor: {
         PathExpression(node, path) {
           if (node.original === 'onePlusOne') {
+            let boundName = sharedStateToBabel?.boundName;
+            if (boundName) {
+              env.meta.jsutils.bindVariable(boundName);
+              return env.syntax.builders.path(boundName);
+            }
             let name = env.meta.jsutils.bindExpression('1+1', path, { nameHint: 'two' });
+            if (sharedStateToBabel) {
+              sharedStateToBabel.boundName = name;
+            }
             return env.syntax.builders.path(name);
           }
           return undefined;
@@ -1306,6 +1317,47 @@ describe('htmlbars-inline-precompile', function () {
         import Message from 'message';
         let two = 1 + 1;
         const template = precompileTemplate("<Message @text={{two}} />", {
+          scope: () => ({
+            Message,
+            two
+          })
+        });
+      `);
+    });
+
+    it('can reuse bindings', function () {
+      plugins = [
+        [HTMLBarsInlinePrecompile, { targetFormat: 'hbs', transforms: [expressionTransform] }],
+      ];
+
+      sharedStateToBabel = {};
+
+      let transformed = transform(stripIndent`
+        import { precompileTemplate } from '@ember/template-compilation';
+        import Message from 'message';
+        const template = precompileTemplate('<Message @text={{onePlusOne}} />', {
+          scope: () => ({
+            Message
+          })
+        });
+         const template2 = precompileTemplate('<Message @text={{onePlusOne}} />', {
+          scope: () => ({
+            Message
+          })
+        });
+      `);
+
+      expect(transformed).toEqualCode(`
+        import { precompileTemplate } from '@ember/template-compilation';
+        import Message from 'message';
+        let two = 1 + 1;
+        const template = precompileTemplate("<Message @text={{two}} />", {
+          scope: () => ({
+            Message,
+            two
+          })
+        });
+        const template2 = precompileTemplate("<Message @text={{two}} />", {
           scope: () => ({
             Message,
             two
