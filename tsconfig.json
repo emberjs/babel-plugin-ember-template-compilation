@@ -9,7 +9,7 @@
 
     // Environment Configuration
     "experimentalDecorators": true,
-    "moduleResolution": "node",
+    "moduleResolution": "bundler",
     "esModuleInterop": true,
 
     // Enhance Strictness
