@@ -12,6 +12,7 @@ import sinon from 'sinon';
 import { ExtendedPluginBuilder } from '../src/js-utils';
 import 'code-equality-assertions/jest';
 import { Preprocessor } from 'content-tag';
+import { ALLOWED_GLOBALS } from '../src/scope-locals';
 
 describe('htmlbars-inline-precompile', function () {
   // eslint-disable-next-line @typescript-eslint/no-var-requires
@@ -1901,31 +1902,35 @@ describe('htmlbars-inline-precompile', function () {
       `);
     });
 
-    it('uses allowed platform globals when used', function () {
-      plugins = [
-        [
-          HTMLBarsInlinePrecompile,
-          {
-            compiler,
-            targetFormat: 'hbs',
-          },
-        ],
-      ];
+    describe('implements RFC#1070: default globals', function () {
+      for (let name of ALLOWED_GLOBALS) {
+        it(`${name}: allowed`, function () {
+          plugins = [
+            [
+              HTMLBarsInlinePrecompile,
+              {
+                compiler,
+                targetFormat: 'hbs',
+              },
+            ],
+          ];
 
-      let transformed = transform(
-        `import { template } from '@ember/template-compiler'; 
+          let transformed = transform(
+            `import { template } from '@ember/template-compiler'; 
          const data = {};
-         export default template('{{JSON.stringify data}}', { eval: function() { return eval(arguments[0]) } })
+         export default template('{{${name} data}}', { eval: function() { return eval(arguments[0]) } })
         `
-      );
+          );
 
-      expect(transformed).toEqualCode(`
+          expect(transformed).toEqualCode(`
         import { precompileTemplate } from "@ember/template-compilation";
         import { setComponentTemplate } from "@ember/component";
         import templateOnly from "@ember/component/template-only";
         const data = {};
-        export default setComponentTemplate(precompileTemplate('{{JSON.stringify data}}', { strictMode: true, scope: () => ({ JSON, data }) }), templateOnly());
+        export default setComponentTemplate(precompileTemplate('{{${name} data}}', { strictMode: true, scope: () => ({ ${name}, data }) }), templateOnly());
       `);
+        });
+      }
     });
 
     // You might think this would be confusing style, and you'd be correct. But

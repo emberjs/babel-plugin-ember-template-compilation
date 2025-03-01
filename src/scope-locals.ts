@@ -13,25 +13,43 @@ import { astNodeHasBinding } from './hbs-utils';
 import { readOnlyArray } from './read-only-array';
 
 /**
- * RFC: Pending....
+ * RFC: https://github.com/emberjs/rfcs/pull/1070
  *
- * tl;dr:
- *   - utilities that begin with uppercase letter
- *     OR are guaranteed to never be added to glimmer as a keyword (e.g.: globalThis)
- *   - must not need `new` to invoke
+ * Criteria for inclusion in this list:
  *
- * Ref:
- * - https://tc39.es/ecma262/#sec-global-object
- * - https://tc39.es/ecma262/#sec-function-properties-of-the-global-object
+ *   Any of:
+ *     - begins with an uppercase letter
+ *     - guaranteed to never be added to glimmer as a keyword (e.g.: globalThis)
+ *
+ *   And:
+ *     - must not need new to invoke
+ *     - must not require lifetime management (e.g.: setTimeout)
+ *     - must not be a single-word lower-case API, because of potential collision with future new HTML elements
+ *     - if the API is a function, the return value should not be a promise
+ *     - must be one one of these lists:
+ *        - https://tc39.es/ecma262/#sec-global-object
+ *        - https://tc39.es/ecma262/#sec-function-properties-of-the-global-object
+ *        - https://html.spec.whatwg.org/multipage/nav-history-apis.html#window
+ *        - https://html.spec.whatwg.org/multipage/indices.html#all-interfaces
+ *        - https://html.spec.whatwg.org/multipage/webappapis.html
  */
-const ALLOWED_GLOBALS = new Set([
+export const ALLOWED_GLOBALS = new Set([
+  // ////////////////
   // namespaces
+  // ////////////////
+  //   TC39
   'globalThis',
+  'Atomics',
   'JSON',
   'Math',
-  'Atomics',
   'Reflect',
-  // functions
+  //   WHATWG
+  'localStorage',
+  'sessionStorage',
+  // ////////////////
+  // functions / utilities
+  // ////////////////
+  //   TC39
   'isNaN',
   'isFinite',
   'parseInt',
@@ -40,15 +58,28 @@ const ALLOWED_GLOBALS = new Set([
   'decodeURIComponent',
   'encodeURI',
   'encodeURIComponent',
+  //   WHATWG
+  'postMessage',
+  'structuredClone',
+  // ////////////////
   // new-less Constructors (still functions)
+  // ////////////////
+  //   TC39
+  'Array', // different behavior from (array)
+  'BigInt',
+  'Boolean',
+  'Date',
   'Number',
   'Object', // different behavior from (hash)
-  'Array', // different behavior from (array)
   'String',
-  'BigInt',
-  'Date',
+  // ////////////////
   // Values
+  // ////////////////
+  //   TC39
   'Infinity',
+  'NaN',
+  //   WHATWG
+  'isSecureContext',
 ]);
 
 /*
