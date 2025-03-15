@@ -2170,6 +2170,36 @@ describe('htmlbars-inline-precompile', function () {
         `);
     });
 
+    it('works for default export + satisfies', function () {
+      plugins = [
+        [
+          HTMLBarsInlinePrecompile,
+          {
+            compiler,
+            targetFormat: 'hbs',
+          },
+        ],
+        TransformTypescript,
+      ];
+
+      let p = new Preprocessor();
+
+      let transformed = transform(
+        p.process(
+          `import HelloWorld from 'somewhere';
+           import type { TOC } from '@ember/component/template-only';
+           <template><HelloWorld /></template> satisfies TOC<{
+            Blocks: { default: [] } 
+           }>;
+          `
+        )
+      );
+
+      expect(transformed).toEqualCode(`
+        tbd
+        `);
+    });
+
     it('works for class member form', function () {
       plugins = [
         [
