@@ -59,6 +59,8 @@ jobs:
           node-version: 14
       # lockfile format version 9 didn't exist with pnpm 7
       - run: pnpm install --no-lockfile
+      # Newer `@glimmer/syntax`s are not compatible with Node 14
+      - run: pnpm add @glimmer/syntax@0.84.3
       - run: pnpm test
 
 
