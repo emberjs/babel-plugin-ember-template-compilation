@@ -57,13 +57,7 @@ jobs:
         with:
           cache: 'pnpm'
           node-version: 14
-      # lockfile format version 9 didn't exist with pnpm 7
-      # We also have to ignore-scripts because we need to change a dep
-      # because we compile with typescript, and TS will error 
-      # on node 14 if we don't force a downgrade
-      - run: pnpm install --no-lockfile --ignore-scripts
-      # Newer `@glimmer/syntax`s are not compatible with Node 14
-      - run: pnpm add @glimmer/syntax@0.84.3
+      - run: pnpm install --no-lockfile 
       - run: pnpm build
       - run: pnpm test
 
