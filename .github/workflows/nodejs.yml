@@ -90,8 +90,8 @@ jobs:
       - run: jq 'del(.pnpm.overrides)' package.json
       - run: pnpm update @glimmer/syntax --latest
       - run: npx y-which @glimmer/syntax
-      # We use ignore scripts, because we don't want `pretest` to run,
+      # We use jest directly, because we don't want `pretest` to run,
       # because we don't need to compile again 
       # (and don't want to since we changed the @glimmer/syntax version
       #  and TS would fail)
-      - run: pnpm test --ignore-scripts
+      - run: pnpm jest 
