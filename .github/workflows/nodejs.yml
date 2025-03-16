@@ -87,6 +87,7 @@ jobs:
         with:
           cache: 'pnpm'
       - run: pnpm install --no-lockfile
-      - run: pnpm update @glimmer/syntax
+      - run: jq 'del(.pnpm.overrides)' package.json
+      - run: pnpm update @glimmer/syntax --latest
       - run: npx y-which @glimmer/syntax
       - run: pnpm test
