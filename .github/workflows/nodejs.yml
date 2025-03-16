@@ -58,7 +58,7 @@ jobs:
           cache: 'pnpm'
           node-version: 14
       # lockfile format version 9 didn't exist with pnpm 7
-      - run: pnpm install --no-lockfile 
+      - run: pnpm install --no-lockfile
       - run: pnpm test
 
 
