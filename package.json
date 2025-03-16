@@ -72,6 +72,14 @@
   "engines": {
     "node": ">= 12.*"
   },
+  "pnpm": {
+    "overrides": {
+      "@glimmer/syntax": "0.84.3"
+    },
+    "overrideNotes": {
+      "@glimmer/syntax": "newer versions are not compatible with node 14, and newer versions have breaking types. Since the APIs we use haven't broken, we only need to fake pinning @glimmer/syntax locally for type-checking reasons"
+    }
+  },
   "volta": {
     "node": "18.20.2",
     "pnpm": "9.0.6"
