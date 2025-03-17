@@ -3,6 +3,7 @@
     // Compilation Configuration
     "target": "es2015",
     "module": "commonjs",
+    "moduleResolution": "bundler",
     "inlineSources": true,
     "inlineSourceMap": true,
     "declaration": true,
@@ -33,4 +34,5 @@
     "./__tests__/**/*.ts",
     "local-types.d.ts",
   ],
+  "exclude": ["dist/**", "node_modules"]
 }

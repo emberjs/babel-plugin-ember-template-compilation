@@ -9,7 +9,7 @@ importers:
   .:
     dependencies:
       '@glimmer/syntax':
-        specifier: ^0.94.8
+        specifier: '>= 0.84.3'
         version: 0.94.8
       babel-import-util:
         specifier: ^3.0.0
