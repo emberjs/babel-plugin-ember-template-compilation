@@ -20,7 +20,7 @@
   ],
   "scripts": {
     "build": "tsc",
-    "clean": "git clean -d -f -x src __tests__",
+    "clean": "git clean -d -f -x dist",
     "lint": "eslint --cache --ext .ts .",
     "prepare": "tsc",
     "pretest": "tsc",
