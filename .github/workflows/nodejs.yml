@@ -12,6 +12,9 @@ on:
   schedule:
     - cron: '0 6 * * 0' # weekly, on sundays
 
+# --ignore-scripts is used everywhere here because
+# we want manual control over the build.
+# the pre* scripts (ran via exclusion of --ignore-scripts) are kept for local development
 jobs:
   lint:
     name: Linting
@@ -23,8 +26,32 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           cache: 'pnpm'
-      - run: pnpm install
+      - run: pnpm install --ignore-scripts
       - run: pnpm lint
+
+
+  # To simulate what would happen when we push a release 
+  # out to consumers, we're only going to build once, and 
+  # then download the copy of those assets in each test job.
+  #
+  # This allows us to test against various node versions without 
+  # changing how we compile (since consumers will not be compiling this library)
+  build:
+    name: Build 
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v2
+      - uses: actions/setup-node@v4
+        with:
+          cache: 'pnpm'
+      - run: pnpm install --ignore-scripts
+      - run: pnpm build 
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bulit-assets
+          path: dist
 
   test:
     name: Tests
@@ -41,7 +68,11 @@ jobs:
         with:
           cache: 'pnpm'
           node-version: ${{ matrix.node }}
-      - run: pnpm install
+      - run: pnpm install --ignore-scripts
+      - uses: actions/download-artifact@v4
+        with:
+          name: bulit-assets
+          path: dist
       - run: pnpm test
 
   test_old:
@@ -58,12 +89,17 @@ jobs:
           cache: 'pnpm'
           node-version: 14
       # lockfile format version 9 didn't exist with pnpm 7
-      - run: pnpm install --no-lockfile
+      # ignore scripts because 
+      - run: pnpm install --no-lockfile --ignore-scripts
+      - uses: actions/download-artifact@v4
+        with:
+          name: bulit-assets
+          path: dist
       - run: pnpm test
 
 
   floating-test:
-    name: Floating dependencies
+    name: Floating dependencies and build
     runs-on: ubuntu-latest
 
     steps:
@@ -72,11 +108,11 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           cache: 'pnpm'
-      - run: pnpm install --no-lockfile
+      - run: pnpm install --no-lockfile 
       - run: pnpm test
 
 
-  latest-glimmer-syntax: 
+  min-glimmer-syntax: 
     name: Latest @glimmer/syntax 
     runs-on: ubuntu-latest
 
@@ -86,9 +122,12 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           cache: 'pnpm'
-      - run: pnpm install --no-lockfile
-      - run: jq 'del(.pnpm.overrides)' package.json
-      - run: pnpm update @glimmer/syntax --latest
+      - run: pnpm install --no-lockfile --ignore-scripts
+      - uses: actions/download-artifact@v4
+        with:
+          name: bulit-assets
+          path: dist
+      - run: pnpm update @glimmer/syntax@0.84.3
       - run: npx y-which @glimmer/syntax
       # We use jest directly, because we don't want `pretest` to run,
       # because we don't need to compile again 

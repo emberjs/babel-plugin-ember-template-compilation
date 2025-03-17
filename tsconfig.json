@@ -6,10 +6,11 @@
     "inlineSources": true,
     "inlineSourceMap": true,
     "declaration": true,
+    "outDir": "dist",
 
     // Environment Configuration
     "experimentalDecorators": true,
-    "moduleResolution": "node",
+    "moduleResolution": "bundler",
     "esModuleInterop": true,
 
     // Enhance Strictness
@@ -32,4 +33,5 @@
     "./__tests__/**/*.ts",
     "local-types.d.ts",
   ],
+  "exclude": ["dist/**", "node_modules"]
 }
