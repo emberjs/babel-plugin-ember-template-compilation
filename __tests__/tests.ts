@@ -1904,7 +1904,7 @@ describe('htmlbars-inline-precompile', function () {
 
     describe('implements RFC#1070: default globals', function () {
       for (let name of ALLOWED_GLOBALS) {
-        it(`${name}: allowed`, function () {
+        it(`${name}: allowed`, async function () {
           plugins = [
             [
               HTMLBarsInlinePrecompile,
@@ -1915,7 +1915,7 @@ describe('htmlbars-inline-precompile', function () {
             ],
           ];
 
-          let transformed = transform(
+          let transformed = await transform(
             `import { template } from '@ember/template-compiler'; 
          const data = {};
          export default template('{{${name} data}}', { eval: function() { return eval(arguments[0]) } })
