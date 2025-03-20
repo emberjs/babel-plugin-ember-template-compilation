@@ -4,12 +4,15 @@ settings:
   autoInstallPeers: false
   excludeLinksFromLockfile: false
 
+overrides:
+  '@glimmer/syntax': 0.84.3
+
 importers:
 
   .:
     dependencies:
       '@glimmer/syntax':
-        specifier: '>= 0.84.3'
+        specifier: 0.84.3
         version: 0.84.3
       babel-import-util:
         specifier: ^3.0.0

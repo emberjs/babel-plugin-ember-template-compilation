@@ -74,3 +74,24 @@ jobs:
           cache: 'pnpm'
       - run: pnpm install --no-lockfile
       - run: pnpm test
+
+
+  latest-glimmer-syntax: 
+    name: Latest @glimmer/syntax 
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v2
+      - uses: actions/setup-node@v4
+        with:
+          cache: 'pnpm'
+      - run: pnpm install --no-lockfile
+      - run: jq 'del(.pnpm.overrides)' package.json
+      - run: pnpm update @glimmer/syntax --latest
+      - run: npx y-which @glimmer/syntax
+      # We use jest directly, because we don't want `pretest` to run,
+      # because we don't need to compile again 
+      # (and don't want to since we changed the @glimmer/syntax version
+      #  and TS would fail)
+      - run: pnpm jest 
