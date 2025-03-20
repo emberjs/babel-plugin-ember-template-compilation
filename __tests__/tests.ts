@@ -12,20 +12,21 @@ import sinon from 'sinon';
 import { ExtendedPluginBuilder } from '../src/js-utils';
 import 'code-equality-assertions/jest';
 import { Preprocessor } from 'content-tag';
+import { ALLOWED_GLOBALS } from '../src/scope-locals';
 
 describe('htmlbars-inline-precompile', function () {
   // eslint-disable-next-line @typescript-eslint/no-var-requires
-  let compiler: EmberTemplateCompiler = { ...require('ember-source/dist/ember-template-compiler') };
+  let compiler: EmberTemplateCompiler = {
+    ...require('ember-source/dist/ember-template-compiler.js'),
+  };
   let plugins: ([typeof HTMLBarsInlinePrecompile, Options] | [unknown])[];
 
-  function transform(code: string) {
-    let x = babel
-      .transform(code, {
-        filename: 'foo-bar.js',
-        plugins,
-      })!
-      .code!.trim();
-    return x;
+  async function transform(code: string) {
+    let result = await babel.transformAsync(code, {
+      filename: 'foo-bar.js',
+      plugins,
+    });
+    return result!.code!.trim();
   }
 
   beforeEach(function () {
@@ -36,12 +37,12 @@ describe('htmlbars-inline-precompile', function () {
     sinon.restore();
   });
 
-  it('supports compilation that returns a non-JSON.parseable object', function () {
+  it('supports compilation that returns a non-JSON.parseable object', async function () {
     sinon.replace(compiler, 'precompile', (template) => {
       return `function() { return "${template}"; }`;
     });
 
-    let transpiled = transform(
+    let transpiled = await transform(
       "import { precompileTemplate } from '@ember/template-compilation';\nvar compiled = precompileTemplate('hello');"
     );
 
@@ -57,10 +58,10 @@ describe('htmlbars-inline-precompile', function () {
     `);
   });
 
-  it('supports compilation with templateCompilerPath', function () {
+  it('supports compilation with templateCompilerPath', async function () {
     plugins = [[HTMLBarsInlinePrecompile, { compilerPath: require.resolve('./mock-precompile') }]];
 
-    let transpiled = transform(
+    let transpiled = await transform(
       "import { precompileTemplate } from '@ember/template-compilation';\nvar compiled = precompileTemplate('hello');"
     );
 
@@ -74,48 +75,48 @@ describe('htmlbars-inline-precompile', function () {
     `);
   });
 
-  it('passes options when used as a call expression', function () {
+  it('passes options when used as a call expression', async function () {
     let source = 'hello';
     let spy = sinon.spy(compiler, 'precompile');
 
-    transform(
+    await transform(
       `import { precompileTemplate } from '@ember/template-compilation';\nvar compiled = precompileTemplate('${source}');`
     );
 
     expect(spy.firstCall.lastArg).toHaveProperty('contents', source);
   });
 
-  it('uses the user provided isProduction option if present', function () {
+  it('uses the user provided isProduction option if present', async function () {
     let source = 'hello';
     let spy = sinon.spy(compiler, 'precompile');
 
-    transform(
+    await transform(
       `import { precompileTemplate } from '@ember/template-compilation';\nvar compiled = precompileTemplate('${source}', { isProduction: true });`
     );
 
     expect(spy.firstCall.lastArg).toHaveProperty('isProduction', true);
   });
 
-  it('allows a template string literal when used as a call expression', function () {
+  it('allows a template string literal when used as a call expression', async function () {
     let source = 'hello';
     let spy = sinon.spy(compiler, 'precompile');
 
-    transform(
+    await transform(
       `import { precompileTemplate } from '@ember/template-compilation';\nvar compiled = precompileTemplate(\`${source}\`);`
     );
 
     expect(spy.firstCall.lastArg).toHaveProperty('contents', source);
   });
 
-  it('errors when the template string contains placeholders', function () {
-    expect(() =>
+  it('errors when the template string contains placeholders', async function () {
+    await expect(() =>
       transform(
         "import { precompileTemplate } from '@ember/template-compilation';\nvar compiled = precompileTemplate(`string ${value}`)"
       )
-    ).toThrow(/placeholders inside a template string are not supported/);
+    ).rejects.toThrow(/placeholders inside a template string are not supported/);
   });
 
-  it('errors when the template string is tagged', function () {
+  it('errors when the template string is tagged', async function () {
     plugins = [
       [
         HTMLBarsInlinePrecompile,
@@ -125,16 +126,16 @@ describe('htmlbars-inline-precompile', function () {
         },
       ],
     ];
-    expect(() =>
+    await expect(() =>
       transform("import hbs from 'htmlbars-inline-precompile';\nvar compiled = hbs(hbs`string`)")
-    ).toThrow(/tagged template strings inside hbs are not supported/);
+    ).rejects.toThrow(/tagged template strings inside hbs are not supported/);
   });
 
-  it('allows static userland options when used as a call expression', function () {
+  it('allows static userland options when used as a call expression', async function () {
     let source = 'hello';
     let spy = sinon.spy(compiler, 'precompile');
 
-    transform(
+    await transform(
       `import { precompileTemplate } from '@ember/template-compilation';\nvar compiled = precompileTemplate('${source}', { parseOptions: { srcName: 'bar.hbs' }, moduleName: 'foo/bar.hbs', xyz: 123, qux: true, stringifiedThing: ${JSON.stringify(
         { foo: 'baz' }
       )}});`
@@ -147,12 +148,12 @@ describe('htmlbars-inline-precompile', function () {
     expect(spy.firstCall.lastArg).toHaveProperty('stringifiedThing', { foo: 'baz' });
   });
 
-  it('adds a comment with the original template string', function () {
+  it('adds a comment with the original template string', async function () {
     sinon.replace(compiler, 'precompile', (template) => {
       return `precompiled("${template}")`;
     });
 
-    let transformed = transform(stripIndent`
+    let transformed = await transform(stripIndent`
       import { precompileTemplate } from '@ember/template-compilation';
       if ('foo') {
         const template = precompileTemplate('hello');
@@ -171,10 +172,10 @@ describe('htmlbars-inline-precompile', function () {
     `);
   });
 
-  it('avoids a build time error when passed `insertRuntimeErrors`', function () {
+  it('avoids a build time error when passed `insertRuntimeErrors`', async function () {
     sinon.stub(compiler, 'precompile').throws(new Error('NOOOOOOOOOOOOOOOOOOOOOO'));
 
-    let transformed = transform(
+    let transformed = await transform(
       `import { precompileTemplate } from '@ember/template-compilation';\nvar compiled = precompileTemplate('hello', { insertRuntimeErrors: true });`
     );
 
@@ -185,7 +186,7 @@ describe('htmlbars-inline-precompile', function () {
     `);
   });
 
-  it('escapes any */ included in the template string', function () {
+  it('escapes any */ included in the template string', async function () {
     plugins = [
       [HTMLBarsInlinePrecompile, { compiler, enableLegacyModules: ['htmlbars-inline-precompile'] }],
     ];
@@ -194,7 +195,7 @@ describe('htmlbars-inline-precompile', function () {
       return `precompiled("${template}")`;
     });
 
-    let transformed = transform(stripIndent`
+    let transformed = await transform(stripIndent`
       import hbs from 'htmlbars-inline-precompile';
       if ('foo') {
         const template = hbs\`hello */\`;
@@ -214,7 +215,7 @@ describe('htmlbars-inline-precompile', function () {
     `);
   });
 
-  it('passes options when used as a tagged template string', function () {
+  it('passes options when used as a tagged template string', async function () {
     plugins = [
       [HTMLBarsInlinePrecompile, { compiler, enableLegacyModules: ['htmlbars-inline-precompile'] }],
     ];
@@ -222,13 +223,15 @@ describe('htmlbars-inline-precompile', function () {
     let source = 'hello';
     let spy = sinon.spy(compiler, 'precompile');
 
-    transform(`import hbs from 'htmlbars-inline-precompile';\nvar compiled = hbs\`${source}\`;`);
+    await transform(
+      `import hbs from 'htmlbars-inline-precompile';\nvar compiled = hbs\`${source}\`;`
+    );
 
     expect(spy.firstCall.lastArg).toHaveProperty('contents', source);
   });
 
-  it("strips import statement for '@ember/template-precompilation' module", function () {
-    let transformed = transform(
+  it("strips import statement for '@ember/template-precompilation' module", async function () {
+    let transformed = await transform(
       "import { precompileTemplate } from '@ember/template-compilation';\nimport Ember from 'ember';"
     );
 
@@ -236,7 +239,7 @@ describe('htmlbars-inline-precompile', function () {
     expect(transformed).toEqual("import Ember from 'ember';");
   });
 
-  it('replaces tagged template expressions with precompiled version', function () {
+  it('replaces tagged template expressions with precompiled version', async function () {
     sinon.replace(compiler, 'precompile', (template) => {
       return `precompiled("${template}")`;
     });
@@ -250,7 +253,7 @@ describe('htmlbars-inline-precompile', function () {
         },
       ],
     ];
-    let transformed = transform(
+    let transformed = await transform(
       "import hbs from 'htmlbars-inline-precompile';\nvar compiled = hbs`hello`;"
     );
 
@@ -264,7 +267,7 @@ describe('htmlbars-inline-precompile', function () {
     `);
   });
 
-  it('replaces tagged template expressions with precompiled version when ember-cli-htmlbars is enabled', function () {
+  it('replaces tagged template expressions with precompiled version when ember-cli-htmlbars is enabled', async function () {
     sinon.replace(compiler, 'precompile', (template) => {
       return `precompiled("${template}")`;
     });
@@ -279,7 +282,7 @@ describe('htmlbars-inline-precompile', function () {
       ],
     ];
 
-    let transformed = transform(
+    let transformed = await transform(
       "import { hbs as baz } from 'ember-cli-htmlbars';\nvar compiled = baz`hello`;"
     );
 
@@ -293,8 +296,8 @@ describe('htmlbars-inline-precompile', function () {
     `);
   });
 
-  it('leaves tagged template expressions alone when ember-cli-htmlbars is disabled', function () {
-    let transformed = transform(
+  it('leaves tagged template expressions alone when ember-cli-htmlbars is disabled', async function () {
+    let transformed = await transform(
       "import { hbs as baz } from 'ember-cli-htmlbars';\nvar compiled = baz`hello`;"
     );
 
@@ -304,17 +307,17 @@ describe('htmlbars-inline-precompile', function () {
     `);
   });
 
-  it('does not cause an error when no import is found', function () {
-    expect(() => transform('something("whatever")')).not.toThrow();
-    expect(() => transform('something`whatever`')).not.toThrow();
+  it('does not cause an error when no import is found', async function () {
+    await transform('something("whatever")');
+    await transform('something`whatever`');
   });
 
-  it('works with multiple imports', function () {
+  it('works with multiple imports', async function () {
     sinon.replace(compiler, 'precompile', (template) => {
       return `precompiled("${template}")`;
     });
 
-    let transformed = transform(`
+    let transformed = await transform(`
       import { precompileTemplate } from '@ember/template-compilation';
       import { precompileTemplate as other } from '@ember/template-compilation';
       let a = precompileTemplate('hello');
@@ -336,7 +339,7 @@ describe('htmlbars-inline-precompile', function () {
     `);
   });
 
-  it('works with renamed scope', function () {
+  it('works with renamed scope', async function () {
     plugins = [
       [
         HTMLBarsInlinePrecompile,
@@ -375,7 +378,7 @@ describe('htmlbars-inline-precompile', function () {
       }), templateOnly());
     `;
 
-    let transformed = transform(code);
+    let transformed = await transform(code);
 
     let normalized = normalizeWireFormat(transformed);
 
@@ -391,7 +394,7 @@ describe('htmlbars-inline-precompile', function () {
           */
           {
             id: "<id>",
-            block: "[[[8,[32,0],null,null,null]],[],false,[]]",
+            block: "[[[8,[32,0],null,null,null]],[],[]]",
             moduleName: "<moduleName>",
             scope: () => [Setup],
             isStrictMode: true,
@@ -402,8 +405,8 @@ describe('htmlbars-inline-precompile', function () {
     `);
   });
 
-  it('does not fully remove imports that have other imports', function () {
-    let transformed = transform(`
+  it('does not fully remove imports that have other imports', async function () {
+    let transformed = await transform(`
       import { precompileTemplate, compileTemplate } from '@ember/template-compilation';
     `);
 
@@ -412,24 +415,24 @@ describe('htmlbars-inline-precompile', function () {
     );
   });
 
-  it('forbids template literal usage of @ember/template-compilation', function () {
-    expect(() => {
+  it('forbids template literal usage of @ember/template-compilation', async function () {
+    await expect(() =>
       transform(`
         import { precompileTemplate } from '@ember/template-compilation';
         let a = precompileTemplate\`hello\`;
-      `);
-    }).toThrow(
+      `)
+    ).rejects.toThrow(
       /Attempted to use `precompileTemplate` as a template tag, but it can only be called as a function with a string passed to it:/
     );
   });
 
-  it('works properly when used along with modules transform', function () {
+  it('works properly when used along with modules transform', async function () {
     sinon.replace(compiler, 'precompile', (template) => {
       return `precompiled("${template}")`;
     });
 
     plugins.push([TransformModules]);
-    let transformed = transform(
+    let transformed = await transform(
       "import { precompileTemplate } from '@ember/template-compilation';\n" +
         "var compiled1 = precompileTemplate('hello');\n" +
         "var compiled2 = precompileTemplate('goodbye');\n"
@@ -453,12 +456,12 @@ describe('htmlbars-inline-precompile', function () {
     `);
   });
 
-  it('does not error when reusing a preexisting import', function () {
+  it('does not error when reusing a preexisting import', async function () {
     sinon.replace(compiler, 'precompile', (template) => {
       return `precompiled("${template}")`;
     });
 
-    let transformed = transform(`
+    let transformed = await transform(`
       import { createTemplateFactory } from '@ember/template-factory';
       import { precompileTemplate } from '@ember/template-compilation';
       precompileTemplate('hello');
@@ -476,13 +479,13 @@ describe('htmlbars-inline-precompile', function () {
     `);
   });
 
-  it('works properly when used after modules transform', function () {
+  it('works properly when used after modules transform', async function () {
     sinon.replace(compiler, 'precompile', (template) => {
       return `precompiled("${template}")`;
     });
 
     plugins.unshift([TransformModules]);
-    let transformed = transform(
+    let transformed = await transform(
       "import { precompileTemplate } from '@ember/template-compilation';\nvar compiled = precompileTemplate('hello');"
     );
 
@@ -499,13 +502,13 @@ describe('htmlbars-inline-precompile', function () {
     `);
   });
 
-  it('works properly when used along with @babel/plugin-transform-unicode-escapes', function () {
+  it('works properly when used along with @babel/plugin-transform-unicode-escapes', async function () {
     sinon.replace(compiler, 'precompile', (template) => {
       return `precompiled("${template}")`;
     });
 
     plugins.push([TransformUnicodeEscapes]);
-    let transformed = transform(
+    let transformed = await transform(
       "import { precompileTemplate } from '@ember/template-compilation';\nvar compiled = precompileTemplate('some emoji goes 💥');"
     );
 
@@ -519,7 +522,7 @@ describe('htmlbars-inline-precompile', function () {
     `);
   });
 
-  it('replaces tagged template expressions when before babel-plugin-transform-es2015-template-literals', function () {
+  it('replaces tagged template expressions when before babel-plugin-transform-es2015-template-literals', async function () {
     sinon.replace(compiler, 'precompile', (template) => {
       return `precompiled("${template}")`;
     });
@@ -535,7 +538,7 @@ describe('htmlbars-inline-precompile', function () {
       [TransformTemplateLiterals],
     ];
 
-    let transformed = transform(
+    let transformed = await transform(
       "import hbs from 'htmlbars-inline-precompile';\nvar compiled = hbs`hello`;"
     );
 
@@ -549,7 +552,7 @@ describe('htmlbars-inline-precompile', function () {
     `);
   });
 
-  it("doesn't replace unrelated tagged template strings", function () {
+  it("doesn't replace unrelated tagged template strings", async function () {
     plugins = [
       [
         HTMLBarsInlinePrecompile,
@@ -559,7 +562,7 @@ describe('htmlbars-inline-precompile', function () {
         },
       ],
     ];
-    let transformed = transform(
+    let transformed = await transform(
       'import hbs from "htmlbars-inline-precompile";\nvar compiled = anotherTag`hello`;'
     );
 
@@ -567,7 +570,7 @@ describe('htmlbars-inline-precompile', function () {
     expect(transformed).toEqual('var compiled = anotherTag`hello`;');
   });
 
-  it('throws when the tagged template string contains placeholders', function () {
+  it('throws when the tagged template string contains placeholders', async function () {
     plugins = [
       [
         HTMLBarsInlinePrecompile,
@@ -577,14 +580,14 @@ describe('htmlbars-inline-precompile', function () {
         },
       ],
     ];
-    expect(() =>
+    await expect(() =>
       transform(
         "import hbs from 'htmlbars-inline-precompile';\nvar compiled = hbs`string ${value}`"
       )
-    ).toThrow(/placeholders inside a tagged template string are not supported/);
+    ).rejects.toThrow(/placeholders inside a tagged template string are not supported/);
   });
 
-  it('works with glimmer modules', function () {
+  it('works with glimmer modules', async function () {
     sinon.replace(compiler, 'precompile', (template) => {
       return `precompiled("${template}")`;
     });
@@ -603,7 +606,7 @@ describe('htmlbars-inline-precompile', function () {
       ],
     ];
 
-    let transformed = transform(stripIndent`
+    let transformed = await transform(stripIndent`
       import { precompileTemplate } from '@ember/template-compilation';
       const template = precompileTemplate('hello');
     `);
@@ -619,37 +622,37 @@ describe('htmlbars-inline-precompile', function () {
   });
 
   describe('caching', function () {
-    it('include `baseDir` function for caching', function () {
+    it('include `baseDir` function for caching', async function () {
       expect(HTMLBarsInlinePrecompile.baseDir()).toEqual(path.resolve(__dirname, '..'));
     });
   });
 
-  it('throws when the second argument is not an object', function () {
-    expect(() =>
+  it('throws when the second argument is not an object', async function () {
+    await expect(() =>
       transform(
         "import { precompileTemplate } from '@ember/template-compilation';\nvar compiled = precompileTemplate('first', 'second');"
       )
-    ).toThrow(
+    ).rejects.toThrow(
       /precompileTemplate can only be invoked with 2 arguments: the template string, and any static options/
     );
   });
 
-  it('throws when argument is not a string', function () {
-    expect(() =>
+  it('throws when argument is not a string', async function () {
+    await expect(() =>
       transform(
         "import { precompileTemplate } from '@ember/template-compilation';\nvar compiled = precompileTemplate(123);"
       )
-    ).toThrow(
+    ).rejects.toThrow(
       /precompileTemplate should be invoked with at least a single argument \(the template string\)/
     );
   });
 
-  it('throws when no argument is passed', function () {
-    expect(() =>
+  it('throws when no argument is passed', async function () {
+    await expect(() =>
       transform(
         "import { precompileTemplate } from '@ember/template-compilation';\nvar compiled = precompileTemplate();"
       )
-    ).toThrow(
+    ).rejects.toThrow(
       /precompileTemplate should be invoked with at least a single argument \(the template string\)/
     );
   });
@@ -686,8 +689,8 @@ describe('htmlbars-inline-precompile', function () {
     };
   };
 
-  it('includes the original template content', function () {
-    let transformed = transform(stripIndent`
+  it('includes the original template content', async function () {
+    let transformed = await transform(stripIndent`
         import { precompileTemplate } from '@ember/template-compilation';
 
         const template = precompileTemplate('hello {{firstName}}');
@@ -696,12 +699,12 @@ describe('htmlbars-inline-precompile', function () {
     expect(transformed).toContain(`hello {{firstName}}`);
   });
 
-  it('allows AST transform to bind a JS expression', function () {
+  it('allows AST transform to bind a JS expression', async function () {
     plugins = [
       [HTMLBarsInlinePrecompile, { targetFormat: 'hbs', transforms: [expressionTransform] }],
     ];
 
-    let transformed = transform(stripIndent`
+    let transformed = await transform(stripIndent`
         import { precompileTemplate } from '@ember/template-compilation';
         const template = precompileTemplate('<Message @text={{onePlusOne}} />');
       `);
@@ -717,7 +720,7 @@ describe('htmlbars-inline-precompile', function () {
     `);
   });
 
-  it('adds locals to the compiled output', function () {
+  it('adds locals to the compiled output', async function () {
     plugins = [
       [
         HTMLBarsInlinePrecompile,
@@ -728,17 +731,17 @@ describe('htmlbars-inline-precompile', function () {
       ],
     ];
 
-    let transformed = transform(stripIndent`
+    let transformed = await transform(stripIndent`
       import { precompileTemplate } from '@ember/template-compilation';
       const template = precompileTemplate('<Message @text={{onePlusOne}} />');
     `);
     expect(transformed).toContain(`"scope": () => [two]`);
   });
 
-  it('allows AST transform to bind a JS import', function () {
+  it('allows AST transform to bind a JS import', async function () {
     plugins = [[HTMLBarsInlinePrecompile, { targetFormat: 'hbs', transforms: [importTransform] }]];
 
-    let transformed = transform(stripIndent`
+    let transformed = await transform(stripIndent`
         import { precompileTemplate } from '@ember/template-compilation';
         const template = precompileTemplate('<Message @text={{onePlusOne}} />');
       `);
@@ -754,13 +757,13 @@ describe('htmlbars-inline-precompile', function () {
     `);
   });
 
-  it('JS import added by ast transform survives typescript interoperability, in hbs targetFormat', function () {
+  it('JS import added by ast transform survives typescript interoperability, in hbs targetFormat', async function () {
     plugins = [
       [HTMLBarsInlinePrecompile, { targetFormat: 'hbs', transforms: [importTransform] }],
       TransformTypescript,
     ];
 
-    let transformed = transform(stripIndent`
+    let transformed = await transform(stripIndent`
         import { precompileTemplate } from '@ember/template-compilation';
         const template = precompileTemplate('<Message @text={{onePlusOne}} />');
       `);
@@ -776,13 +779,13 @@ describe('htmlbars-inline-precompile', function () {
     `);
   });
 
-  it('JS import added by ast transform survives typescript interoperability, in wire targetFormat', function () {
+  it('JS import added by ast transform survives typescript interoperability, in wire targetFormat', async function () {
     plugins = [
       [HTMLBarsInlinePrecompile, { targetFormat: 'wire', compiler, transforms: [importTransform] }],
       TransformTypescript,
     ];
 
-    let transformed = transform(stripIndent`
+    let transformed = await transform(stripIndent`
         import { precompileTemplate } from '@ember/template-compilation';
         const template = precompileTemplate('<Message @text={{onePlusOne}} />');
       `);
@@ -796,7 +799,7 @@ describe('htmlbars-inline-precompile', function () {
        */
       {
         id: "<id>",
-        block: '[[[8,[39,0],null,[["@text"],[[32,0]]],null]],[],false,["message"]]',
+        block: '[[[8,[39,0],null,[["@text"],[[32,0]]],null]],[],["message"]]',
         moduleName: "<moduleName>",
         scope: () => [two],
         isStrictMode: false,
@@ -804,10 +807,10 @@ describe('htmlbars-inline-precompile', function () {
     `);
   });
 
-  it('does not smash existing js binding for import', function () {
+  it('does not smash existing js binding for import', async function () {
     plugins = [[HTMLBarsInlinePrecompile, { targetFormat: 'hbs', transforms: [importTransform] }]];
 
-    let transformed = transform(stripIndent`
+    let transformed = await transform(stripIndent`
         import { precompileTemplate } from '@ember/template-compilation';
         export function inner() {
           let two = 'twice';
@@ -829,10 +832,10 @@ describe('htmlbars-inline-precompile', function () {
     `);
   });
 
-  it('does not smash existing hbs binding for import', function () {
+  it('does not smash existing hbs binding for import', async function () {
     plugins = [[HTMLBarsInlinePrecompile, { targetFormat: 'hbs', transforms: [importTransform] }]];
 
-    let transformed = transform(stripIndent`
+    let transformed = await transform(stripIndent`
         import { precompileTemplate } from '@ember/template-compilation';
         export function inner() {
           const template = precompileTemplate('{{#let "twice" as |two|}}<Message @text={{onePlusOne}} />{{/let}}');
@@ -853,12 +856,12 @@ describe('htmlbars-inline-precompile', function () {
     `);
   });
 
-  it('does not smash existing js binding for expression', function () {
+  it('does not smash existing js binding for expression', async function () {
     plugins = [
       [HTMLBarsInlinePrecompile, { targetFormat: 'hbs', transforms: [expressionTransform] }],
     ];
 
-    let transformed = transform(stripIndent`
+    let transformed = await transform(stripIndent`
         import { precompileTemplate } from '@ember/template-compilation';
         export default function() {
           let two = 'twice';
@@ -880,10 +883,10 @@ describe('htmlbars-inline-precompile', function () {
     `);
   });
 
-  it('reuses existing imports when possible', () => {
+  it('reuses existing imports when possible', async () => {
     plugins = [[HTMLBarsInlinePrecompile, { targetFormat: 'hbs', transforms: [importTransform] }]];
 
-    let transformed = transform(stripIndent`
+    let transformed = await transform(stripIndent`
       import { precompileTemplate } from '@ember/template-compilation';
       export default function() {
         const template = precompileTemplate('{{onePlusOne}}{{onePlusOne}}');
@@ -897,10 +900,10 @@ describe('htmlbars-inline-precompile', function () {
     expect(transformed).toContain(`import two from "my-library"`);
   });
 
-  it('rebinds existing imports when necessary', () => {
+  it('rebinds existing imports when necessary', async () => {
     plugins = [[HTMLBarsInlinePrecompile, { targetFormat: 'hbs', transforms: [importTransform] }]];
 
-    let transformed = transform(stripIndent`
+    let transformed = await transform(stripIndent`
       import { precompileTemplate } from '@ember/template-compilation';
       export default function() {
         const template = precompileTemplate('{{onePlusOne}}{{#let "twice" as |two|}}{{onePlusOne}}{{/let}}');
@@ -917,12 +920,12 @@ describe('htmlbars-inline-precompile', function () {
     expect(transformed).toContain('let two0 = two');
   });
 
-  it('does not smash own newly-created js binding for expression', function () {
+  it('does not smash own newly-created js binding for expression', async function () {
     plugins = [
       [HTMLBarsInlinePrecompile, { targetFormat: 'hbs', transforms: [expressionTransform] }],
     ];
 
-    let transformed = transform(stripIndent`
+    let transformed = await transform(stripIndent`
         import { precompileTemplate } from '@ember/template-compilation';
         export default function() {
           const template1 = precompileTemplate('<Message @text={{onePlusOne}} />');
@@ -949,12 +952,12 @@ describe('htmlbars-inline-precompile', function () {
     `);
   });
 
-  it('does not smash existing hbs block binding for expression', function () {
+  it('does not smash existing hbs block binding for expression', async function () {
     plugins = [
       [HTMLBarsInlinePrecompile, { targetFormat: 'hbs', transforms: [expressionTransform] }],
     ];
 
-    let transformed = transform(stripIndent`
+    let transformed = await transform(stripIndent`
         import { precompileTemplate } from '@ember/template-compilation';
         export default function() {
           const template = precompileTemplate('{{#let "twice" as |two|}}<Message @text={{onePlusOne}} />{{/let}}');
@@ -974,12 +977,12 @@ describe('htmlbars-inline-precompile', function () {
     `);
   });
 
-  it('does not smash existing hbs element binding for expression', function () {
+  it('does not smash existing hbs element binding for expression', async function () {
     plugins = [
       [HTMLBarsInlinePrecompile, { targetFormat: 'hbs', transforms: [expressionTransform] }],
     ];
 
-    let transformed = transform(stripIndent`
+    let transformed = await transform(stripIndent`
         import { precompileTemplate } from '@ember/template-compilation';
         export default function() {
           const template = precompileTemplate('<Outer as |two|><Message @text={{onePlusOne}} /></Outer>');
@@ -999,12 +1002,12 @@ describe('htmlbars-inline-precompile', function () {
     `);
   });
 
-  it('understands that block params are only defined in the body, not the arguments, of an element', function () {
+  it('understands that block params are only defined in the body, not the arguments, of an element', async function () {
     plugins = [
       [HTMLBarsInlinePrecompile, { targetFormat: 'hbs', transforms: [expressionTransform] }],
     ];
 
-    let transformed = transform(stripIndent`
+    let transformed = await transform(stripIndent`
         import { precompileTemplate } from '@ember/template-compilation';
         export default function() {
           const template = precompileTemplate('<Message @text={{onePlusOne}} as |two|>{{two}}</Message>');
@@ -1024,12 +1027,12 @@ describe('htmlbars-inline-precompile', function () {
     `);
   });
 
-  it('does not smash other previously-bound expressions with new ones', () => {
+  it('does not smash other previously-bound expressions with new ones', async () => {
     plugins = [
       [HTMLBarsInlinePrecompile, { targetFormat: 'hbs', transforms: [expressionTransform] }],
     ];
 
-    let transformed = transform(stripIndent`
+    let transformed = await transform(stripIndent`
       import { precompileTemplate } from '@ember/template-compilation';
       export default function() {
         const template = precompileTemplate('{{onePlusOne}}{{onePlusOne}}');
@@ -1045,7 +1048,7 @@ describe('htmlbars-inline-precompile', function () {
     expect(transformed).toContain(`let two0 = 1 + 1`);
   });
 
-  it('can bind expressions that need imports', function () {
+  it('can bind expressions that need imports', async function () {
     let nowTransform: ExtendedPluginBuilder = (env) => {
       return {
         name: 'now-transform',
@@ -1070,7 +1073,7 @@ describe('htmlbars-inline-precompile', function () {
 
     plugins = [[HTMLBarsInlinePrecompile, { targetFormat: 'hbs', transforms: [nowTransform] }]];
 
-    let transformed = transform(stripIndent`
+    let transformed = await transform(stripIndent`
         import { precompileTemplate } from '@ember/template-compilation';
         export default function() {
           const template = precompileTemplate('<Message @when={{now}} />');
@@ -1082,7 +1085,7 @@ describe('htmlbars-inline-precompile', function () {
     expect(transformed).toContain('when={{current}}');
   });
 
-  it('can emit side-effectful expression that need imports', function () {
+  it('can emit side-effectful expression that need imports', async function () {
     let compatTransform: ExtendedPluginBuilder = (env) => {
       return {
         name: 'compat-transform',
@@ -1101,7 +1104,7 @@ describe('htmlbars-inline-precompile', function () {
 
     plugins = [[HTMLBarsInlinePrecompile, { targetFormat: 'hbs', transforms: [compatTransform] }]];
 
-    let transformed = transform(stripIndent`
+    let transformed = await transform(stripIndent`
       import { precompileTemplate } from '@ember/template-compilation';
       export default function() {
         const template = precompileTemplate('<Thing />');
@@ -1112,7 +1115,7 @@ describe('htmlbars-inline-precompile', function () {
     expect(transformed).toContain(`window.define('my-app/components/thing', thing)`);
   });
 
-  it('prevents inconsistent external manipulation of the locals array', function () {
+  it('prevents inconsistent external manipulation of the locals array', async function () {
     let compatTransform: ExtendedPluginBuilder = (env) => {
       return {
         name: 'compat-transform',
@@ -1126,18 +1129,18 @@ describe('htmlbars-inline-precompile', function () {
 
     plugins = [[HTMLBarsInlinePrecompile, { targetFormat: 'hbs', transforms: [compatTransform] }]];
 
-    expect(() => {
+    await expect(() =>
       transform(stripIndent`
       import { precompileTemplate } from '@ember/template-compilation';
       let NewThing = Thing;
       export default function() {
         const template = precompileTemplate('<Thing />');
       }
-    `);
-    }).toThrow(/The only supported way to manipulate locals is via the jsutils API/);
+    `)
+    ).rejects.toThrow(/The only supported way to manipulate locals is via the jsutils API/);
   });
 
-  it('can emit side-effectful import', function () {
+  it('can emit side-effectful import', async function () {
     let compatTransform: ExtendedPluginBuilder = (env) => {
       return {
         name: 'compat-transform',
@@ -1153,7 +1156,7 @@ describe('htmlbars-inline-precompile', function () {
 
     plugins = [[HTMLBarsInlinePrecompile, { targetFormat: 'hbs', transforms: [compatTransform] }]];
 
-    let transformed = transform(stripIndent`
+    let transformed = await transform(stripIndent`
       import { precompileTemplate } from '@ember/template-compilation';
       export default function() {
         const template = precompileTemplate('<Thing />');
@@ -1178,10 +1181,10 @@ describe('htmlbars-inline-precompile', function () {
       };
     };
 
-    it('can run an ast transform inside precompileTemplate', function () {
+    it('can run an ast transform inside precompileTemplate', async function () {
       plugins = [[HTMLBarsInlinePrecompile, { targetFormat: 'hbs', transforms: [color] }]];
 
-      let transformed = transform(stripIndent`
+      let transformed = await transform(stripIndent`
         import { precompileTemplate } from '@ember/template-compilation';
         const template = precompileTemplate('<Message @color={{red}} />');
       `);
@@ -1192,7 +1195,7 @@ describe('htmlbars-inline-precompile', function () {
       `);
     });
 
-    it('can run an ast transform inside hbs backticks', function () {
+    it('can run an ast transform inside hbs backticks', async function () {
       plugins = [
         [
           HTMLBarsInlinePrecompile,
@@ -1205,7 +1208,7 @@ describe('htmlbars-inline-precompile', function () {
         ],
       ];
 
-      let transformed = transform(
+      let transformed = await transform(
         "import { hbs } from 'ember-cli-htmlbars'; const template = hbs`<Message @color={{red}} />`;"
       );
 
@@ -1215,7 +1218,7 @@ describe('htmlbars-inline-precompile', function () {
       `);
     });
 
-    it('can run an ast transform inside hbs call', function () {
+    it('can run an ast transform inside hbs call', async function () {
       plugins = [
         [
           HTMLBarsInlinePrecompile,
@@ -1228,7 +1231,7 @@ describe('htmlbars-inline-precompile', function () {
         ],
       ];
 
-      let transformed = transform(`
+      let transformed = await transform(`
         import { hbs } from 'ember-cli-htmlbars'; 
         const template = hbs('<Message @color={{red}} />');
       `);
@@ -1239,12 +1242,12 @@ describe('htmlbars-inline-precompile', function () {
       `);
     });
 
-    it('can create the options object for precompileTemplate', function () {
+    it('can create the options object for precompileTemplate', async function () {
       plugins = [
         [HTMLBarsInlinePrecompile, { targetFormat: 'hbs', transforms: [expressionTransform] }],
       ];
 
-      let transformed = transform(stripIndent`
+      let transformed = await transform(stripIndent`
         import { precompileTemplate } from '@ember/template-compilation';
         const template = precompileTemplate('<Message @text={{onePlusOne}} />');
       `);
@@ -1260,12 +1263,12 @@ describe('htmlbars-inline-precompile', function () {
       `);
     });
 
-    it('adds scope to existing options object', function () {
+    it('adds scope to existing options object', async function () {
       plugins = [
         [HTMLBarsInlinePrecompile, { targetFormat: 'hbs', transforms: [expressionTransform] }],
       ];
 
-      let transformed = transform(stripIndent`
+      let transformed = await transform(stripIndent`
         import { precompileTemplate } from '@ember/template-compilation';
         import Message from 'message';
         const template = precompileTemplate('<Message @text={{onePlusOne}} />', {
@@ -1286,12 +1289,12 @@ describe('htmlbars-inline-precompile', function () {
       `);
     });
 
-    it('adds new locals to preexisting scope', function () {
+    it('adds new locals to preexisting scope', async function () {
       plugins = [
         [HTMLBarsInlinePrecompile, { targetFormat: 'hbs', transforms: [expressionTransform] }],
       ];
 
-      let transformed = transform(stripIndent`
+      let transformed = await transform(stripIndent`
         import { precompileTemplate } from '@ember/template-compilation';
         import Message from 'message';
         const template = precompileTemplate('<Message @text={{onePlusOne}} />', {
@@ -1314,12 +1317,12 @@ describe('htmlbars-inline-precompile', function () {
       `);
     });
 
-    it('adds new locals to preexisting renamed scope', function () {
+    it('adds new locals to preexisting renamed scope', async function () {
       plugins = [
         [HTMLBarsInlinePrecompile, { targetFormat: 'hbs', transforms: [expressionTransform] }],
       ];
 
-      let transformed = transform(stripIndent`
+      let transformed = await transform(stripIndent`
         import { precompileTemplate } from '@ember/template-compilation';
         import Message$ from 'message';
         import Label from 'label';
@@ -1346,7 +1349,7 @@ describe('htmlbars-inline-precompile', function () {
       `);
     });
 
-    it('switches from legacy callExpressions to precompileTemplate when needed to support scope', function () {
+    it('switches from legacy callExpressions to precompileTemplate when needed to support scope', async function () {
       plugins = [
         [
           HTMLBarsInlinePrecompile,
@@ -1359,7 +1362,7 @@ describe('htmlbars-inline-precompile', function () {
         ],
       ];
 
-      let transformed = transform(stripIndent`
+      let transformed = await transform(stripIndent`
         import { hbs } from 'ember-cli-htmlbars';
         const template = hbs('<Message @text={{onePlusOne}} />');
       `);
@@ -1375,7 +1378,7 @@ describe('htmlbars-inline-precompile', function () {
       `);
     });
 
-    it('switches from hbs backticks to precompileTemplate when needed to support scope', function () {
+    it('switches from hbs backticks to precompileTemplate when needed to support scope', async function () {
       plugins = [
         [
           HTMLBarsInlinePrecompile,
@@ -1388,7 +1391,7 @@ describe('htmlbars-inline-precompile', function () {
         ],
       ];
 
-      let transformed = transform(
+      let transformed = await transform(
         "import { hbs } from 'ember-cli-htmlbars'; const template = hbs`<Message @text={{onePlusOne}} />`;"
       );
 
@@ -1403,7 +1406,7 @@ describe('htmlbars-inline-precompile', function () {
       `);
     });
 
-    it('does not remove original import if there are still callsites using it', function () {
+    it('does not remove original import if there are still callsites using it', async function () {
       plugins = [
         [
           HTMLBarsInlinePrecompile,
@@ -1415,7 +1418,7 @@ describe('htmlbars-inline-precompile', function () {
         ],
       ];
 
-      let transformed = transform(
+      let transformed = await transform(
         "import { hbs } from 'ember-cli-htmlbars'; const template = hbs`<Message @text={{onePlusOne}} />`; const other = hbs`hello`;"
       );
 
@@ -1432,10 +1435,10 @@ describe('htmlbars-inline-precompile', function () {
       `);
     });
 
-    it('leaves html entities unchanged when there are no transforms', function () {
+    it('leaves html entities unchanged when there are no transforms', async function () {
       plugins = [[HTMLBarsInlinePrecompile, { targetFormat: 'hbs', transforms: [] }]];
 
-      let transformed = transform(stripIndent`
+      let transformed = await transform(stripIndent`
         import { precompileTemplate } from '@ember/template-compilation';
         const template = precompileTemplate('&times;');
       `);
@@ -1446,7 +1449,7 @@ describe('htmlbars-inline-precompile', function () {
       `);
     });
 
-    it('emits setComponentTemplate and templateOnlyComponent when polyfilling rfc931 in hbs format', function () {
+    it('emits setComponentTemplate and templateOnlyComponent when polyfilling rfc931 in hbs format', async function () {
       plugins = [
         [
           HTMLBarsInlinePrecompile,
@@ -1457,7 +1460,7 @@ describe('htmlbars-inline-precompile', function () {
         ],
       ];
 
-      let transformed = transform(
+      let transformed = await transform(
         `import { template } from '@ember/template-compiler'; 
          import HelloWorld from 'somewhere';
          export default template('<HelloWorld @color={{red}} />', { scope: () => ({ HelloWorld }) });`
@@ -1472,7 +1475,7 @@ describe('htmlbars-inline-precompile', function () {
       `);
     });
 
-    it('emits setComponentTemplate when polyfilling rfc931 with hbs target', function () {
+    it('emits setComponentTemplate when polyfilling rfc931 with hbs target', async function () {
       plugins = [
         [
           HTMLBarsInlinePrecompile,
@@ -1483,7 +1486,7 @@ describe('htmlbars-inline-precompile', function () {
         ],
       ];
 
-      let transformed = transform(
+      let transformed = await transform(
         `
          import { template } from '@ember/template-compiler'; 
          import HelloWorld from 'somewhere';
@@ -1510,7 +1513,7 @@ describe('htmlbars-inline-precompile', function () {
       `);
     });
 
-    it('emits setComponentTemplate outside a class when polyfilling rfc931 with hbs target', function () {
+    it('emits setComponentTemplate outside a class when polyfilling rfc931 with hbs target', async function () {
       plugins = [
         [
           HTMLBarsInlinePrecompile,
@@ -1521,7 +1524,7 @@ describe('htmlbars-inline-precompile', function () {
         ],
       ];
 
-      let transformed = transform(
+      let transformed = await transform(
         `
          import { template } from '@ember/template-compiler'; 
          import HelloWorld from 'somewhere';
@@ -1544,7 +1547,7 @@ describe('htmlbars-inline-precompile', function () {
       `);
     });
 
-    it('cleans up leftover imports when there is more than one template', function () {
+    it('cleans up leftover imports when there is more than one template', async function () {
       plugins = [
         [
           HTMLBarsInlinePrecompile,
@@ -1574,7 +1577,7 @@ describe('htmlbars-inline-precompile', function () {
         });
       `;
 
-      let transformed = transform(code);
+      let transformed = await transform(code);
 
       expect(transformed).toEqualCode(`
         import Component from "@glimmer/component";
@@ -1604,7 +1607,7 @@ describe('htmlbars-inline-precompile', function () {
       `);
     });
 
-    it("respects user's strict option on template()", function () {
+    it("respects user's strict option on template()", async function () {
       plugins = [
         [
           HTMLBarsInlinePrecompile,
@@ -1615,7 +1618,7 @@ describe('htmlbars-inline-precompile', function () {
         ],
       ];
 
-      let transformed = transform(
+      let transformed = await transform(
         `import { template } from '@ember/template-compiler'; 
          import HelloWorld from 'somewhere';
          export default template('<HelloWorld />', { strict: false, scope: () => ({ HelloWorld }) });`
@@ -1631,7 +1634,7 @@ describe('htmlbars-inline-precompile', function () {
     });
   });
 
-  it('removes original import when there are multiple callsites that all needed replacement', function () {
+  it('removes original import when there are multiple callsites that all needed replacement', async function () {
     plugins = [
       [
         HTMLBarsInlinePrecompile,
@@ -1643,7 +1646,7 @@ describe('htmlbars-inline-precompile', function () {
       ],
     ];
 
-    let transformed = transform(
+    let transformed = await transform(
       "import { hbs } from 'ember-cli-htmlbars'; const template = hbs`<Message @text={{onePlusOne}} />`; const other = hbs`{{onePlusOne}}`;"
     );
 
@@ -1664,7 +1667,7 @@ describe('htmlbars-inline-precompile', function () {
     `);
   });
 
-  it('emits setComponentTemplate and templateOnlyComponent when compiling rfc931 to wire format', function () {
+  it('emits setComponentTemplate and templateOnlyComponent when compiling rfc931 to wire format', async function () {
     plugins = [
       [
         HTMLBarsInlinePrecompile,
@@ -1676,7 +1679,7 @@ describe('htmlbars-inline-precompile', function () {
       ],
     ];
 
-    let transformed = transform(
+    let transformed = await transform(
       `import { template } from '@ember/template-compiler'; 
        import HelloWorld from 'somewhere';
        export default template('<HelloWorld />', { scope: () => ({ HelloWorld }) });`
@@ -1693,7 +1696,7 @@ describe('htmlbars-inline-precompile', function () {
       */
         {
           id: "<id>",
-          block: "[[[8,[32,0],null,null,null]],[],false,[]]",
+          block: "[[[8,[32,0],null,null,null]],[],[]]",
           moduleName: "<moduleName>",
           scope: () => [HelloWorld],
           isStrictMode: true,
@@ -1702,7 +1705,7 @@ describe('htmlbars-inline-precompile', function () {
     `);
   });
 
-  it('emits setComponentTemplate when compiling rfc931 to wire format', function () {
+  it('emits setComponentTemplate when compiling rfc931 to wire format', async function () {
     plugins = [
       [
         HTMLBarsInlinePrecompile,
@@ -1714,7 +1717,7 @@ describe('htmlbars-inline-precompile', function () {
       ],
     ];
 
-    let transformed = transform(
+    let transformed = await transform(
       `
        import { template } from '@ember/template-compiler'; 
        import HelloWorld from 'somewhere';
@@ -1739,7 +1742,7 @@ describe('htmlbars-inline-precompile', function () {
           */
               {
                 id: "<id>",
-                block: "[[[8,[32,0],null,null,null]],[],false,[]]",
+                block: "[[[8,[32,0],null,null,null]],[],[]]",
                 moduleName: "<moduleName>",
                 scope: () => [HelloWorld],
                 isStrictMode: true,
@@ -1753,60 +1756,60 @@ describe('htmlbars-inline-precompile', function () {
   });
 
   describe('scope', function () {
-    it('correctly handles scope function (non-block arrow function)', function () {
+    it('correctly handles scope function (non-block arrow function)', async function () {
       let source = '<foo /><bar/>';
       let spy = sinon.spy(compiler, 'precompile');
 
-      transform(
+      await transform(
         `import { precompileTemplate } from '@ember/template-compilation';\nvar compiled = precompileTemplate('${source}', { scope: () => ({ foo, bar }) });`
       );
       expect(spy.firstCall.lastArg).toHaveProperty('locals', ['foo', 'bar']);
     });
 
-    it('correctly handles scope function (block arrow function)', function () {
+    it('correctly handles scope function (block arrow function)', async function () {
       let source = '<foo /><bar/>';
       let spy = sinon.spy(compiler, 'precompile');
 
-      transform(
+      await transform(
         `import { precompileTemplate } from '@ember/template-compilation';\nvar compiled = precompileTemplate('${source}', { scope: () => { return { foo, bar }; }});`
       );
 
       expect(spy.firstCall.lastArg).toHaveProperty('locals', ['foo', 'bar']);
     });
 
-    it('correctly handles scope function (normal function)', function () {
+    it('correctly handles scope function (normal function)', async function () {
       let source = '<foo /><bar/>';
       let spy = sinon.spy(compiler, 'precompile');
 
-      transform(
+      await transform(
         `import { precompileTemplate } from '@ember/template-compilation';\nvar compiled = precompileTemplate('${source}', { scope: function() { return { foo, bar }; }});`
       );
 
       expect(spy.firstCall.lastArg).toHaveProperty('locals', ['foo', 'bar']);
     });
 
-    it('correctly handles scope function (object method)', function () {
+    it('correctly handles scope function (object method)', async function () {
       let source = '<foo /><bar/>';
       let spy = sinon.spy(compiler, 'precompile');
 
-      transform(
+      await transform(
         `import { precompileTemplate } from '@ember/template-compilation';\nvar compiled = precompileTemplate('${source}', { scope() { return { foo, bar }; }});`
       );
       expect(spy.firstCall.lastArg).toHaveProperty('locals', ['foo', 'bar']);
     });
 
-    it('correctly handles scope function with coverage', function () {
+    it('correctly handles scope function with coverage', async function () {
       let source = '<foo /><bar/>';
       let spy = sinon.spy(compiler, 'precompile');
 
-      transform(
+      await transform(
         `import { precompileTemplate } from '@ember/template-compilation';\nvar compiled = precompileTemplate('${source}', { scope() { ++cov_2rkfh72wo; return { foo, bar }; }});`
       );
       expect(spy.firstCall.lastArg).toHaveProperty('locals', ['foo', 'bar']);
     });
 
-    it('correctly handles scope if it contains keys and values', function () {
-      let transformed = transform(`
+    it('correctly handles scope if it contains keys and values', async function () {
+      let transformed = await transform(`
         import bar from 'bar';
         import MyButton from 'my-button';
         import { precompileTemplate } from '@ember/template-compilation';
@@ -1823,7 +1826,7 @@ describe('htmlbars-inline-precompile', function () {
           */
           {
             id: "<id>",
-            block: "[[[8,[32,0],null,null,null],[8,[32,1],null,null,null]],[],false,[]]",
+            block: "[[[8,[32,0],null,null,null],[8,[32,1],null,null,null]],[],[]]",
             moduleName: "<moduleName>",
             scope: () => [bar, MyButton],
             isStrictMode: false,
@@ -1832,29 +1835,29 @@ describe('htmlbars-inline-precompile', function () {
       `);
     });
 
-    it('errors if scope is not an object', function () {
-      expect(() => {
+    it('errors if scope is not an object', async function () {
+      await expect(() =>
         transform(
           "import { precompileTemplate } from '@ember/template-compilation';\nvar compiled = precompileTemplate('hello', { scope: () => ['foo', 'bar'] });"
-        );
-      }).toThrow(
+        )
+      ).rejects.toThrow(
         /Scope objects for `precompileTemplate` must be an object expression containing only references to in-scope values/
       );
     });
 
-    it('errors if scope contains any non-reference values', function () {
-      expect(() => {
+    it('errors if scope contains any non-reference values', async function () {
+      await expect(() =>
         transform(
           "import { precompileTemplate } from '@ember/template-compilation';\nvar compiled = precompileTemplate('hello', { scope: () => ({ foo, bar: 123 }) });"
-        );
-      }).toThrow(
+        )
+      ).rejects.toThrow(
         /Scope objects for `precompileTemplate` may only contain direct references to in-scope values, e.g. { bar } or { bar: bar }/
       );
     });
 
-    it('correctly removes not used scope', function () {
+    it('correctly removes not used scope', async function () {
       let spy = sinon.spy(compiler, 'precompile');
-      transform(`
+      await transform(`
         import { precompileTemplate } from '@ember/template-compilation';
         let foo, bar;
         var compiled = precompileTemplate('<foo /><bar/>', { scope: () => ({ foo, bar, baz }) });
@@ -1862,19 +1865,47 @@ describe('htmlbars-inline-precompile', function () {
       expect(spy.firstCall.lastArg).toHaveProperty('locals', ['foo', 'bar']);
     });
 
-    it('does not automagically add to scope when not using implicit-scope-form', function () {
+    it('does not automagically add to scope when not using implicit-scope-form', async function () {
       let spy = sinon.spy(compiler, 'precompile');
-      transform(`
+      await transform(`
         import { precompileTemplate } from '@ember/template-compilation';
         let foo, bar;
         var compiled = precompileTemplate('<foo /><bar/>', { scope: () => ({ bar }) });
       `);
       expect(spy.firstCall.lastArg).toHaveProperty('locals', ['bar']);
     });
+
+    it('can pass lexically scoped "this"', async function () {
+      let spy = sinon.spy(compiler, 'precompile');
+      let transformed = await transform(`
+        import { precompileTemplate } from '@ember/template-compilation';
+        export function example() {
+          return precompileTemplate('{{this.message}}', { scope: () => ({ "this": this }) });
+        }
+      `);
+      expect(spy.firstCall.lastArg).toHaveProperty('locals', ['this']);
+      expect(normalizeWireFormat(transformed)).toEqualCode(`
+        import { createTemplateFactory } from "@ember/template-factory";
+        export function example() {
+          return createTemplateFactory(
+            /*
+              {{this.message}}
+            */
+            {
+              id: "<id>",
+              block: '[[[1,[32,0,["message"]]]],[],[]]',
+              moduleName: "<moduleName>",
+              scope: () => [this],
+              isStrictMode: false,
+            }
+          );
+        }
+      `);
+    });
   });
 
   describe('implicit-scope-form', function () {
-    it('uses local to satisfy upvar in template, in hbs target', function () {
+    it('uses local to satisfy upvar in template, in hbs target', async function () {
       plugins = [
         [
           HTMLBarsInlinePrecompile,
@@ -1885,7 +1916,7 @@ describe('htmlbars-inline-precompile', function () {
         ],
       ];
 
-      let transformed = transform(
+      let transformed = await transform(
         `import { template } from '@ember/template-compiler'; 
          import HelloWorld from 'somewhere';
          export default template('<HelloWorld />', { eval: function() { return eval(arguments[0]) } })
@@ -1901,11 +1932,42 @@ describe('htmlbars-inline-precompile', function () {
       `);
     });
 
+    describe('implements RFC#1070: default globals', function () {
+      for (let name of ALLOWED_GLOBALS) {
+        it(`${name}: allowed`, async function () {
+          plugins = [
+            [
+              HTMLBarsInlinePrecompile,
+              {
+                compiler,
+                targetFormat: 'hbs',
+              },
+            ],
+          ];
+
+          let transformed = await transform(
+            `import { template } from '@ember/template-compiler'; 
+         const data = {};
+         export default template('{{${name} data}}', { eval: function() { return eval(arguments[0]) } })
+        `
+          );
+
+          expect(transformed).toEqualCode(`
+        import { precompileTemplate } from "@ember/template-compilation";
+        import { setComponentTemplate } from "@ember/component";
+        import templateOnly from "@ember/component/template-only";
+        const data = {};
+        export default setComponentTemplate(precompileTemplate('{{${name} data}}', { strictMode: true, scope: () => ({ ${name}, data }) }), templateOnly());
+      `);
+        });
+      }
+    });
+
     // You might think this would be confusing style, and you'd be correct. But
     // that's what the lint rules are for. When it comes to correctness, we need
     // our scope to behave like real Javascript, and Javascript doesn't care
     // whether you've (for example) capitalized your variable identifier.
-    it('shadows html elements with locals', function () {
+    it('shadows html elements with locals', async function () {
       plugins = [
         [
           HTMLBarsInlinePrecompile,
@@ -1916,7 +1978,7 @@ describe('htmlbars-inline-precompile', function () {
         ],
       ];
 
-      let transformed = transform(
+      let transformed = await transform(
         `import { template } from '@ember/template-compiler'; 
          let div = 1;
          export default template('<div></div>', { eval: function() { return eval(arguments[0]) } })
@@ -1932,7 +1994,7 @@ describe('htmlbars-inline-precompile', function () {
       `);
     });
 
-    it('shadows ember keywords with locals', function () {
+    it('shadows ember keywords with locals', async function () {
       plugins = [
         [
           HTMLBarsInlinePrecompile,
@@ -1943,7 +2005,7 @@ describe('htmlbars-inline-precompile', function () {
         ],
       ];
 
-      let transformed = transform(
+      let transformed = await transform(
         `import { template } from '@ember/template-compiler'; 
          let hasBlock = 1;
          export default template('{{hasBlock "thing"}}', { eval: function() { return eval(arguments[0]) } })
@@ -1959,7 +2021,7 @@ describe('htmlbars-inline-precompile', function () {
       `);
     });
 
-    it('leaves ember keywords alone when no local is defined', function () {
+    it('captures lexical "this" in mustache when template is used as an expression', async function () {
       plugins = [
         [
           HTMLBarsInlinePrecompile,
@@ -1970,7 +2032,137 @@ describe('htmlbars-inline-precompile', function () {
         ],
       ];
 
-      let transformed = transform(
+      let transformed = await transform(
+        `import { template } from '@ember/template-compiler'; 
+        function upper(s) { return s.toUpperCase() }
+        export function exampleTest() {
+          this.message = "hello";
+          render(template('{{upper this.message}}', { eval: function() { return eval(arguments[0]) } }))
+        }
+        `
+      );
+
+      expect(transformed).toEqualCode(`
+        import { precompileTemplate } from "@ember/template-compilation";
+        import { setComponentTemplate } from "@ember/component";
+        import templateOnly from "@ember/component/template-only";
+        function upper(s) {
+          return s.toUpperCase();
+        }
+        export function exampleTest() {
+          this.message = "hello";
+          render(
+            setComponentTemplate(
+              precompileTemplate("{{upper this.message}}", {
+                strictMode: true,
+                scope: () => ({
+                  upper,
+                  this: this,
+                }),
+              }),
+              templateOnly()
+            )
+          );
+        }
+      `);
+    });
+
+    it('captures lexical "this" in Element when template is used as an expression', async function () {
+      plugins = [
+        [
+          HTMLBarsInlinePrecompile,
+          {
+            compiler,
+            targetFormat: 'hbs',
+          },
+        ],
+      ];
+
+      let transformed = await transform(
+        `import { template } from '@ember/template-compiler'; 
+        import SomeComponent from './elsewhere.js';
+        export function exampleTest() {
+          this.message = SomeComponent;
+          render(template('<this.message />', { eval: function() { return eval(arguments[0]) } }))
+        }
+        `
+      );
+
+      expect(transformed).toEqualCode(`
+        import SomeComponent from './elsewhere.js';
+        import { precompileTemplate } from "@ember/template-compilation";
+        import { setComponentTemplate } from "@ember/component";
+        import templateOnly from "@ember/component/template-only";
+        export function exampleTest() {
+          this.message = SomeComponent;
+          render(
+            setComponentTemplate(
+              precompileTemplate("<this.message />", {
+                strictMode: true,
+                scope: () => ({
+                  this: this,
+                }),
+              }),
+              templateOnly()
+            )
+          );
+        }
+      `);
+    });
+
+    it('does not captures lexical "this" when template is used in class body', async function () {
+      plugins = [
+        [
+          HTMLBarsInlinePrecompile,
+          {
+            compiler,
+            targetFormat: 'hbs',
+          },
+        ],
+      ];
+
+      let transformed = await transform(
+        `import { template } from '@ember/template-compiler'; 
+        import Component from '@glimmer/component';
+        export class Example extends Component {
+          upper(s) { return s.toUpperCase() }
+          message = "hi";
+          static {
+            template('{{this.upper this.message}}', { component: this, eval: function() { return eval(arguments[0]) } })
+          }
+        }
+        `
+      );
+
+      expect(transformed).toEqualCode(`
+        import Component from '@glimmer/component';
+        import { precompileTemplate } from "@ember/template-compilation";
+        import { setComponentTemplate } from "@ember/component";
+        export class Example extends Component {
+          upper(s) { return s.toUpperCase() }
+          message = "hi";
+          static {
+            setComponentTemplate(
+              precompileTemplate("{{this.upper this.message}}", {
+                strictMode: true,
+              }), this)
+          }
+        }
+      `);
+    });
+
+    it('leaves ember keywords alone when no local is defined', async function () {
+      plugins = [
+        [
+          HTMLBarsInlinePrecompile,
+          {
+            compiler,
+            targetFormat: 'hbs',
+          },
+        ],
+      ];
+
+      let transformed = await transform(
         `import { template } from '@ember/template-compiler'; 
          export default template('{{hasBlock "thing"}}', { eval: function() { return eval(arguments[0]) } })
         `
@@ -1984,7 +2176,7 @@ describe('htmlbars-inline-precompile', function () {
       `);
     });
 
-    it('uses local to satisfy upvar in template, in wire target', function () {
+    it('uses local to satisfy upvar in template, in wire target', async function () {
       plugins = [
         [
           HTMLBarsInlinePrecompile,
@@ -1995,7 +2187,7 @@ describe('htmlbars-inline-precompile', function () {
         ],
       ];
 
-      let transformed = transform(
+      let transformed = await transform(
         `import { template } from '@ember/template-compiler'; 
          import HelloWorld from 'somewhere';
          export default template('<HelloWorld />', { eval: function() { return eval(arguments[0]) } })
@@ -2014,7 +2206,7 @@ describe('htmlbars-inline-precompile', function () {
             */
             {
               id: "<id>",
-              block: "[[[8,[32,0],null,null,null]],[],false,[]]",
+              block: "[[[8,[32,0],null,null,null]],[],[]]",
               moduleName: "<moduleName>",
               scope: () => [HelloWorld],
               isStrictMode: true,
@@ -2025,7 +2217,7 @@ describe('htmlbars-inline-precompile', function () {
       `);
     });
 
-    it('interoperates correctly with @babel/plugin-transform-typescript when handling locals with hbs target', function () {
+    it('interoperates correctly with @babel/plugin-transform-typescript when handling locals with hbs target', async function () {
       plugins = [
         [
           HTMLBarsInlinePrecompile,
@@ -2037,7 +2229,7 @@ describe('htmlbars-inline-precompile', function () {
         TransformTypescript,
       ];
 
-      let transformed = transform(
+      let transformed = await transform(
         `import { template } from '@ember/template-compiler'; 
          import HelloWorld from 'somewhere';
          export default template('<HelloWorld />', { eval: function() { return eval(arguments[0]) } })
@@ -2053,7 +2245,7 @@ describe('htmlbars-inline-precompile', function () {
       `);
     });
 
-    it('respects local priority when inter-operating with @babel/plugin-transform-typescript', function () {
+    it('respects local priority when inter-operating with @babel/plugin-transform-typescript', async function () {
       plugins = [
         [
           HTMLBarsInlinePrecompile,
@@ -2065,7 +2257,7 @@ describe('htmlbars-inline-precompile', function () {
         TransformTypescript,
       ];
 
-      let transformed = transform(
+      let transformed = await transform(
         `import { template } from '@ember/template-compiler'; 
          import HelloWorld from 'somewhere';
          export default function() { 
@@ -2086,7 +2278,7 @@ describe('htmlbars-inline-precompile', function () {
       `);
     });
 
-    it('interoperates correctly with @babel/plugin-transform-typescript when handling locals with wire target', function () {
+    it('interoperates correctly with @babel/plugin-transform-typescript when handling locals with wire target', async function () {
       let imports: string[] = [];
       let otherPlugin: babel.PluginObj = {
         name: 'other',
@@ -2108,7 +2300,7 @@ describe('htmlbars-inline-precompile', function () {
         TransformTypescript,
       ];
 
-      let transformed = transform(
+      let transformed = await transform(
         `import { template } from '@ember/template-compiler'; 
          import HelloWorld from 'somewhere';
          export default template('<HelloWorld />', { eval: function() { return eval(arguments[0]) } })
@@ -2127,7 +2319,7 @@ describe('htmlbars-inline-precompile', function () {
        */
         {
           id: "<id>",
-          block: "[[[8,[32,0],null,null,null]],[],false,[]]",
+          block: "[[[8,[32,0],null,null,null]],[],[]]",
           moduleName: "<moduleName>",
           scope: () => [HelloWorld],
           isStrictMode: true,
@@ -2140,7 +2332,7 @@ describe('htmlbars-inline-precompile', function () {
   });
 
   describe('content-tag end-to-end', function () {
-    it('works for expression form', function () {
+    it('works for expression form', async function () {
       plugins = [
         [
           HTMLBarsInlinePrecompile,
@@ -2153,7 +2345,7 @@ describe('htmlbars-inline-precompile', function () {
 
       let p = new Preprocessor();
 
-      let transformed = transform(
+      let transformed = await transform(
         p.process(
           `import HelloWorld from 'somewhere';
            const MyComponent = <template><HelloWorld /></template>;
@@ -2170,7 +2362,40 @@ describe('htmlbars-inline-precompile', function () {
         `);
     });
 
-    it('works for default export + satisfies', function () {
+    it('expression form can capture lexical "this"', async function () {
+      plugins = [
+        [
+          HTMLBarsInlinePrecompile,
+          {
+            compiler,
+            targetFormat: 'hbs',
+          },
+        ],
+      ];
+
+      let p = new Preprocessor();
+
+      let transformed = await transform(
+        p.process(
+          `
+          export function example() {
+            return <template>{{this.message}}</template>;
+          }
+          `
+        )
+      );
+
+      expect(transformed).toEqualCode(`
+          import { precompileTemplate } from "@ember/template-compilation";
+          import { setComponentTemplate } from "@ember/component";
+          import templateOnly from "@ember/component/template-only";
+          export function example() {
+            return setComponentTemplate(precompileTemplate('{{this.message}}', { strictMode: true, scope: () => ({ this: this })  }), templateOnly());
+          }
+        `);
+    });
+
+    it('works for default export + satisfies', async function () {
       plugins = [
         [
           HTMLBarsInlinePrecompile,
@@ -2184,7 +2409,7 @@ describe('htmlbars-inline-precompile', function () {
 
       let p = new Preprocessor();
 
-      let transformed = transform(
+      let transformed = await transform(
         p.process(
           `import HelloWorld from 'somewhere';
            import type { TOC } from '@ember/component/template-only';
@@ -2200,7 +2425,7 @@ describe('htmlbars-inline-precompile', function () {
         `);
     });
 
-    it('works for class member form', function () {
+    it('works for class member form', async function () {
       plugins = [
         [
           HTMLBarsInlinePrecompile,
@@ -2213,7 +2438,7 @@ describe('htmlbars-inline-precompile', function () {
 
       let p = new Preprocessor();
 
-      let transformed = transform(
+      let transformed = await transform(
         p.process(
           `import HelloWorld from 'somewhere';
            export default class {
@@ -2235,7 +2460,7 @@ describe('htmlbars-inline-precompile', function () {
         `);
     });
 
-    it('works for class member form with `this` references', function () {
+    it('works for class member form with `this` references', async function () {
       plugins = [
         [
           HTMLBarsInlinePrecompile,
@@ -2248,7 +2473,7 @@ describe('htmlbars-inline-precompile', function () {
 
       let p = new Preprocessor();
 
-      let transformed = transform(
+      let transformed = await transform(
         p.process(
           `import HelloWorld from 'somewhere';
            export default class {
