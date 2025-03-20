@@ -1,5 +1,26 @@
 # Changelog
 
+## Release (2025-03-20)
+
+babel-plugin-ember-template-compilation 2.4.0 (minor)
+
+#### :rocket: Enhancement
+* `babel-plugin-ember-template-compilation`
+  * [#67](https://github.com/emberjs/babel-plugin-ember-template-compilation/pull/67) Lexical this ([@ef4](https://github.com/ef4))
+  * [#68](https://github.com/emberjs/babel-plugin-ember-template-compilation/pull/68) default globals implementation ([@NullVoxPopuli](https://github.com/NullVoxPopuli))
+
+#### :bug: Bug Fix
+* `babel-plugin-ember-template-compilation`
+  * [#66](https://github.com/emberjs/babel-plugin-ember-template-compilation/pull/66) Widen @glimmer/syntax range ([@NullVoxPopuli](https://github.com/NullVoxPopuli))
+
+#### :house: Internal
+* `babel-plugin-ember-template-compilation`
+  * [#73](https://github.com/emberjs/babel-plugin-ember-template-compilation/pull/73) Make our tests use async babel ([@ef4](https://github.com/ef4))
+
+#### Committers: 2
+- Edward Faulkner ([@ef4](https://github.com/ef4))
+- [@NullVoxPopuli](https://github.com/NullVoxPopuli)
+
 ## Release (2024-09-09)
 
 babel-plugin-ember-template-compilation 2.3.0 (minor)
