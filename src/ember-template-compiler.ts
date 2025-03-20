@@ -1,4 +1,4 @@
-import { ASTv1, PreprocessOptions } from '@glimmer/syntax';
+import type { ASTv1, PreprocessOptions } from '@glimmer/syntax';
 
 // The interface we use from ember-template-compiler.js
 export interface EmberTemplateCompiler {

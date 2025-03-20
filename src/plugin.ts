@@ -7,7 +7,7 @@ import { JSUtils, ExtendedPluginBuilder } from './js-utils';
 import type { EmberTemplateCompiler, PreprocessOptions } from './ember-template-compiler';
 import { LegacyModuleName } from './public-types';
 import { ScopeLocals } from './scope-locals';
-import { ASTPluginBuilder, preprocess, print } from '@glimmer/syntax';
+import { type ASTPluginBuilder, preprocess, print } from '@glimmer/syntax';
 
 export * from './public-types';
 
@@ -362,10 +362,11 @@ function runtimeErrorIIFE(babel: typeof Babel, replacements: { ERROR_MESSAGE: st
 function buildScopeLocals(
   userTypedOptions: Record<string, unknown>,
   formatOptions: ModuleConfig,
-  target: NodePath<t.Expression>
+  target: NodePath<t.Expression>,
+  mayUseLexicalThis: boolean
 ): ScopeLocals {
   if (formatOptions.rfc931Support && userTypedOptions.eval) {
-    return new ScopeLocals({ mode: 'implicit', jsPath: target });
+    return new ScopeLocals({ mode: 'implicit', jsPath: target, mayUseLexicalThis });
   } else if (userTypedOptions.scope) {
     return userTypedOptions.scope as ScopeLocals;
   } else {
@@ -454,7 +455,7 @@ function insertCompiledTemplate<EnvSpecificOptions>(
   backingClass: NodePath<Parameters<typeof t.callExpression>[1][number]> | undefined
 ) {
   let t = babel.types;
-  let scopeLocals = buildScopeLocals(userTypedOptions, config, target);
+  let scopeLocals = buildScopeLocals(userTypedOptions, config, target, !backingClass);
   let options = buildPrecompileOptions(
     babel,
     target,
@@ -522,7 +523,7 @@ function insertTransformedTemplate<EnvSpecificOptions>(
   backingClass: NodePath<Parameters<typeof t.callExpression>[1][number]> | undefined
 ) {
   let t = babel.types;
-  let scopeLocals = buildScopeLocals(userTypedOptions, formatOptions, target);
+  let scopeLocals = buildScopeLocals(userTypedOptions, formatOptions, target, !backingClass);
   let options = buildPrecompileOptions(
     babel,
     target,
@@ -647,7 +648,7 @@ function buildScope(babel: typeof Babel, locals: ScopeLocals) {
       locals
         .entries()
         .map(([name, identifier]) =>
-          t.objectProperty(t.identifier(name), t.identifier(identifier), false, true)
+          t.objectProperty(t.identifier(name), t.identifier(identifier), false, name !== 'this')
         )
     )
   );

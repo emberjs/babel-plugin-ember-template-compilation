@@ -2,14 +2,14 @@
   "compilerOptions": {
     // Compilation Configuration
     "target": "es2015",
-    "module": "commonjs",
+    "module": "nodenext",
     "inlineSources": true,
     "inlineSourceMap": true,
     "declaration": true,
 
     // Environment Configuration
     "experimentalDecorators": true,
-    "moduleResolution": "node",
+    "moduleResolution": "nodenext",
     "esModuleInterop": true,
 
     // Enhance Strictness
@@ -25,11 +25,7 @@
     "skipDefaultLibCheck": true,
     "strict": true,
 
-    "newLine": "LF",
+    "newLine": "LF"
   },
-  "include": [
-    "./src/**/*.ts",
-    "./__tests__/**/*.ts",
-    "local-types.d.ts",
-  ],
+  "include": ["./src/**/*.ts", "./__tests__/**/*.ts", "local-types.d.ts"]
 }

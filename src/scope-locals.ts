@@ -8,7 +8,7 @@
 */
 
 import type { NodePath } from '@babel/traverse';
-import { ASTPluginEnvironment, NodeVisitor } from '@glimmer/syntax';
+import type { ASTPluginEnvironment, NodeVisitor } from '@glimmer/syntax';
 import { astNodeHasBinding } from './hbs-utils';
 import { readOnlyArray } from './read-only-array';
 
@@ -99,6 +99,7 @@ type Params =
   | {
       mode: 'implicit';
       jsPath: NodePath;
+      mayUseLexicalThis: boolean;
     };
 
 export class ScopeLocals {
@@ -163,7 +164,9 @@ export class ScopeLocals {
                 // all hbs upvars that have matching JS bindings go into the
                 // scope
                 for (let name of seen) {
-                  if (this.#isInJsScope(name, this.#params.jsPath)) {
+                  if (name === 'this' && this.#params.mayUseLexicalThis) {
+                    this.add(name);
+                  } else if (this.#isInJsScope(name, this.#params.jsPath)) {
                     this.add(name);
                   }
                 }
@@ -184,12 +187,18 @@ export class ScopeLocals {
             },
           },
           PathExpression: (node, path) => {
-            if (node.head.type !== 'VarHead') {
-              return;
-            }
-            const name = node.head.name;
-            if (!astNodeHasBinding(path, name)) {
-              seen.add(name);
+            switch (node.head.type) {
+              case 'ThisHead':
+                if (!astNodeHasBinding(path, 'this')) {
+                  seen.add('this');
+                }
+                break;
+              case 'VarHead': {
+                const name = node.head.name;
+                if (!astNodeHasBinding(path, name)) {
+                  seen.add(name);
+                }
+              }
             }
           },
           ElementNode: (node, path) => {
