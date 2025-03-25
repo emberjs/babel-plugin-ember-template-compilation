@@ -76,19 +76,10 @@
     "node": "18.20.2",
     "pnpm": "9.0.6"
   },
-  "release-it": {
-    "plugins": {
-      "release-it-lerna-changelog": {
-        "infile": "CHANGELOG.md",
-        "launchEditor": true
-      }
+  "release-plan": {
+    "semverIncrementAs": {
+      "major": "premajor"
     },
-    "git": {
-      "tagName": "v${version}"
-    },
-    "github": {
-      "release": true,
-      "tokenRef": "GITHUB_AUTH"
-    }
+    "semverIncrementTag": "alpha"
   }
 }
