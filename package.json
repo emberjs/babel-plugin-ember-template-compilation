@@ -80,6 +80,7 @@
     "semverIncrementAs": {
       "major": "premajor"
     },
-    "semverIncrementTag": "alpha"
+    "semverIncrementTag": "alpha",
+    "publishTag": "alpha"
   }
 }
