@@ -1,24 +1,26 @@
 import path from 'path';
 import * as babel from '@babel/core';
-import HTMLBarsInlinePrecompile, { Options } from '..';
+import HTMLBarsInlinePrecompile, { Options } from '../src/node-main.js';
 import TransformTemplateLiterals from '@babel/plugin-transform-template-literals';
 import TransformModules from '@babel/plugin-transform-modules-amd';
 import TransformUnicodeEscapes from '@babel/plugin-transform-unicode-escapes';
 // @ts-expect-error no upstream types
 import TransformTypescript from '@babel/plugin-transform-typescript';
 import { stripIndent } from 'common-tags';
-import { EmberTemplateCompiler } from '../src/ember-template-compiler';
+import { EmberTemplateCompiler } from '../src/ember-template-compiler.js';
 import sinon from 'sinon';
-import { ExtendedPluginBuilder } from '../src/js-utils';
+import { ExtendedPluginBuilder } from '../src/js-utils.js';
 import 'code-equality-assertions/jest';
 import { Preprocessor } from 'content-tag';
-import { ALLOWED_GLOBALS } from '../src/scope-locals';
+import { ALLOWED_GLOBALS } from '../src/scope-locals.js';
+import { fileURLToPath } from 'url';
+
+// @ts-expect-error no upstream types
+import * as _compiler from 'ember-source/dist/ember-template-compiler.js';
+
+const compiler: EmberTemplateCompiler = _compiler.default;
 
 describe('htmlbars-inline-precompile', function () {
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
-  let compiler: EmberTemplateCompiler = {
-    ...require('ember-source/dist/ember-template-compiler.js'),
-  };
   let plugins: ([typeof HTMLBarsInlinePrecompile, Options] | [unknown])[];
 
   async function transform(code: string) {
@@ -59,7 +61,12 @@ describe('htmlbars-inline-precompile', function () {
   });
 
   it('supports compilation with templateCompilerPath', async function () {
-    plugins = [[HTMLBarsInlinePrecompile, { compilerPath: require.resolve('./mock-precompile') }]];
+    plugins = [
+      [
+        HTMLBarsInlinePrecompile,
+        { compilerPath: fileURLToPath(new URL('./mock-precompile', import.meta.url)) },
+      ],
+    ];
 
     let transpiled = await transform(
       "import { precompileTemplate } from '@ember/template-compilation';\nvar compiled = precompileTemplate('hello');"
@@ -623,7 +630,9 @@ describe('htmlbars-inline-precompile', function () {
 
   describe('caching', function () {
     it('include `baseDir` function for caching', async function () {
-      expect(HTMLBarsInlinePrecompile.baseDir()).toEqual(path.resolve(__dirname, '..'));
+      expect(HTMLBarsInlinePrecompile.baseDir()).toEqual(
+        path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
+      );
     });
   });
 
