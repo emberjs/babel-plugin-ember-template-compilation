@@ -1,5 +1,17 @@
 # Changelog
 
+## Release (2025-03-25)
+
+* babel-plugin-ember-template-compilation 3.0.0-alpha.0 (major)
+
+#### :boom: Breaking Change
+* `babel-plugin-ember-template-compilation`
+  * [#77](https://github.com/emberjs/babel-plugin-ember-template-compilation/pull/77) Convert to esm ([@ef4](https://github.com/ef4))
+  * [#75](https://github.com/emberjs/babel-plugin-ember-template-compilation/pull/75) Drop support for node < 18 ([@ef4](https://github.com/ef4))
+
+#### Committers: 1
+- Edward Faulkner ([@ef4](https://github.com/ef4))
+
 ## Release (2025-03-20)
 
 babel-plugin-ember-template-compilation 2.4.0 (minor)
