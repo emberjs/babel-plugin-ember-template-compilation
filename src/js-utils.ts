@@ -3,7 +3,7 @@ import type * as Babel from '@babel/core';
 import type { NodePath } from '@babel/traverse';
 import type { ASTPluginBuilder, ASTPluginEnvironment, ASTv1, WalkerPath } from '@glimmer/syntax';
 import type { ImportUtil } from 'babel-import-util';
-import { astNodeHasBinding } from './hbs-utils';
+import { astNodeHasBinding } from './hbs-utils.js';
 
 interface State {
   program: NodePath<Babel.types.Program>;

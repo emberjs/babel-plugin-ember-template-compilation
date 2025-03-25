@@ -5,6 +5,7 @@
   "repository": "https://github.com/emberjs/babel-plugin-ember-template-compilation",
   "license": "MIT",
   "author": "Edward Faulkner <edward@eaf4.com>",
+  "type": "module",
   "exports": {
     ".": {
       "browser": "./src/plugin.js",
@@ -13,7 +14,6 @@
     "./browser": "./src/plugin.js",
     "./node": "./src/node-main.js"
   },
-  "main": "src/node-main.js",
   "files": [
     "src/**/*.js",
     "src/**/*.d.ts",
@@ -24,8 +24,7 @@
     "clean": "git clean -d -f -x src __tests__",
     "lint": "eslint --cache --ext .ts .",
     "prepare": "tsc",
-    "pretest": "tsc",
-    "test": "jest"
+    "test": "NODE_OPTIONS=\"--experimental-vm-modules\" jest"
   },
   "jest": {
     "testPathIgnorePatterns": [
@@ -35,7 +34,8 @@
   },
   "dependencies": {
     "@glimmer/syntax": ">= 0.94.9",
-    "babel-import-util": "^3.0.0"
+    "babel-import-util": "^3.0.0",
+    "import-meta-resolve": "^4.1.0"
   },
   "devDependencies": {
     "@babel/core": "^7.14.8",

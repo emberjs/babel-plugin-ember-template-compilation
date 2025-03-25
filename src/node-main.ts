@@ -1,11 +1,13 @@
-import { resolve } from 'path';
-import { makePlugin } from './plugin';
+import { dirname, resolve, sep } from 'path';
+import { makePlugin } from './plugin.js';
 
-import { Options as SharedOptions } from './plugin';
-import { assertTemplateCompiler, EmberTemplateCompiler } from './ember-template-compiler';
-import { ExtendedPluginBuilder } from './js-utils';
+import { Options as SharedOptions } from './plugin.js';
+import { assertTemplateCompiler, EmberTemplateCompiler } from './ember-template-compiler.js';
+import { ExtendedPluginBuilder } from './js-utils.js';
+import { fileURLToPath, pathToFileURL } from 'url';
+import { resolve as importMetaResolve } from 'import-meta-resolve';
 
-export * from './public-types';
+export * from './public-types.js';
 
 export type Transform = ExtendedPluginBuilder | string | [string, unknown];
 
@@ -31,37 +33,42 @@ export type Options = Omit<SharedOptions, 'transforms' | 'compiler'> & {
   transforms?: Transform[];
 };
 
-function cwdRequire(moduleName: string) {
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
-  return require(require.resolve(moduleName, { paths: [process.cwd()] }));
+async function cwdImport(moduleName: string) {
+  let target = importMetaResolve(moduleName, pathToFileURL(process.cwd() + sep).href);
+
+  // TODO
+  // eslint-disable-next-line
+  return esCompat(await import(target));
 }
 
-function handleNodeSpecificOptions(opts: Options): SharedOptions {
+async function handleNodeSpecificOptions(opts: Options): Promise<SharedOptions> {
   let compiler: EmberTemplateCompiler | undefined = undefined;
   if (opts.compilerPath) {
-    let mod: any = cwdRequire(opts.compilerPath);
+    let mod: any = await cwdImport(opts.compilerPath);
     assertTemplateCompiler(mod);
     compiler = mod;
   } else if (opts.compiler) {
     assertTemplateCompiler(opts.compiler);
     compiler = opts.compiler;
   } else {
-    let mod: any = cwdRequire('ember-source/dist/ember-template-compiler.js');
+    let mod: any = await cwdImport('ember-source/dist/ember-template-compiler.js');
     assertTemplateCompiler(mod);
     compiler = mod;
   }
 
   let transforms = [];
   if (opts.transforms) {
-    transforms = opts.transforms.map((t) => {
-      if (typeof t === 'string') {
-        return esCompat(cwdRequire(t)).default;
-      } else if (Array.isArray(t) && typeof t[0] === 'string') {
-        return esCompat(cwdRequire(t[0])).default.call(undefined, t[1]);
-      } else {
-        return t;
-      }
-    });
+    transforms = await Promise.all(
+      opts.transforms.map(async (t) => {
+        if (typeof t === 'string') {
+          return (await cwdImport(t)).default;
+        } else if (Array.isArray(t) && typeof t[0] === 'string') {
+          return (await cwdImport(t[0])).default.call(undefined, t[1]);
+        } else {
+          return t;
+        }
+      })
+    );
   }
   return { ...opts, transforms, compiler };
 }
@@ -69,11 +76,11 @@ function handleNodeSpecificOptions(opts: Options): SharedOptions {
 const htmlbarsInlinePrecompile = makePlugin(handleNodeSpecificOptions);
 
 (htmlbarsInlinePrecompile as any)._parallelBabel = {
-  requireFile: __filename,
+  requireFile: fileURLToPath(import.meta.url),
 };
 
 (htmlbarsInlinePrecompile as any).baseDir = function () {
-  return resolve(__dirname, '..');
+  return resolve(dirname(fileURLToPath(import.meta.url)), '..');
 };
 
 export default htmlbarsInlinePrecompile as typeof htmlbarsInlinePrecompile & {
@@ -82,5 +89,8 @@ export default htmlbarsInlinePrecompile as typeof htmlbarsInlinePrecompile & {
 };
 
 function esCompat(m: Record<string, any>) {
-  return m?.__esModule ? m : { default: m };
+  if (m?.default?.__esModule) {
+    return m.default;
+  }
+  return m;
 }

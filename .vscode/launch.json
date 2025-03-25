@@ -10,7 +10,8 @@
       "request": "launch",
       "runtimeArgs": [
         "--inspect-brk",
-        "${workspaceRoot}/node_modules/.bin/jest",
+        "--experimental-vm-modules",
+        "${workspaceRoot}/node_modules/jest/bin/jest.js",
         "--runInBand",
         "--no-cache"
       ],

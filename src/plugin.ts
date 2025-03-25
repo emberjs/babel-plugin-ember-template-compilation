@@ -2,14 +2,14 @@ import type { NodePath } from '@babel/traverse';
 import type * as Babel from '@babel/core';
 import type { types as t } from '@babel/core';
 import { ImportUtil, type Importer } from 'babel-import-util';
-import { ExpressionParser } from './expression-parser';
-import { JSUtils, ExtendedPluginBuilder } from './js-utils';
-import type { EmberTemplateCompiler, PreprocessOptions } from './ember-template-compiler';
-import { LegacyModuleName } from './public-types';
-import { ScopeLocals } from './scope-locals';
+import { ExpressionParser } from './expression-parser.js';
+import { JSUtils, ExtendedPluginBuilder } from './js-utils.js';
+import type { EmberTemplateCompiler, PreprocessOptions } from './ember-template-compiler.js';
+import { LegacyModuleName } from './public-types.js';
+import { ScopeLocals } from './scope-locals.js';
 import { type ASTPluginBuilder, preprocess, print } from '@glimmer/syntax';
 
-export * from './public-types';
+export * from './public-types.js';
 
 type ModuleName = LegacyModuleName | '@ember/template-compilation' | '@ember/template-compiler';
 
@@ -140,7 +140,6 @@ function normalizeOpts(options: Options): NormalizedOpts {
 
 interface State<EnvSpecificOptions> {
   opts: EnvSpecificOptions;
-  normalizedOpts: NormalizedOpts;
   util: ImportUtil;
   templateFactory: { moduleName: string; exportName: string };
   program: NodePath<t.Program>;
@@ -149,25 +148,29 @@ interface State<EnvSpecificOptions> {
   recursionGuard: Set<unknown>;
 }
 
-export function makePlugin<EnvSpecificOptions>(loadOptions: (opts: EnvSpecificOptions) => Options) {
-  return function htmlbarsInlinePrecompile(
-    babel: typeof Babel
-  ): Babel.PluginObj<State<EnvSpecificOptions>> {
+export function makePlugin<EnvSpecificOptions>(
+  loadOptions: (opts: EnvSpecificOptions) => Promise<Options>
+) {
+  return async function htmlbarsInlinePrecompile(
+    babel: typeof Babel,
+    opts: EnvSpecificOptions
+  ): Promise<Babel.PluginObj<State<EnvSpecificOptions>>> {
     let t = babel.types;
+
+    let normalizedOpts = normalizeOpts(await loadOptions(opts));
 
     const plugin = {
       visitor: {
         Program: {
           enter(path: NodePath<t.Program>, state: State<EnvSpecificOptions>) {
-            state.normalizedOpts = normalizeOpts(loadOptions(state.opts));
-            state.templateFactory = templateFactoryConfig(state.normalizedOpts);
+            state.templateFactory = templateFactoryConfig(normalizedOpts);
             state.util = new ImportUtil(babel, path);
             state.program = path;
             state.recursionGuard = new Set();
           },
           exit(_path: NodePath<t.Program>, state: State<EnvSpecificOptions>) {
-            if (state.normalizedOpts.targetFormat === 'wire') {
-              for (let { moduleName, export: exportName } of configuredModules(state)) {
+            if (normalizedOpts.targetFormat === 'wire') {
+              for (let { moduleName, export: exportName } of configuredModules(normalizedOpts)) {
                 state.util.removeImport(moduleName, exportName);
               }
             }
@@ -183,7 +186,7 @@ export function makePlugin<EnvSpecificOptions>(loadOptions: (opts: EnvSpecificOp
           if (!tagPath.isIdentifier()) {
             return;
           }
-          let config = referencesInlineCompiler(tagPath, state);
+          let config = referencesInlineCompiler(tagPath, normalizedOpts);
           if (!config) {
             return;
           }
@@ -201,11 +204,11 @@ export function makePlugin<EnvSpecificOptions>(loadOptions: (opts: EnvSpecificOp
           }
 
           let template = path.node.quasi.quasis.map((quasi) => quasi.value.cooked).join('');
-          if (state.normalizedOpts.targetFormat === 'wire') {
+          if (normalizedOpts.targetFormat === 'wire') {
             insertCompiledTemplate(
               babel,
               state,
-              state.normalizedOpts,
+              normalizedOpts,
               template,
               path,
               {},
@@ -213,7 +216,16 @@ export function makePlugin<EnvSpecificOptions>(loadOptions: (opts: EnvSpecificOp
               undefined
             );
           } else {
-            insertTransformedTemplate(babel, state, template, path, {}, config, undefined);
+            insertTransformedTemplate(
+              babel,
+              state,
+              normalizedOpts,
+              template,
+              path,
+              {},
+              config,
+              undefined
+            );
           }
         },
 
@@ -223,7 +235,7 @@ export function makePlugin<EnvSpecificOptions>(loadOptions: (opts: EnvSpecificOp
           if (!calleePath.isIdentifier()) {
             return;
           }
-          let config = referencesInlineCompiler(calleePath, state);
+          let config = referencesInlineCompiler(calleePath, normalizedOpts);
           if (!config) {
             return;
           }
@@ -290,11 +302,11 @@ export function makePlugin<EnvSpecificOptions>(loadOptions: (opts: EnvSpecificOp
             }
           }
 
-          if (state.normalizedOpts.targetFormat === 'wire') {
+          if (normalizedOpts.targetFormat === 'wire') {
             insertCompiledTemplate(
               babel,
               state,
-              state.normalizedOpts,
+              normalizedOpts,
               template,
               path,
               userTypedOptions,
@@ -305,6 +317,7 @@ export function makePlugin<EnvSpecificOptions>(loadOptions: (opts: EnvSpecificOp
             insertTransformedTemplate(
               babel,
               state,
+              normalizedOpts,
               template,
               path,
               userTypedOptions,
@@ -324,15 +337,15 @@ export function makePlugin<EnvSpecificOptions>(loadOptions: (opts: EnvSpecificOp
       },
       visitor: {},
     };
-  } as (babel: typeof Babel) => Babel.PluginObj<unknown>;
+  } as (babel: typeof Babel) => Promise<Babel.PluginObj<unknown>>;
 }
 
-function* configuredModules<EnvSpecificOptions>(state: State<EnvSpecificOptions>) {
+function* configuredModules(normalizedOpts: NormalizedOpts) {
   for (let moduleConfig of INLINE_PRECOMPILE_MODULES) {
     if (
       moduleConfig.moduleName !== '@ember/template-compilation' &&
       moduleConfig.moduleName !== '@ember/template-compiler' &&
-      !state.normalizedOpts.enableLegacyModules.includes(moduleConfig.moduleName)
+      !normalizedOpts.enableLegacyModules.includes(moduleConfig.moduleName)
     ) {
       continue;
     }
@@ -340,11 +353,11 @@ function* configuredModules<EnvSpecificOptions>(state: State<EnvSpecificOptions>
   }
 }
 
-function referencesInlineCompiler<EnvSpecificOptions>(
+function referencesInlineCompiler(
   path: NodePath<t.Identifier>,
-  state: State<EnvSpecificOptions>
+  normalizedOpts: NormalizedOpts
 ): ModuleConfig | undefined {
-  for (let moduleConfig of configuredModules(state)) {
+  for (let moduleConfig of configuredModules(normalizedOpts)) {
     if (path.referencesImport(moduleConfig.moduleName, moduleConfig.export)) {
       return moduleConfig;
     }
@@ -378,6 +391,7 @@ function buildPrecompileOptions<EnvSpecificOptions>(
   babel: typeof Babel,
   target: NodePath<t.Expression>,
   state: State<EnvSpecificOptions>,
+  normalizedOpts: NormalizedOpts,
   template: string,
   userTypedOptions: Record<string, unknown>,
   config: ModuleConfig,
@@ -406,7 +420,7 @@ function buildPrecompileOptions<EnvSpecificOptions>(
     plugins: {
       // the cast is needed here only because our meta is extended. That is,
       // these plugins can access meta.jsutils.
-      ast: [...state.normalizedOpts.transforms, scope.crawl()] as ASTPluginBuilder[],
+      ast: [...normalizedOpts.transforms, scope.crawl()] as ASTPluginBuilder[],
     },
   };
 
@@ -460,6 +474,7 @@ function insertCompiledTemplate<EnvSpecificOptions>(
     babel,
     target,
     state,
+    opts,
     template,
     userTypedOptions,
     config,
@@ -516,6 +531,7 @@ function insertCompiledTemplate<EnvSpecificOptions>(
 function insertTransformedTemplate<EnvSpecificOptions>(
   babel: typeof Babel,
   state: State<EnvSpecificOptions>,
+  normalizedOpts: NormalizedOpts,
   template: string,
   target: NodePath<t.CallExpression> | NodePath<t.TaggedTemplateExpression>,
   userTypedOptions: Record<string, unknown>,
@@ -528,6 +544,7 @@ function insertTransformedTemplate<EnvSpecificOptions>(
     babel,
     target,
     state,
+    normalizedOpts,
     template,
     userTypedOptions,
     formatOptions,
@@ -786,4 +803,4 @@ function name(node: t.StringLiteral | t.Identifier) {
   }
 }
 
-export default makePlugin<Options>((options) => options);
+export default makePlugin<Options>(async (options) => options);

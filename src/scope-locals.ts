@@ -9,8 +9,8 @@
 
 import type { NodePath } from '@babel/traverse';
 import type { ASTPluginEnvironment, NodeVisitor } from '@glimmer/syntax';
-import { astNodeHasBinding } from './hbs-utils';
-import { readOnlyArray } from './read-only-array';
+import { astNodeHasBinding } from './hbs-utils.js';
+import { readOnlyArray } from './read-only-array.js';
 
 /**
  * RFC: https://github.com/emberjs/rfcs/pull/1070

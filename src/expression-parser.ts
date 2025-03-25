@@ -1,7 +1,7 @@
 import type { NodePath } from '@babel/traverse';
 import type * as Babel from '@babel/core';
 import type { types as t } from '@babel/core';
-import { ScopeLocals } from './scope-locals';
+import { ScopeLocals } from './scope-locals.js';
 
 export class ExpressionParser {
   constructor(private babel: typeof Babel) {}
