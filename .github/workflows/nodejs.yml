@@ -19,7 +19,7 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v2
+      - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
           cache: 'pnpm'
@@ -30,47 +30,29 @@ jobs:
     name: Tests
     runs-on: ubuntu-latest
 
-    strategy:
-      matrix:
-        node: ['18', '20']
-
     steps:
       - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v2
+      - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
           cache: 'pnpm'
-          node-version: ${{ matrix.node }}
       - run: pnpm install
       - run: pnpm test
-
-  test_old:
-    name: Tests (Node 14)
-    runs-on: ubuntu-latest
-
-    steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v2
-        with:
-          version: 7
-      - uses: actions/setup-node@v4
-        with:
-          cache: 'pnpm'
-          node-version: 14
-      # lockfile format version 9 didn't exist with pnpm 7
-      - run: pnpm install --no-lockfile
-      - run: pnpm test
-
 
   floating-test:
     name: Floating dependencies
     runs-on: ubuntu-latest
 
+    strategy:
+      matrix:
+        node: ['18', '22']
+
     steps:
       - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v2
+      - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
           cache: 'pnpm'
+          node-version: ${{ matrix.node }}
       - run: pnpm install --no-lockfile
       - run: pnpm test
