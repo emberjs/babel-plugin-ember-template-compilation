@@ -78,7 +78,9 @@
   },
   "release-plan": {
     "semverIncrementAs": {
-      "major": "premajor"
+      "major": "prerelease",
+      "minor": "prerelease",
+      "patch": "prerelease"
     },
     "semverIncrementTag": "alpha",
     "publishTag": "alpha"
