@@ -2,18 +2,19 @@ name: Release Plan Review
 on:
   push:
     branches:
-      - 2.x
+      - main
+      - master
   pull_request:
     types:
       - labeled
 
 concurrency:
-  group: plan-release-2.x # only the latest one of these should ever be running
+  group: plan-release # only the latest one of these should ever be running
   cancel-in-progress: true
 
 jobs:
   check-plan:
-    name: 'Check Release Plan'
+    name: "Check Release Plan"
     runs-on: ubuntu-latest
     outputs:
       command: ${{ steps.check-release.outputs.command }}
@@ -22,7 +23,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          ref: '2.x'
+          ref: 'main'
       # This will only cause the `check-plan` job to have a "command" of `release`
       # when the .release-plan.json file was changed on the last commit.
       - id: check-release
@@ -48,21 +49,21 @@ jobs:
         # github-changelog can discover what's changed since the last release
         with:
           fetch-depth: 0
-          ref: '2.x'
+          ref: 'main'
       - uses: actions/setup-node@v4
         with:
           node-version: 18
-
+      
       - uses: pnpm/action-setup@v3
       - run: pnpm install --frozen-lockfile
-
-      - name: 'Generate Explanation and Prep Changelogs'
+      
+      - name: "Generate Explanation and Prep Changelogs"
         id: explanation
         run: |
           set +e
-
+          
           pnpm release-plan prepare 2> >(tee -a stderr.log >&2)
-
+          
 
           if [ $? -ne 0 ]; then
             echo 'text<<EOF' >> $GITHUB_OUTPUT
@@ -79,9 +80,9 @@ jobs:
       - uses: peter-evans/create-pull-request@v6
         with:
           commit-message: "Prepare Release using 'release-plan'"
-          labels: 'internal'
-          branch: release-preview-2.x
-          title: Prepare Release (2.x)
+          labels: "internal"
+          branch: release-preview
+          title: Prepare Release
           body: |
             This PR is a preview of the release that [release-plan](https://github.com/embroider-build/release-plan) has prepared. To release you should just merge this PR 👍
 
