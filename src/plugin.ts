@@ -115,9 +115,7 @@ function normalizeOpts(options: Options): NormalizedOpts {
   if ((options.targetFormat ?? 'wire') === 'wire') {
     let { compiler } = options;
     if (!compiler) {
-      throw new Error(
-        `when targetFormat==="wire" you must set the compiler or compilerPath option`
-      );
+      throw new Error(`when targetFormat==="wire" you must provide the ember template compiler`);
     }
     return {
       outputModuleOverrides: {},
