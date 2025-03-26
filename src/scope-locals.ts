@@ -164,8 +164,10 @@ export class ScopeLocals {
                 // all hbs upvars that have matching JS bindings go into the
                 // scope
                 for (let name of seen) {
-                  if (name === 'this' && this.#params.mayUseLexicalThis) {
-                    this.add(name);
+                  if (name === 'this') {
+                    if (this.#params.mayUseLexicalThis) {
+                      this.add(name);
+                    }
                   } else if (this.#isInJsScope(name, this.#params.jsPath)) {
                     this.add(name);
                   }
