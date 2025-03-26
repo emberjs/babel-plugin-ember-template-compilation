@@ -50,7 +50,7 @@ async function handleNodeSpecificOptions(opts: Options): Promise<SharedOptions> 
   } else if (opts.compiler) {
     assertTemplateCompiler(opts.compiler);
     compiler = opts.compiler;
-  } else {
+  } else if (opts.targetFormat === 'wire') {
     let mod: any = await cwdImport('ember-source/dist/ember-template-compiler.js');
     assertTemplateCompiler(mod);
     compiler = mod;
