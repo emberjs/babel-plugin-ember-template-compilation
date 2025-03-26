@@ -2,6 +2,33 @@
 
 ## Release (2025-03-26)
 
+* babel-plugin-ember-template-compilation 3.0.0-alpha.1 (major)
+
+#### :bug: Bug Fix
+* `babel-plugin-ember-template-compilation`
+  * [#83](https://github.com/emberjs/babel-plugin-ember-template-compilation/pull/83) Don't try to auto-detect ember template compiler when targetFormat do… ([@ef4](https://github.com/ef4))
+
+#### Committers: 1
+- Edward Faulkner ([@ef4](https://github.com/ef4))
+
+
+## v3.0.0-alpha.0-babel-plugin-ember-template-compilation (2025-03-25)
+
+#### :boom: Breaking Change
+* `babel-plugin-ember-template-compilation`
+  * [#77](https://github.com/emberjs/babel-plugin-ember-template-compilation/pull/77) Convert to esm ([@ef4](https://github.com/ef4))
+  * [#75](https://github.com/emberjs/babel-plugin-ember-template-compilation/pull/75) Drop support for node < 18 ([@ef4](https://github.com/ef4))
+
+#### :house: Internal
+* `babel-plugin-ember-template-compilation`
+  * [#76](https://github.com/emberjs/babel-plugin-ember-template-compilation/pull/76) Prepare Release ([@github-actions[bot]](https://github.com/apps/github-actions))
+
+#### Committers: 2
+- Edward Faulkner ([@ef4](https://github.com/ef4))
+- [@github-actions[bot]](https://github.com/apps/github-actions)
+
+## Release (2025-03-26)
+
 babel-plugin-ember-template-compilation 2.4.1 (patch)
 
 #### :bug: Bug Fix
