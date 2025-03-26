@@ -2,16 +2,20 @@
   "solution": {
     "babel-plugin-ember-template-compilation": {
       "impact": "patch",
-      "oldVersion": "2.4.0",
-      "newVersion": "2.4.1",
+      "oldVersion": "2.4.1",
+      "newVersion": "2.4.2",
       "constraints": [
         {
           "impact": "patch",
           "reason": "Appears in changelog section :bug: Bug Fix"
+        },
+        {
+          "impact": "patch",
+          "reason": "Appears in changelog section :house: Internal"
         }
       ],
       "pkgJSONPath": "./package.json"
     }
   },
-  "description": "## Release (2025-03-26)\n\nbabel-plugin-ember-template-compilation 2.4.1 (patch)\n\n#### :bug: Bug Fix\n* `babel-plugin-ember-template-compilation`\n  * [#80](https://github.com/emberjs/babel-plugin-ember-template-compilation/pull/80) Fix incorrect \"this\" binding when there's a TypeScript `this` arg in scope ([@ef4](https://github.com/ef4))\n\n#### Committers: 1\n- Edward Faulkner ([@ef4](https://github.com/ef4))\n"
+  "description": "## Release (2025-03-26)\n\nbabel-plugin-ember-template-compilation 2.4.2 (patch)\n\n#### :bug: Bug Fix\n* `babel-plugin-ember-template-compilation`\n  * [#80](https://github.com/emberjs/babel-plugin-ember-template-compilation/pull/80) Fix incorrect \"this\" binding when there's a TypeScript `this` arg in scope ([@ef4](https://github.com/ef4))\n\n#### :house: Internal\n* `babel-plugin-ember-template-compilation`\n  * [#81](https://github.com/emberjs/babel-plugin-ember-template-compilation/pull/81) Prepare Release (2.x) ([@github-actions[bot]](https://github.com/apps/github-actions))\n\n#### Committers: 2\n- Edward Faulkner ([@ef4](https://github.com/ef4))\n- [@github-actions[bot]](https://github.com/apps/github-actions)\n"
 }

@@ -2,6 +2,22 @@
 
 ## Release (2025-03-26)
 
+babel-plugin-ember-template-compilation 2.4.2 (patch)
+
+#### :bug: Bug Fix
+* `babel-plugin-ember-template-compilation`
+  * [#80](https://github.com/emberjs/babel-plugin-ember-template-compilation/pull/80) Fix incorrect "this" binding when there's a TypeScript `this` arg in scope ([@ef4](https://github.com/ef4))
+
+#### :house: Internal
+* `babel-plugin-ember-template-compilation`
+  * [#81](https://github.com/emberjs/babel-plugin-ember-template-compilation/pull/81) Prepare Release (2.x) ([@github-actions[bot]](https://github.com/apps/github-actions))
+
+#### Committers: 2
+- Edward Faulkner ([@ef4](https://github.com/ef4))
+- [@github-actions[bot]](https://github.com/apps/github-actions)
+
+## Release (2025-03-26)
+
 babel-plugin-ember-template-compilation 2.4.1 (patch)
 
 #### :bug: Bug Fix
