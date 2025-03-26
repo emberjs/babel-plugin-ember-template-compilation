@@ -2160,6 +2160,65 @@ describe('htmlbars-inline-precompile', function () {
       `);
     });
 
+    it('does not captures lexical "this" when template is used in class body even when a TS "this" is in scope', async function () {
+      plugins = [
+        [
+          HTMLBarsInlinePrecompile,
+          {
+            compiler,
+            targetFormat: 'hbs',
+          },
+        ],
+        TransformTypescript,
+      ];
+
+      let transformed = await transform(
+        `import { template } from '@ember/template-compiler'; 
+        import Component from '@glimmer/component';
+
+        function someHelper() {}
+        
+        export function example(this: unknown) {
+        
+          class Example extends Component {
+            upper(s) { return s.toUpperCase() }
+            message = "hi";
+            static {
+              template('{{this.upper (someHelper this.message) }}', { component: this, eval: function() { return eval(arguments[0]) } })
+            }
+          }
+
+        }
+        `
+      );
+
+      expect(transformed).toEqualCode(`
+        import Component from "@glimmer/component";
+        import { precompileTemplate } from "@ember/template-compilation";
+        import { setComponentTemplate } from "@ember/component";
+
+        function someHelper() {}
+
+        export function example() {
+          class Example extends Component {
+            upper(s) {
+              return s.toUpperCase();
+            }
+            message = "hi";
+            static {
+              setComponentTemplate(
+                precompileTemplate("{{this.upper (someHelper this.message)}}", {
+                  strictMode: true,
+                  scope: () => ({ someHelper }),
+                }),
+                this
+              );
+            }
+          }
+        }
+      `);
+    });
+
     it('leaves ember keywords alone when no local is defined', async function () {
       plugins = [
         [
