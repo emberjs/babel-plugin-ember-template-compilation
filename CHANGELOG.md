@@ -2,6 +2,18 @@
 
 ## Release (2025-03-26)
 
+* babel-plugin-ember-template-compilation 3.0.0-alpha.1 (major)
+
+#### :bug: Bug Fix
+* `babel-plugin-ember-template-compilation`
+  * [#83](https://github.com/emberjs/babel-plugin-ember-template-compilation/pull/83) Don't try to auto-detect ember template compiler when targetFormat do… ([@ef4](https://github.com/ef4))
+
+#### Committers: 1
+- Edward Faulkner ([@ef4](https://github.com/ef4))
+
+
+## Release (2025-03-26)
+
 babel-plugin-ember-template-compilation 2.4.1 (patch)
 
 #### :bug: Bug Fix

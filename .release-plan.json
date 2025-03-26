@@ -2,17 +2,25 @@
   "solution": {
     "babel-plugin-ember-template-compilation": {
       "impact": "major",
-      "oldVersion": "2.4.0",
-      "newVersion": "3.0.0-alpha.0",
-      "tagName": "latest",
+      "oldVersion": "3.0.0-alpha.0",
+      "newVersion": "3.0.0-alpha.1",
+      "tagName": "alpha",
       "constraints": [
+        {
+          "impact": "patch",
+          "reason": "Appears in changelog section :bug: Bug Fix"
+        },
         {
           "impact": "major",
           "reason": "Appears in changelog section :boom: Breaking Change"
+        },
+        {
+          "impact": "patch",
+          "reason": "Appears in changelog section :house: Internal"
         }
       ],
       "pkgJSONPath": "./package.json"
     }
   },
-  "description": "## Release (2025-03-25)\n\n* babel-plugin-ember-template-compilation 3.0.0-alpha.0 (major)\n\n#### :boom: Breaking Change\n* `babel-plugin-ember-template-compilation`\n  * [#77](https://github.com/emberjs/babel-plugin-ember-template-compilation/pull/77) Convert to esm ([@ef4](https://github.com/ef4))\n  * [#75](https://github.com/emberjs/babel-plugin-ember-template-compilation/pull/75) Drop support for node < 18 ([@ef4](https://github.com/ef4))\n\n#### Committers: 1\n- Edward Faulkner ([@ef4](https://github.com/ef4))\n"
+  "description": "## Release (2025-03-26)\n\n* babel-plugin-ember-template-compilation 3.0.0-alpha.1 (major)\n\n#### :bug: Bug Fix\n* `babel-plugin-ember-template-compilation`\n  * [#83](https://github.com/emberjs/babel-plugin-ember-template-compilation/pull/83) Don't try to auto-detect ember template compiler when targetFormat do… ([@ef4](https://github.com/ef4))\n\n#### Committers: 1\n- Edward Faulkner ([@ef4](https://github.com/ef4))\n"
 }
