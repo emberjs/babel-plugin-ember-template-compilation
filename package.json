@@ -29,6 +29,7 @@
   "jest": {
     "testPathIgnorePatterns": [
       "mock-precompile",
+      "mock-transform",
       ".*\\.ts"
     ]
   },

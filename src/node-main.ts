@@ -35,6 +35,15 @@ export type Options = Omit<SharedOptions, 'transforms' | 'compiler'> & {
 
 async function cwdImport(moduleName: string) {
   let target = importMetaResolve(moduleName, pathToFileURL(process.cwd() + sep).href);
+  if (!target.startsWith('file:')) {
+    // import-meta-resolve doesn't consistently return file URLs rather than paths
+    // https://github.com/wooorm/import-meta-resolve/issues/31
+    //
+    // also, under some conditions which I have not been able to reproduce in
+    // the test suite, Windows will error if you pass an absolute path that is
+    // not a file: URL.
+    target = pathToFileURL(target).href;
+  }
   return esCompat(await import(target));
 }
 

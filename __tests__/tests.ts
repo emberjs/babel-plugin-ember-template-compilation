@@ -729,6 +729,33 @@ describe('htmlbars-inline-precompile', function () {
     `);
   });
 
+  it('can load a transform from an absolute path', async function () {
+    plugins = [
+      [
+        HTMLBarsInlinePrecompile,
+        {
+          targetFormat: 'hbs',
+          transforms: [fileURLToPath(new URL('./mock-transform', import.meta.url))],
+        },
+      ],
+    ];
+
+    let transformed = await transform(stripIndent`
+        import { precompileTemplate } from '@ember/template-compilation';
+        const template = precompileTemplate('<Message @text={{onePlusOne}} />');
+      `);
+
+    expect(transformed).toEqualCode(`
+      import { precompileTemplate } from '@ember/template-compilation';
+      let two = 1 + 1;
+      const template = precompileTemplate("<Message @text={{two}} />", {
+        scope: () => ({
+          two
+        })
+      });
+    `);
+  });
+
   it('adds locals to the compiled output', async function () {
     plugins = [
       [
