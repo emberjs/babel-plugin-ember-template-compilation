@@ -2,21 +2,17 @@
   "solution": {
     "babel-plugin-ember-template-compilation": {
       "impact": "patch",
-      "oldVersion": "3.0.0-alpha.1",
-      "newVersion": "3.0.0-alpha.2",
+      "oldVersion": "3.0.0-alpha.2",
+      "newVersion": "3.0.0-alpha.3",
       "tagName": "alpha",
       "constraints": [
         {
           "impact": "patch",
           "reason": "Appears in changelog section :bug: Bug Fix"
-        },
-        {
-          "impact": "patch",
-          "reason": "Appears in changelog section :house: Internal"
         }
       ],
       "pkgJSONPath": "./package.json"
     }
   },
-  "description": "## Release (2025-03-28)\n\n* babel-plugin-ember-template-compilation 3.0.0-alpha.2 (patch)\n\n#### :bug: Bug Fix\n* `babel-plugin-ember-template-compilation`\n  * [#88](https://github.com/emberjs/babel-plugin-ember-template-compilation/pull/88) Fix a windows import bug ([@ef4](https://github.com/ef4))\n\n#### :house: Internal\n* `babel-plugin-ember-template-compilation`\n  * [#87](https://github.com/emberjs/babel-plugin-ember-template-compilation/pull/87) Windows tests ([@ef4](https://github.com/ef4))\n  * [#85](https://github.com/emberjs/babel-plugin-ember-template-compilation/pull/85) Replace eslint-plugin-node with eslint-plugin-n ([@ef4](https://github.com/ef4))\n\n#### Committers: 1\n- Edward Faulkner ([@ef4](https://github.com/ef4))\n"
+  "description": "## Release (2025-03-28)\n\n* babel-plugin-ember-template-compilation 3.0.0-alpha.3 (patch)\n\n#### :bug: Bug Fix\n* `babel-plugin-ember-template-compilation`\n  * [#89](https://github.com/emberjs/babel-plugin-ember-template-compilation/pull/89) bugfix: wire is the default outputFormat ([@ef4](https://github.com/ef4))\n\n#### Committers: 1\n- Edward Faulkner ([@ef4](https://github.com/ef4))\n"
 }
