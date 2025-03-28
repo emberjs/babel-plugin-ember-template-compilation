@@ -1,18 +1,14 @@
 {
   "solution": {
     "babel-plugin-ember-template-compilation": {
-      "impact": "major",
-      "oldVersion": "3.0.0-alpha.0",
-      "newVersion": "3.0.0-alpha.1",
+      "impact": "patch",
+      "oldVersion": "3.0.0-alpha.1",
+      "newVersion": "3.0.0-alpha.2",
       "tagName": "alpha",
       "constraints": [
         {
           "impact": "patch",
           "reason": "Appears in changelog section :bug: Bug Fix"
-        },
-        {
-          "impact": "major",
-          "reason": "Appears in changelog section :boom: Breaking Change"
         },
         {
           "impact": "patch",
@@ -22,5 +18,5 @@
       "pkgJSONPath": "./package.json"
     }
   },
-  "description": "## Release (2025-03-26)\n\n* babel-plugin-ember-template-compilation 3.0.0-alpha.1 (major)\n\n#### :bug: Bug Fix\n* `babel-plugin-ember-template-compilation`\n  * [#83](https://github.com/emberjs/babel-plugin-ember-template-compilation/pull/83) Don't try to auto-detect ember template compiler when targetFormat do… ([@ef4](https://github.com/ef4))\n\n#### Committers: 1\n- Edward Faulkner ([@ef4](https://github.com/ef4))\n"
+  "description": "## Release (2025-03-28)\n\n* babel-plugin-ember-template-compilation 3.0.0-alpha.2 (patch)\n\n#### :bug: Bug Fix\n* `babel-plugin-ember-template-compilation`\n  * [#88](https://github.com/emberjs/babel-plugin-ember-template-compilation/pull/88) Fix a windows import bug ([@ef4](https://github.com/ef4))\n\n#### :house: Internal\n* `babel-plugin-ember-template-compilation`\n  * [#87](https://github.com/emberjs/babel-plugin-ember-template-compilation/pull/87) Windows tests ([@ef4](https://github.com/ef4))\n  * [#85](https://github.com/emberjs/babel-plugin-ember-template-compilation/pull/85) Replace eslint-plugin-node with eslint-plugin-n ([@ef4](https://github.com/ef4))\n\n#### Committers: 1\n- Edward Faulkner ([@ef4](https://github.com/ef4))\n"
 }

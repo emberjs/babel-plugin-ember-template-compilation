@@ -1,5 +1,21 @@
 # Changelog
 
+## Release (2025-03-28)
+
+* babel-plugin-ember-template-compilation 3.0.0-alpha.2 (patch)
+
+#### :bug: Bug Fix
+* `babel-plugin-ember-template-compilation`
+  * [#88](https://github.com/emberjs/babel-plugin-ember-template-compilation/pull/88) Fix a windows import bug ([@ef4](https://github.com/ef4))
+
+#### :house: Internal
+* `babel-plugin-ember-template-compilation`
+  * [#87](https://github.com/emberjs/babel-plugin-ember-template-compilation/pull/87) Windows tests ([@ef4](https://github.com/ef4))
+  * [#85](https://github.com/emberjs/babel-plugin-ember-template-compilation/pull/85) Replace eslint-plugin-node with eslint-plugin-n ([@ef4](https://github.com/ef4))
+
+#### Committers: 1
+- Edward Faulkner ([@ef4](https://github.com/ef4))
+
 ## Release (2025-03-26)
 
 * babel-plugin-ember-template-compilation 3.0.0-alpha.1 (major)
