@@ -4,8 +4,8 @@ module.exports = {
   parserOptions: {
     ecmaVersion: 2017,
   },
-  plugins: ['node', 'prettier'],
-  extends: ['eslint:recommended', 'plugin:node/recommended', 'plugin:prettier/recommended'],
+  plugins: ['n', 'prettier'],
+  extends: ['eslint:recommended', 'plugin:n/recommended', 'plugin:prettier/recommended'],
   env: {
     node: true,
   },
@@ -19,7 +19,7 @@ module.exports = {
         jest: true,
       },
       rules: {
-        'node/no-unpublished-require': 'off',
+        'n/no-unpublished-require': 'off',
       },
     },
     {
@@ -34,13 +34,9 @@ module.exports = {
       ],
       rules: {
         'prefer-const': 'off',
-        'node/no-unsupported-features/es-syntax': [
-          'error',
-          {
-            ignores: ['modules'],
-          },
-        ],
-        'node/no-missing-import': 'off',
+
+        // this rule doesn't really support modern node ESM
+        'n/no-missing-import': 'off',
 
         '@typescript-eslint/no-explicit-any': 'off',
         '@typescript-eslint/ban-ts-comment': 'off',

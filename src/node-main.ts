@@ -35,9 +35,6 @@ export type Options = Omit<SharedOptions, 'transforms' | 'compiler'> & {
 
 async function cwdImport(moduleName: string) {
   let target = importMetaResolve(moduleName, pathToFileURL(process.cwd() + sep).href);
-
-  // TODO
-  // eslint-disable-next-line
   return esCompat(await import(target));
 }
 
