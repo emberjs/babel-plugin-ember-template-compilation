@@ -185,25 +185,7 @@ export class JSUtils {
       expressionString = expression(new ExpressionContext(this.#importer, target));
     }
 
-    let parsed = this.#babel.parse(expressionString);
-    if (!parsed) {
-      throw new Error(
-        `JSUtils.bindExpression could not understand the expression: ${expressionString}`
-      );
-    }
-    let statements = body(parsed);
-    if (statements.length !== 1) {
-      throw new Error(
-        `JSUtils.bindExpression expected to find exactly one expression but found ${statements.length} in: ${expressionString}`
-      );
-    }
-    let statement = statements[0];
-    if (statement.type !== 'ExpressionStatement') {
-      throw new Error(
-        `JSUtils.bindExpression expected to find an expression but found ${statement.type} in: ${expressionString}`
-      );
-    }
-    return statement.expression;
+    return this.#babel.template.expression.ast(expressionString);
   }
 }
 
@@ -224,14 +206,6 @@ export type WithJSUtils<T extends { meta?: object }> = {
 } & T;
 
 export type ExtendedPluginBuilder = ASTPluginBuilder<WithJSUtils<ASTPluginEnvironment>>;
-
-function body(node: t.Program | t.File) {
-  if (node.type === 'File') {
-    return node.program.body;
-  } else {
-    return node.body;
-  }
-}
 
 /**
  * Allows you to construct an expression that relies on imported values.
