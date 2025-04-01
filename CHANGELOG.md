@@ -1,5 +1,16 @@
 # Changelog
 
+## Release (2025-04-01)
+
+* babel-plugin-ember-template-compilation 3.0.0-alpha.4 (patch)
+
+#### :bug: Bug Fix
+* `babel-plugin-ember-template-compilation`
+  * [#91](https://github.com/emberjs/babel-plugin-ember-template-compilation/pull/91) Don't accidentally load ambient config during bindExpression ([@ef4](https://github.com/ef4))
+
+#### Committers: 1
+- Edward Faulkner ([@ef4](https://github.com/ef4))
+
 ## Release (2025-03-28)
 
 * babel-plugin-ember-template-compilation 3.0.0-alpha.3 (patch)

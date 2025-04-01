@@ -2,8 +2,8 @@
   "solution": {
     "babel-plugin-ember-template-compilation": {
       "impact": "patch",
-      "oldVersion": "3.0.0-alpha.2",
-      "newVersion": "3.0.0-alpha.3",
+      "oldVersion": "3.0.0-alpha.3",
+      "newVersion": "3.0.0-alpha.4",
       "tagName": "alpha",
       "constraints": [
         {
@@ -14,5 +14,5 @@
       "pkgJSONPath": "./package.json"
     }
   },
-  "description": "## Release (2025-03-28)\n\n* babel-plugin-ember-template-compilation 3.0.0-alpha.3 (patch)\n\n#### :bug: Bug Fix\n* `babel-plugin-ember-template-compilation`\n  * [#89](https://github.com/emberjs/babel-plugin-ember-template-compilation/pull/89) bugfix: wire is the default outputFormat ([@ef4](https://github.com/ef4))\n\n#### Committers: 1\n- Edward Faulkner ([@ef4](https://github.com/ef4))\n"
+  "description": "## Release (2025-04-01)\n\n* babel-plugin-ember-template-compilation 3.0.0-alpha.4 (patch)\n\n#### :bug: Bug Fix\n* `babel-plugin-ember-template-compilation`\n  * [#91](https://github.com/emberjs/babel-plugin-ember-template-compilation/pull/91) Don't accidentally load ambient config during bindExpression ([@ef4](https://github.com/ef4))\n\n#### Committers: 1\n- Edward Faulkner ([@ef4](https://github.com/ef4))\n"
 }
