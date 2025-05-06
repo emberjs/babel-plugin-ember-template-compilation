@@ -1,8 +1,12 @@
 {
   "solution": {
     "babel-plugin-ember-template-compilation": {
-      "oldVersion": "3.0.0-alpha.4"
+      "impact": "major",
+      "oldVersion": "3.0.0-alpha.4",
+      "newVersion": "3.0.0",
+      "tagName": "latest",
+      "pkgJSONPath": "./package.json"
     }
   },
-  "description": "## Release (2025-05-06)\n\n\n\n#### :boom: Breaking Change\n* [#94](https://github.com/emberjs/babel-plugin-ember-template-compilation/pull/94) Releasing alpha as stable ([@ef4](https://github.com/ef4))\n\n#### Committers: 1\n- Edward Faulkner ([@ef4](https://github.com/ef4))\n"
+  "description": "## Release (2025-03-26)\n\n* babel-plugin-ember-template-compilation 3.0.0-alpha.1 (major)\n\n#### :bug: Bug Fix\n* `babel-plugin-ember-template-compilation`\n  * [#83](https://github.com/emberjs/babel-plugin-ember-template-compilation/pull/83) Don't try to auto-detect ember template compiler when targetFormat do… ([@ef4](https://github.com/ef4))\n\n#### Committers: 1\n- Edward Faulkner ([@ef4](https://github.com/ef4))\n"
 }
