@@ -5,7 +5,9 @@
 
 
 #### :boom: Breaking Change
-* [#94](https://github.com/emberjs/babel-plugin-ember-template-compilation/pull/94) Releasing alpha as stable ([@ef4](https://github.com/ef4))
+* `babel-plugin-ember-template-compilation`
+  * [#77](https://github.com/emberjs/babel-plugin-ember-template-compilation/pull/77) Convert to esm ([@ef4](https://github.com/ef4))
+  * [#75](https://github.com/emberjs/babel-plugin-ember-template-compilation/pull/75) Drop support for node < 18 ([@ef4](https://github.com/ef4))
 
 #### Committers: 1
 - Edward Faulkner ([@ef4](https://github.com/ef4))
