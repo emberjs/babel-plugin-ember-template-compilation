@@ -2,6 +2,17 @@
 
 ## Release (2025-05-06)
 
+* babel-plugin-ember-template-compilation 3.0.1 (patch)
+
+#### :house: Internal
+* `babel-plugin-ember-template-compilation`
+  * [#95](https://github.com/emberjs/babel-plugin-ember-template-compilation/pull/95) releasing alpha->latest ([@ef4](https://github.com/ef4))
+
+#### Committers: 1
+- Edward Faulkner ([@ef4](https://github.com/ef4))
+
+## Release (2025-05-06)
+
 
 
 #### :boom: Breaking Change
