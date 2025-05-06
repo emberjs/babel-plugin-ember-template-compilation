@@ -1,5 +1,15 @@
 # Changelog
 
+## Release (2025-05-06)
+
+
+
+#### :boom: Breaking Change
+* [#94](https://github.com/emberjs/babel-plugin-ember-template-compilation/pull/94) Releasing alpha as stable ([@ef4](https://github.com/ef4))
+
+#### Committers: 1
+- Edward Faulkner ([@ef4](https://github.com/ef4))
+
 ## Release (2025-04-01)
 
 * babel-plugin-ember-template-compilation 3.0.0-alpha.4 (patch)
