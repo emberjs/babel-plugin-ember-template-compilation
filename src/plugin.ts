@@ -8,6 +8,7 @@ import type { EmberTemplateCompiler, PreprocessOptions } from './ember-template-
 import { LegacyModuleName } from './public-types.js';
 import { ScopeLocals } from './scope-locals.js';
 import { type ASTPluginBuilder, preprocess, print } from '@glimmer/syntax';
+import { basename, extname } from 'node:path';
 
 export * from './public-types.js';
 
@@ -143,6 +144,7 @@ interface State<EnvSpecificOptions> {
   program: NodePath<t.Program>;
   lastInsertedPath: NodePath<t.Statement> | undefined;
   filename: string;
+  moduleName?: string;
   recursionGuard: Set<unknown>;
 }
 
@@ -408,7 +410,7 @@ function buildPrecompileOptions<EnvSpecificOptions>(
     // TODO: embroider's template-compiler allows this to be overriden to get
     // backward-compatible module names that don't match the real name of the
     // on-disk file. What's our plan for migrating people away from that?
-    moduleName: state.filename,
+    moduleName: state.moduleName || basename(state.filename, extname(state.filename)),
 
     // This is here so it's *always* the real filename. Historically, there is
     // also `moduleName` but that did not match the real on-disk filename, it
