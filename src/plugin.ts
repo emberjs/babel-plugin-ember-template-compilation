@@ -516,10 +516,10 @@ function insertCompiledTemplate<EnvSpecificOptions>(
       expression = t.callExpression(i.import('@ember/component', 'setComponentTemplate'), [
         expression,
         backingClass?.node ??
-        t.callExpression(
-          i.import('@ember/component/template-only', 'default', 'templateOnly'),
-          []
-        ),
+          t.callExpression(
+            i.import('@ember/component/template-only', 'default', 'templateOnly'),
+            []
+          ),
       ]);
     }
     return expression;
@@ -629,10 +629,10 @@ function updateCallForm<EnvSpecificOptions>(
       babel.types.callExpression(i.import('@ember/component', 'setComponentTemplate'), [
         target.node,
         backingClass?.node ??
-        babel.types.callExpression(
-          i.import('@ember/component/template-only', 'default', 'templateOnly'),
-          []
-        ),
+          babel.types.callExpression(
+            i.import('@ember/component/template-only', 'default', 'templateOnly'),
+            []
+          ),
       ])
     );
     // we just wrapped the target callExpression in the call to
