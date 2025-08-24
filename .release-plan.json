@@ -1,12 +1,22 @@
 {
   "solution": {
     "babel-plugin-ember-template-compilation": {
-      "impact": "major",
-      "oldVersion": "3.0.0-alpha.4",
-      "newVersion": "3.0.0",
+      "impact": "patch",
+      "oldVersion": "3.0.0",
+      "newVersion": "3.0.1",
       "tagName": "latest",
+      "constraints": [
+        {
+          "impact": "patch",
+          "reason": "Appears in changelog section :bug: Bug Fix"
+        },
+        {
+          "impact": "patch",
+          "reason": "Appears in changelog section :house: Internal"
+        }
+      ],
       "pkgJSONPath": "./package.json"
     }
   },
-  "description": "## Release (2025-03-26)\n\n* babel-plugin-ember-template-compilation 3.0.0-alpha.1 (major)\n\n#### :bug: Bug Fix\n* `babel-plugin-ember-template-compilation`\n  * [#83](https://github.com/emberjs/babel-plugin-ember-template-compilation/pull/83) Don't try to auto-detect ember template compiler when targetFormat do… ([@ef4](https://github.com/ef4))\n\n#### Committers: 1\n- Edward Faulkner ([@ef4](https://github.com/ef4)) \n"
+  "description": "## Release (2025-08-24)\n\n* babel-plugin-ember-template-compilation 3.0.1 (patch)\n\n#### :bug: Bug Fix\n* `babel-plugin-ember-template-compilation`\n  * [#100](https://github.com/emberjs/babel-plugin-ember-template-compilation/pull/100) Add's URL to allowed globals list ([@evoactivity](https://github.com/evoactivity))\n\n#### :house: Internal\n* `babel-plugin-ember-template-compilation`\n  * [#95](https://github.com/emberjs/babel-plugin-ember-template-compilation/pull/95) releasing alpha->latest ([@ef4](https://github.com/ef4))\n\n#### Committers: 2\n- Edward Faulkner ([@ef4](https://github.com/ef4))\n- Liam Potter ([@evoactivity](https://github.com/evoactivity))\n"
 }
