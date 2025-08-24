@@ -1,5 +1,21 @@
 # Changelog
 
+## Release (2025-08-24)
+
+* babel-plugin-ember-template-compilation 3.0.1 (patch)
+
+#### :bug: Bug Fix
+* `babel-plugin-ember-template-compilation`
+  * [#100](https://github.com/emberjs/babel-plugin-ember-template-compilation/pull/100) Add's URL to allowed globals list ([@evoactivity](https://github.com/evoactivity))
+
+#### :house: Internal
+* `babel-plugin-ember-template-compilation`
+  * [#95](https://github.com/emberjs/babel-plugin-ember-template-compilation/pull/95) releasing alpha->latest ([@ef4](https://github.com/ef4))
+
+#### Committers: 2
+- Edward Faulkner ([@ef4](https://github.com/ef4))
+- Liam Potter ([@evoactivity](https://github.com/evoactivity))
+
 ## Release (2025-05-06)
 
 
