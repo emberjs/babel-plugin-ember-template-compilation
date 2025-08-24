@@ -46,6 +46,7 @@ export const ALLOWED_GLOBALS = new Set([
   //   WHATWG
   'localStorage',
   'sessionStorage',
+  'URL',
   // ////////////////
   // functions / utilities
   // ////////////////
