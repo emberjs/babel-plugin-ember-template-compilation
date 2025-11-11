@@ -1,5 +1,16 @@
 # Changelog
 
+## Release (2025-11-11)
+
+* babel-plugin-ember-template-compilation 4.0.0 (major)
+
+#### :boom: Breaking Change
+* `babel-plugin-ember-template-compilation`
+  * [#99](https://github.com/emberjs/babel-plugin-ember-template-compilation/pull/99) avoid leaking real filename path in output due to moduleName ([@void-mAlex](https://github.com/void-mAlex))
+
+#### Committers: 1
+- Alex ([@void-mAlex](https://github.com/void-mAlex))
+
 ## Release (2025-08-24)
 
 * babel-plugin-ember-template-compilation 3.0.1 (patch)
