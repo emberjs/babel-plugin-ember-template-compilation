@@ -2457,6 +2457,41 @@ describe('htmlbars-inline-precompile', function () {
         `);
     });
 
+    it('expression form can capture underscore vars', async function () {
+      plugins = [
+        [
+          HTMLBarsInlinePrecompile,
+          {
+            compiler,
+            targetFormat: 'hbs',
+          },
+        ],
+      ];
+
+      let p = new Preprocessor();
+
+      let transformed = await transform(
+        p.process(
+          `
+          const _Foo = <template></template>;
+          export function example() {
+            return <template><_Foo /></template>;
+          }
+          `
+        )
+      );
+
+      expect(transformed).toEqualCode(`
+          import { precompileTemplate } from "@ember/template-compilation";
+          import { setComponentTemplate } from "@ember/component";
+          import templateOnly from "@ember/component/template-only";
+          const _Foo = setComponentTemplate(precompileTemplate("", { strictMode: true }), templateOnly());
+          export function example() {
+            return setComponentTemplate(precompileTemplate('<_Foo />', { strictMode: true, scope: () => ({ _Foo })  }), templateOnly());
+          }
+        `);
+    });
+
     it('expression form can capture lexical "this"', async function () {
       plugins = [
         [
