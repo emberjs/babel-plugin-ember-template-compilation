@@ -15,9 +15,7 @@ module.exports = {
     // test files
     {
       files: ['__tests__/**/*.js'],
-      env: {
-        jest: true,
-      },
+      env: {},
       rules: {
         'n/no-unpublished-require': 'off',
       },

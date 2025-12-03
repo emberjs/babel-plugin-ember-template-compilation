@@ -10,15 +10,23 @@ import { stripIndent } from 'common-tags';
 import { EmberTemplateCompiler } from '../src/ember-template-compiler.js';
 import sinon from 'sinon';
 import { ExtendedPluginBuilder } from '../src/js-utils.js';
-import 'code-equality-assertions/jest';
 import { Preprocessor } from 'content-tag';
 import { ALLOWED_GLOBALS } from '../src/scope-locals.js';
 import { fileURLToPath } from 'url';
+import { describe, it, beforeEach, afterEach, expect, chai } from 'vitest';
+import { codeEquality } from 'code-equality-assertions/chai';
+chai.use(codeEquality);
 
 // @ts-expect-error no upstream types
 import * as _compiler from 'ember-source/dist/ember-template-compiler.js';
 
 const compiler: EmberTemplateCompiler = _compiler.default;
+
+declare module 'vitest' {
+  interface Assertion {
+    equalCode(expectedCode: string, message?: string): void;
+  }
+}
 
 describe('htmlbars-inline-precompile', function () {
   let plugins: ([typeof HTMLBarsInlinePrecompile, Options] | [unknown])[];
@@ -48,7 +56,7 @@ describe('htmlbars-inline-precompile', function () {
       "import { precompileTemplate } from '@ember/template-compilation';\nvar compiled = precompileTemplate('hello');"
     );
 
-    expect(transpiled).toEqualCode(`
+    expect(transpiled).equalCode(`
       import { createTemplateFactory } from "@ember/template-factory";
       var compiled = createTemplateFactory(
       /*
@@ -72,7 +80,7 @@ describe('htmlbars-inline-precompile', function () {
       "import { precompileTemplate } from '@ember/template-compilation';\nvar compiled = precompileTemplate('hello');"
     );
 
-    expect(transpiled).toEqualCode(`
+    expect(transpiled).equalCode(`
       import { createTemplateFactory } from "@ember/template-factory";
       var compiled = createTemplateFactory(
       /*
@@ -186,7 +194,7 @@ describe('htmlbars-inline-precompile', function () {
       `import { precompileTemplate } from '@ember/template-compilation';\nvar compiled = precompileTemplate('hello', { insertRuntimeErrors: true });`
     );
 
-    expect(transformed).toEqualCode(`
+    expect(transformed).equalCode(`
       var compiled = function () {
         throw new Error("NOOOOOOOOOOOOOOOOOOOOOO");
       }();
@@ -209,7 +217,7 @@ describe('htmlbars-inline-precompile', function () {
       }
     `);
 
-    expect(transformed).toEqualCode(`
+    expect(transformed).equalCode(`
       import { createTemplateFactory } from "@ember/template-factory";
 
       if ('foo') {
@@ -264,7 +272,7 @@ describe('htmlbars-inline-precompile', function () {
       "import hbs from 'htmlbars-inline-precompile';\nvar compiled = hbs`hello`;"
     );
 
-    expect(transformed).toEqualCode(`
+    expect(transformed).equalCode(`
       import { createTemplateFactory } from "@ember/template-factory";
       var compiled = createTemplateFactory(
       /*
@@ -293,7 +301,7 @@ describe('htmlbars-inline-precompile', function () {
       "import { hbs as baz } from 'ember-cli-htmlbars';\nvar compiled = baz`hello`;"
     );
 
-    expect(transformed).toEqualCode(`
+    expect(transformed).equalCode(`
       import { createTemplateFactory } from "@ember/template-factory";
       var compiled = createTemplateFactory(
       /*
@@ -308,7 +316,7 @@ describe('htmlbars-inline-precompile', function () {
       "import { hbs as baz } from 'ember-cli-htmlbars';\nvar compiled = baz`hello`;"
     );
 
-    expect(transformed).toEqualCode(`
+    expect(transformed).equalCode(`
       import { hbs as baz } from 'ember-cli-htmlbars';
       var compiled = baz\`hello\`;
     `);
@@ -331,7 +339,7 @@ describe('htmlbars-inline-precompile', function () {
       let b = other('hello');
     `);
 
-    expect(transformed).toEqualCode(`
+    expect(transformed).equalCode(`
       import { createTemplateFactory } from "@ember/template-factory";
       let a = createTemplateFactory(
       /*
@@ -389,7 +397,7 @@ describe('htmlbars-inline-precompile', function () {
 
     let normalized = normalizeWireFormat(transformed);
 
-    expect(normalized).toEqualCode(`
+    expect(normalized).equalCode(`
       import { Setup } from "./foo.js";
       import { setComponentTemplate } from "@ember/component";
       import templateOnly from "@ember/component/template-only";
@@ -417,9 +425,7 @@ describe('htmlbars-inline-precompile', function () {
       import { precompileTemplate, compileTemplate } from '@ember/template-compilation';
     `);
 
-    expect(transformed).toEqualCode(
-      `import { compileTemplate } from '@ember/template-compilation';`
-    );
+    expect(transformed).equalCode(`import { compileTemplate } from '@ember/template-compilation';`);
   });
 
   it('forbids template literal usage of @ember/template-compilation', async function () {
@@ -445,7 +451,7 @@ describe('htmlbars-inline-precompile', function () {
         "var compiled2 = precompileTemplate('goodbye');\n"
     );
 
-    expect(transformed).toEqualCode(`
+    expect(transformed).equalCode(`
       define(["@ember/template-factory"], function (_templateFactory) {
         "use strict";
 
@@ -475,7 +481,7 @@ describe('htmlbars-inline-precompile', function () {
       createTemplateFactory('whatever here');
     `);
 
-    expect(transformed).toEqualCode(`
+    expect(transformed).equalCode(`
       import { createTemplateFactory } from '@ember/template-factory';
       createTemplateFactory(
       /*
@@ -496,7 +502,7 @@ describe('htmlbars-inline-precompile', function () {
       "import { precompileTemplate } from '@ember/template-compilation';\nvar compiled = precompileTemplate('hello');"
     );
 
-    expect(transformed).toEqualCode(`
+    expect(transformed).equalCode(`
       define(["@ember/template-factory"], function (_templateFactory) {
         "use strict";
 
@@ -519,7 +525,7 @@ describe('htmlbars-inline-precompile', function () {
       "import { precompileTemplate } from '@ember/template-compilation';\nvar compiled = precompileTemplate('some emoji goes 💥');"
     );
 
-    expect(transformed).toEqualCode(`
+    expect(transformed).equalCode(`
       import { createTemplateFactory } from "@ember/template-factory";
       var compiled = createTemplateFactory(
       /*
@@ -549,7 +555,7 @@ describe('htmlbars-inline-precompile', function () {
       "import hbs from 'htmlbars-inline-precompile';\nvar compiled = hbs`hello`;"
     );
 
-    expect(transformed).toEqualCode(`
+    expect(transformed).equalCode(`
       import { createTemplateFactory } from "@ember/template-factory";
       var compiled = createTemplateFactory(
       /*
@@ -618,7 +624,7 @@ describe('htmlbars-inline-precompile', function () {
       const template = precompileTemplate('hello');
     `);
 
-    expect(transformed).toEqualCode(`
+    expect(transformed).equalCode(`
       import { createTemplateFactory } from "@glimmer/core";
       const template = createTemplateFactory(
       /*
@@ -718,7 +724,7 @@ describe('htmlbars-inline-precompile', function () {
         const template = precompileTemplate('<Message @text={{onePlusOne}} />');
       `);
 
-    expect(transformed).toEqualCode(`
+    expect(transformed).equalCode(`
       import { precompileTemplate } from '@ember/template-compilation';
       let two = 1 + 1;
       const template = precompileTemplate("<Message @text={{two}} />", {
@@ -745,7 +751,7 @@ describe('htmlbars-inline-precompile', function () {
         const template = precompileTemplate('<Message @text={{onePlusOne}} />');
       `);
 
-    expect(transformed).toEqualCode(`
+    expect(transformed).equalCode(`
       import { precompileTemplate } from '@ember/template-compilation';
       let two = 1 + 1;
       const template = precompileTemplate("<Message @text={{two}} />", {
@@ -782,7 +788,7 @@ describe('htmlbars-inline-precompile', function () {
         const template = precompileTemplate('<Message @text={{onePlusOne}} />');
       `);
 
-    expect(transformed).toEqualCode(`
+    expect(transformed).equalCode(`
       import { precompileTemplate } from '@ember/template-compilation';
       import two from "my-library";
       const template = precompileTemplate("<Message @text={{two}} />", {
@@ -804,7 +810,7 @@ describe('htmlbars-inline-precompile', function () {
         const template = precompileTemplate('<Message @text={{onePlusOne}} />');
       `);
 
-    expect(transformed).toEqualCode(`
+    expect(transformed).equalCode(`
       import { precompileTemplate } from '@ember/template-compilation';
       import two from "my-library";
       const template = precompileTemplate("<Message @text={{two}} />", {
@@ -826,7 +832,7 @@ describe('htmlbars-inline-precompile', function () {
         const template = precompileTemplate('<Message @text={{onePlusOne}} />');
       `);
 
-    expect(normalizeWireFormat(transformed)).toEqualCode(`
+    expect(normalizeWireFormat(transformed)).equalCode(`
       import two from "my-library";
       import { createTemplateFactory } from "@ember/template-factory";
       const template = createTemplateFactory(
@@ -854,7 +860,7 @@ describe('htmlbars-inline-precompile', function () {
         }
       `);
 
-    expect(transformed).toEqualCode(`
+    expect(transformed).equalCode(`
       import { precompileTemplate } from '@ember/template-compilation';
       import two0 from "my-library";
       export function inner() {
@@ -878,7 +884,7 @@ describe('htmlbars-inline-precompile', function () {
         }
       `);
 
-    expect(transformed).toEqualCode(`
+    expect(transformed).equalCode(`
       import { precompileTemplate } from '@ember/template-compilation';
       let two0 = two;
       import two from "my-library";
@@ -905,7 +911,7 @@ describe('htmlbars-inline-precompile', function () {
         }
       `);
 
-    expect(transformed).toEqualCode(`
+    expect(transformed).equalCode(`
       import { precompileTemplate } from '@ember/template-compilation';
       let two0 = 1 + 1;
       export default function () {
@@ -969,7 +975,7 @@ describe('htmlbars-inline-precompile', function () {
         }
       `);
 
-    expect(transformed).toEqualCode(`
+    expect(transformed).equalCode(`
       import { precompileTemplate } from '@ember/template-compilation';
       let two = 1 + 1;
       let two0 = 1 + 1;
@@ -1000,7 +1006,7 @@ describe('htmlbars-inline-precompile', function () {
         }
       `);
 
-    expect(transformed).toEqualCode(`
+    expect(transformed).equalCode(`
       import { precompileTemplate } from '@ember/template-compilation';
       let two0 = 1 + 1;
       export default function () {
@@ -1025,7 +1031,7 @@ describe('htmlbars-inline-precompile', function () {
         }
       `);
 
-    expect(transformed).toEqualCode(`
+    expect(transformed).equalCode(`
       import { precompileTemplate } from '@ember/template-compilation';
       let two0 = 1 + 1;
       export default function () {
@@ -1050,7 +1056,7 @@ describe('htmlbars-inline-precompile', function () {
         }
       `);
 
-    expect(transformed).toEqualCode(`
+    expect(transformed).equalCode(`
       import { precompileTemplate } from '@ember/template-compilation';
       let two = 1 + 1;
       export default function () {
@@ -1225,7 +1231,7 @@ describe('htmlbars-inline-precompile', function () {
         const template = precompileTemplate('<Message @color={{red}} />');
       `);
 
-      expect(transformed).toEqualCode(`
+      expect(transformed).equalCode(`
         import { precompileTemplate } from '@ember/template-compilation';
         const template = precompileTemplate("<Message @color={{\\"#ff0000\\"}} />");
       `);
@@ -1248,7 +1254,7 @@ describe('htmlbars-inline-precompile', function () {
         "import { hbs } from 'ember-cli-htmlbars'; const template = hbs`<Message @color={{red}} />`;"
       );
 
-      expect(transformed).toEqualCode(`
+      expect(transformed).equalCode(`
         import { hbs } from 'ember-cli-htmlbars';
         const template = hbs\`<Message @color={{"#ff0000"}} />\`;
       `);
@@ -1272,7 +1278,7 @@ describe('htmlbars-inline-precompile', function () {
         const template = hbs('<Message @color={{red}} />');
       `);
 
-      expect(transformed).toEqualCode(`
+      expect(transformed).equalCode(`
         import { hbs } from 'ember-cli-htmlbars';
         const template = hbs('<Message @color={{"#ff0000"}} />');
       `);
@@ -1288,7 +1294,7 @@ describe('htmlbars-inline-precompile', function () {
         const template = precompileTemplate('<Message @text={{onePlusOne}} />');
       `);
 
-      expect(transformed).toEqualCode(`
+      expect(transformed).equalCode(`
         import { precompileTemplate } from '@ember/template-compilation';
         let two = 1 + 1;
         const template = precompileTemplate("<Message @text={{two}} />", {
@@ -1312,7 +1318,7 @@ describe('htmlbars-inline-precompile', function () {
         });
       `);
 
-      expect(transformed).toEqualCode(`
+      expect(transformed).equalCode(`
         import { precompileTemplate } from '@ember/template-compilation';
         import Message from 'message';
         let two = 1 + 1;
@@ -1340,7 +1346,7 @@ describe('htmlbars-inline-precompile', function () {
         });
       `);
 
-      expect(transformed).toEqualCode(`
+      expect(transformed).equalCode(`
         import { precompileTemplate } from '@ember/template-compilation';
         import Message from 'message';
         let two = 1 + 1;
@@ -1370,7 +1376,7 @@ describe('htmlbars-inline-precompile', function () {
         });
       `);
 
-      expect(transformed).toEqualCode(`
+      expect(transformed).equalCode(`
         import { precompileTemplate } from '@ember/template-compilation';
         import Message$ from 'message';
         import Label from 'label';
@@ -1403,7 +1409,7 @@ describe('htmlbars-inline-precompile', function () {
         const template = hbs('<Message @text={{onePlusOne}} />');
       `);
 
-      expect(transformed).toEqualCode(`
+      expect(transformed).equalCode(`
         import { precompileTemplate } from "@ember/template-compilation";
         let two = 1 + 1;
         const template = precompileTemplate("<Message @text={{two}} />", {
@@ -1431,7 +1437,7 @@ describe('htmlbars-inline-precompile', function () {
         "import { hbs } from 'ember-cli-htmlbars'; const template = hbs`<Message @text={{onePlusOne}} />`;"
       );
 
-      expect(transformed).toEqualCode(`
+      expect(transformed).equalCode(`
         import { precompileTemplate } from "@ember/template-compilation";
         let two = 1 + 1;
         const template = precompileTemplate("<Message @text={{two}} />", {
@@ -1458,7 +1464,7 @@ describe('htmlbars-inline-precompile', function () {
         "import { hbs } from 'ember-cli-htmlbars'; const template = hbs`<Message @text={{onePlusOne}} />`; const other = hbs`hello`;"
       );
 
-      expect(transformed).toEqualCode(`
+      expect(transformed).equalCode(`
         import { hbs } from 'ember-cli-htmlbars';
         import { precompileTemplate } from "@ember/template-compilation";
         let two = 1 + 1;
@@ -1479,7 +1485,7 @@ describe('htmlbars-inline-precompile', function () {
         const template = precompileTemplate('&times;');
       `);
 
-      expect(transformed).toEqualCode(`
+      expect(transformed).equalCode(`
         import { precompileTemplate } from '@ember/template-compilation';
         const template = precompileTemplate('&times;');
       `);
@@ -1502,7 +1508,7 @@ describe('htmlbars-inline-precompile', function () {
          export default template('<HelloWorld @color={{red}} />', { scope: () => ({ HelloWorld }) });`
       );
 
-      expect(transformed).toEqualCode(`
+      expect(transformed).equalCode(`
         import HelloWorld from "somewhere";
         import { precompileTemplate } from "@ember/template-compilation";
         import { setComponentTemplate } from "@ember/component";
@@ -1534,7 +1540,7 @@ describe('htmlbars-inline-precompile', function () {
         `
       );
 
-      expect(transformed).toEqualCode(`
+      expect(transformed).equalCode(`
         import HelloWorld from "somewhere";
         import { precompileTemplate } from "@ember/template-compilation";
         import { setComponentTemplate } from "@ember/component";
@@ -1570,7 +1576,7 @@ describe('htmlbars-inline-precompile', function () {
         `
       );
 
-      expect(transformed).toEqualCode(`
+      expect(transformed).equalCode(`
         import HelloWorld from "somewhere";
         import { precompileTemplate } from "@ember/template-compilation";
         import { setComponentTemplate } from "@ember/component";
@@ -1615,7 +1621,7 @@ describe('htmlbars-inline-precompile', function () {
 
       let transformed = await transform(code);
 
-      expect(transformed).toEqualCode(`
+      expect(transformed).equalCode(`
         import Component from "@glimmer/component";
         import { precompileTemplate } from "@ember/template-compilation";
         import { setComponentTemplate } from "@ember/component";
@@ -1660,7 +1666,7 @@ describe('htmlbars-inline-precompile', function () {
          export default template('<HelloWorld />', { strict: false, scope: () => ({ HelloWorld }) });`
       );
 
-      expect(transformed).toEqualCode(`
+      expect(transformed).equalCode(`
         import HelloWorld from "somewhere";
         import { precompileTemplate } from "@ember/template-compilation";
         import { setComponentTemplate } from "@ember/component";
@@ -1686,7 +1692,7 @@ describe('htmlbars-inline-precompile', function () {
       "import { hbs } from 'ember-cli-htmlbars'; const template = hbs`<Message @text={{onePlusOne}} />`; const other = hbs`{{onePlusOne}}`;"
     );
 
-    expect(transformed).toEqualCode(`
+    expect(transformed).equalCode(`
       import { precompileTemplate } from "@ember/template-compilation";
       let two = 1 + 1;
       let two0 = 1 + 1;
@@ -1721,7 +1727,7 @@ describe('htmlbars-inline-precompile', function () {
        export default template('<HelloWorld />', { scope: () => ({ HelloWorld }) });`
     );
 
-    expect(normalizeWireFormat(transformed)).toEqualCode(`
+    expect(normalizeWireFormat(transformed)).equalCode(`
       import HelloWorld from "somewhere";
       import { setComponentTemplate } from "@ember/component";
       import { createTemplateFactory } from "@ember/template-factory";
@@ -1765,7 +1771,7 @@ describe('htmlbars-inline-precompile', function () {
       `
     );
 
-    expect(normalizeWireFormat(transformed)).toEqualCode(`
+    expect(normalizeWireFormat(transformed)).equalCode(`
       import HelloWorld from "somewhere";
       import { setComponentTemplate } from "@ember/component";
       import { createTemplateFactory } from "@ember/template-factory";
@@ -1852,7 +1858,7 @@ describe('htmlbars-inline-precompile', function () {
         var compiled = precompileTemplate('<Foo /><MyButton />', { scope: () => ({ Foo: bar, MyButton}) });
       `);
 
-      expect(normalizeWireFormat(transformed)).toEqualCode(`
+      expect(normalizeWireFormat(transformed)).equalCode(`
         import bar from "bar";
         import MyButton from 'my-button';
         import { createTemplateFactory } from "@ember/template-factory";
@@ -1920,7 +1926,7 @@ describe('htmlbars-inline-precompile', function () {
         }
       `);
       expect(spy.firstCall.lastArg).toHaveProperty('locals', ['this']);
-      expect(normalizeWireFormat(transformed)).toEqualCode(`
+      expect(normalizeWireFormat(transformed)).equalCode(`
         import { createTemplateFactory } from "@ember/template-factory";
         export function example() {
           return createTemplateFactory(
@@ -1959,7 +1965,7 @@ describe('htmlbars-inline-precompile', function () {
         `
       );
 
-      expect(transformed).toEqualCode(`
+      expect(transformed).equalCode(`
         import HelloWorld from "somewhere";
         import { precompileTemplate } from "@ember/template-compilation";
         import { setComponentTemplate } from "@ember/component";
@@ -1988,7 +1994,7 @@ describe('htmlbars-inline-precompile', function () {
         `
           );
 
-          expect(transformed).toEqualCode(`
+          expect(transformed).equalCode(`
         import { precompileTemplate } from "@ember/template-compilation";
         import { setComponentTemplate } from "@ember/component";
         import templateOnly from "@ember/component/template-only";
@@ -2021,7 +2027,7 @@ describe('htmlbars-inline-precompile', function () {
         `
       );
 
-      expect(transformed).toEqualCode(`
+      expect(transformed).equalCode(`
         import { precompileTemplate } from "@ember/template-compilation";
         import { setComponentTemplate } from "@ember/component";
         import templateOnly from "@ember/component/template-only";
@@ -2048,7 +2054,7 @@ describe('htmlbars-inline-precompile', function () {
         `
       );
 
-      expect(transformed).toEqualCode(`
+      expect(transformed).equalCode(`
         import { precompileTemplate } from "@ember/template-compilation";
         import { setComponentTemplate } from "@ember/component";
         import templateOnly from "@ember/component/template-only";
@@ -2078,7 +2084,7 @@ describe('htmlbars-inline-precompile', function () {
         `
       );
 
-      expect(transformed).toEqualCode(`
+      expect(transformed).equalCode(`
         import { precompileTemplate } from "@ember/template-compilation";
         import { setComponentTemplate } from "@ember/component";
         import templateOnly from "@ember/component/template-only";
@@ -2124,7 +2130,7 @@ describe('htmlbars-inline-precompile', function () {
         `
       );
 
-      expect(transformed).toEqualCode(`
+      expect(transformed).equalCode(`
         import SomeComponent from './elsewhere.js';
         import { precompileTemplate } from "@ember/template-compilation";
         import { setComponentTemplate } from "@ember/component";
@@ -2170,7 +2176,7 @@ describe('htmlbars-inline-precompile', function () {
         `
       );
 
-      expect(transformed).toEqualCode(`
+      expect(transformed).equalCode(`
         import Component from '@glimmer/component';
         import { precompileTemplate } from "@ember/template-compilation";
         import { setComponentTemplate } from "@ember/component";
@@ -2219,7 +2225,7 @@ describe('htmlbars-inline-precompile', function () {
         `
       );
 
-      expect(transformed).toEqualCode(`
+      expect(transformed).equalCode(`
         import Component from "@glimmer/component";
         import { precompileTemplate } from "@ember/template-compilation";
         import { setComponentTemplate } from "@ember/component";
@@ -2263,7 +2269,7 @@ describe('htmlbars-inline-precompile', function () {
         `
       );
 
-      expect(transformed).toEqualCode(`
+      expect(transformed).equalCode(`
         import { precompileTemplate } from "@ember/template-compilation";
         import { setComponentTemplate } from "@ember/component";
         import templateOnly from "@ember/component/template-only";
@@ -2289,7 +2295,7 @@ describe('htmlbars-inline-precompile', function () {
         `
       );
 
-      expect(normalizeWireFormat(transformed)).toEqualCode(`
+      expect(normalizeWireFormat(transformed)).equalCode(`
         import HelloWorld from "somewhere";
         import { setComponentTemplate } from "@ember/component";
         import { createTemplateFactory } from "@ember/template-factory";
@@ -2331,7 +2337,7 @@ describe('htmlbars-inline-precompile', function () {
         `
       );
 
-      expect(transformed).toEqualCode(`
+      expect(transformed).equalCode(`
         import HelloWorld from "somewhere";
         import { precompileTemplate } from "@ember/template-compilation";
         import { setComponentTemplate } from "@ember/component";
@@ -2362,7 +2368,7 @@ describe('htmlbars-inline-precompile', function () {
         `
       );
 
-      expect(transformed).toEqualCode(`
+      expect(transformed).equalCode(`
         import { precompileTemplate } from "@ember/template-compilation";
         import { setComponentTemplate } from "@ember/component";
         import templateOnly from "@ember/component/template-only";
@@ -2402,7 +2408,7 @@ describe('htmlbars-inline-precompile', function () {
         `
       );
 
-      expect(normalizeWireFormat(transformed)).toEqualCode(`
+      expect(normalizeWireFormat(transformed)).equalCode(`
     import HelloWorld from 'somewhere';
     import { setComponentTemplate } from "@ember/component";
     import { createTemplateFactory } from "@ember/template-factory";
@@ -2448,7 +2454,7 @@ describe('htmlbars-inline-precompile', function () {
         )
       );
 
-      expect(transformed).toEqualCode(`
+      expect(transformed).equalCode(`
           import HelloWorld from "somewhere";
           import { precompileTemplate } from "@ember/template-compilation";
           import { setComponentTemplate } from "@ember/component";
@@ -2480,7 +2486,7 @@ describe('htmlbars-inline-precompile', function () {
         )
       );
 
-      expect(transformed).toEqualCode(`
+      expect(transformed).equalCode(`
           import { precompileTemplate } from "@ember/template-compilation";
           import { setComponentTemplate } from "@ember/component";
           import templateOnly from "@ember/component/template-only";
@@ -2513,7 +2519,7 @@ describe('htmlbars-inline-precompile', function () {
         )
       );
 
-      expect(transformed).toEqualCode(`
+      expect(transformed).equalCode(`
           import HelloWorld from "somewhere";
           import { precompileTemplate } from "@ember/template-compilation";
           import { setComponentTemplate } from "@ember/component";
@@ -2549,7 +2555,7 @@ describe('htmlbars-inline-precompile', function () {
         )
       );
 
-      expect(transformed).toEqualCode(`
+      expect(transformed).equalCode(`
           import HelloWorld from "somewhere";
           import { precompileTemplate } from "@ember/template-compilation";
           import { setComponentTemplate } from "@ember/component";
