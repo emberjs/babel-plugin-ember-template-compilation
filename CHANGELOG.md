@@ -1,5 +1,21 @@
 # Changelog
 
+## Release (2025-12-03)
+
+* babel-plugin-ember-template-compilation 4.0.0 (major)
+
+#### :boom: Breaking Change
+* `babel-plugin-ember-template-compilation`
+  * [#99](https://github.com/emberjs/babel-plugin-ember-template-compilation/pull/99) avoid leaking real filename path in output due to moduleName ([@void-mAlex](https://github.com/void-mAlex))
+
+#### :house: Internal
+* `babel-plugin-ember-template-compilation`
+  * [#105](https://github.com/emberjs/babel-plugin-ember-template-compilation/pull/105) Switch to Vitest and build into a dist dir ([@ef4](https://github.com/ef4))
+
+#### Committers: 2
+- Alex ([@void-mAlex](https://github.com/void-mAlex))
+- Edward Faulkner ([@ef4](https://github.com/ef4))
+
 ## Release (2025-08-24)
 
 * babel-plugin-ember-template-compilation 3.0.1 (patch)

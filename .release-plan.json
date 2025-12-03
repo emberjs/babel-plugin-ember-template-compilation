@@ -1,14 +1,14 @@
 {
   "solution": {
     "babel-plugin-ember-template-compilation": {
-      "impact": "patch",
-      "oldVersion": "3.0.0",
-      "newVersion": "3.0.1",
+      "impact": "major",
+      "oldVersion": "3.0.1",
+      "newVersion": "4.0.0",
       "tagName": "latest",
       "constraints": [
         {
-          "impact": "patch",
-          "reason": "Appears in changelog section :bug: Bug Fix"
+          "impact": "major",
+          "reason": "Appears in changelog section :boom: Breaking Change"
         },
         {
           "impact": "patch",
@@ -18,5 +18,5 @@
       "pkgJSONPath": "./package.json"
     }
   },
-  "description": "## Release (2025-08-24)\n\n* babel-plugin-ember-template-compilation 3.0.1 (patch)\n\n#### :bug: Bug Fix\n* `babel-plugin-ember-template-compilation`\n  * [#100](https://github.com/emberjs/babel-plugin-ember-template-compilation/pull/100) Add's URL to allowed globals list ([@evoactivity](https://github.com/evoactivity))\n\n#### :house: Internal\n* `babel-plugin-ember-template-compilation`\n  * [#95](https://github.com/emberjs/babel-plugin-ember-template-compilation/pull/95) releasing alpha->latest ([@ef4](https://github.com/ef4))\n\n#### Committers: 2\n- Edward Faulkner ([@ef4](https://github.com/ef4))\n- Liam Potter ([@evoactivity](https://github.com/evoactivity))\n"
+  "description": "## Release (2025-12-03)\n\n* babel-plugin-ember-template-compilation 4.0.0 (major)\n\n#### :boom: Breaking Change\n* `babel-plugin-ember-template-compilation`\n  * [#99](https://github.com/emberjs/babel-plugin-ember-template-compilation/pull/99) avoid leaking real filename path in output due to moduleName ([@void-mAlex](https://github.com/void-mAlex))\n\n#### :house: Internal\n* `babel-plugin-ember-template-compilation`\n  * [#105](https://github.com/emberjs/babel-plugin-ember-template-compilation/pull/105) Switch to Vitest and build into a dist dir ([@ef4](https://github.com/ef4))\n\n#### Committers: 2\n- Alex ([@void-mAlex](https://github.com/void-mAlex))\n- Edward Faulkner ([@ef4](https://github.com/ef4))\n"
 }
