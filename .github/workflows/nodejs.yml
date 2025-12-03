@@ -44,6 +44,7 @@ jobs:
     strategy:
       matrix:
         node: ['18', '20', '22']
+        ember: ['~6.9.0', '6.10.0-beta.1']
         os: ['ubuntu-latest', 'windows-latest']
     runs-on: ${{ matrix.os }}
     steps:
@@ -53,5 +54,7 @@ jobs:
         with:
           cache: 'pnpm'
           node-version: ${{ matrix.node }}
+      - name: Set ember version
+        run: node ./scripts/set-ember-version.mjs ${{ matrix.ember }}
       - run: pnpm install --no-lockfile
       - run: pnpm test
