@@ -6,6 +6,7 @@
     "inlineSources": true,
     "inlineSourceMap": true,
     "declaration": true,
+    "outDir": "dist",
 
     // Environment Configuration
     "experimentalDecorators": true,
