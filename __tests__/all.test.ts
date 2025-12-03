@@ -1,3 +1,4 @@
+import './raise-on-deprecated-template-compiler.js';
 import path from 'path';
 import * as babel from '@babel/core';
 import HTMLBarsInlinePrecompile, { Options } from '../src/node-main.js';
@@ -14,18 +15,14 @@ import { Preprocessor } from 'content-tag';
 import { ALLOWED_GLOBALS } from '../src/scope-locals.js';
 import { fileURLToPath } from 'url';
 import { describe, it, beforeEach, afterEach, expect, chai } from 'vitest';
-import { codeEquality } from 'code-equality-assertions/chai';
+import { codeEquality, type CodeEqualityAssertions } from 'code-equality-assertions/chai';
 chai.use(codeEquality);
 
-// @ts-expect-error no upstream types
-import * as _compiler from 'ember-source/dist/ember-template-compiler.js';
-
-const compiler: EmberTemplateCompiler = _compiler.default;
+const compiler: EmberTemplateCompiler = // @ts-expect-error no upstream types
+  await import('ember-source/dist/ember-template-compiler.js');
 
 declare module 'vitest' {
-  interface Assertion {
-    equalCode(expectedCode: string, message?: string): void;
-  }
+  interface Assertion extends CodeEqualityAssertions {}
 }
 
 describe('htmlbars-inline-precompile', function () {
