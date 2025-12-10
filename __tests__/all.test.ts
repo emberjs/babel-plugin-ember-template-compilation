@@ -18,6 +18,8 @@ import { codeEquality, type CodeEqualityAssertions } from 'code-equality-asserti
 
 chai.use(codeEquality);
 
+const noLexicalThis = process.env.NO_LEXICAL_THIS;
+
 let precompileSpy: Mock;
 
 async function mockTemplateCompiler(importOriginal: () => Promise<EmberTemplateCompiler>) {
@@ -2017,27 +2019,29 @@ describe('htmlbars-inline-precompile', function () {
       `);
     });
 
-    it('captures lexical "this" in mustache when template is used as an expression', async function () {
-      plugins = [
-        [
-          HTMLBarsInlinePrecompile,
-          {
-            targetFormat: 'hbs',
-          },
-        ],
-      ];
+    it.skipIf(noLexicalThis)(
+      'captures lexical "this" in mustache when template is used as an expression',
+      async function () {
+        plugins = [
+          [
+            HTMLBarsInlinePrecompile,
+            {
+              targetFormat: 'hbs',
+            },
+          ],
+        ];
 
-      let transformed = await transform(
-        `import { template } from '@ember/template-compiler'; 
+        let transformed = await transform(
+          `import { template } from '@ember/template-compiler'; 
         function upper(s) { return s.toUpperCase() }
         export function exampleTest() {
           this.message = "hello";
           render(template('{{upper this.message}}', { eval: function() { return eval(arguments[0]) } }))
         }
         `
-      );
+        );
 
-      expect(transformed).equalCode(`
+        expect(transformed).equalCode(`
         import { precompileTemplate } from "@ember/template-compilation";
         import { setComponentTemplate } from "@ember/component";
         import templateOnly from "@ember/component/template-only";
@@ -2060,7 +2064,8 @@ describe('htmlbars-inline-precompile', function () {
           );
         }
       `);
-    });
+      }
+    );
 
     it('captures lexical "this" in Element when template is used as an expression', async function () {
       plugins = [
