@@ -1878,7 +1878,7 @@ describe('htmlbars-inline-precompile', function () {
       expect(precompileSpy.mock.lastCall?.at(-1)).toHaveProperty('locals', ['bar']);
     });
 
-    it('can pass lexically scoped "this"', async function () {
+    it.skipIf(noLexicalThis)('can pass lexically scoped "this"', async function () {
       let transformed = await transform(`
         import { precompileTemplate } from '@ember/template-compilation';
         export function example() {
