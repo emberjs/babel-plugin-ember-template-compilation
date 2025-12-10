@@ -8,9 +8,6 @@ importers:
 
   .:
     dependencies:
-      '@glimmer/env':
-        specifier: ^0.1.7
-        version: 0.1.7
       '@glimmer/syntax':
         specifier: '>= 0.94.9'
         version: 0.94.9
@@ -42,6 +39,9 @@ importers:
       '@babel/traverse':
         specifier: ^7.14.5
         version: 7.27.0
+      '@glimmer/env':
+        specifier: ^0.1.7
+        version: 0.1.7
       '@types/babel__core':
         specifier: ^7.20.1
         version: 7.20.5
