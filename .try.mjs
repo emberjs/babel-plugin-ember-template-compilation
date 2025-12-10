@@ -1,18 +1,3 @@
-/*
-      matrix: 
-        node: ['18', '20', '22']
-        ember: ['~3.28.0', '~4.12.0', '~5.12.0', '~6.4.0', 'latest', 'beta']
-        os: ['ubuntu-latest']
-        include:
-          - node: 22
-            ember: '~6.4.0'
-            os: windows-latest
-          - node: 22
-            ember: latest
-            os: windows-latest
-
-*/
-
 const embers = [
   {
     name: 'ember-lts-3.28',
