@@ -2067,27 +2067,29 @@ describe('htmlbars-inline-precompile', function () {
       }
     );
 
-    it('captures lexical "this" in Element when template is used as an expression', async function () {
-      plugins = [
-        [
-          HTMLBarsInlinePrecompile,
-          {
-            targetFormat: 'hbs',
-          },
-        ],
-      ];
+    it.skipIf(noLexicalThis)(
+      'captures lexical "this" in Element when template is used as an expression',
+      async function () {
+        plugins = [
+          [
+            HTMLBarsInlinePrecompile,
+            {
+              targetFormat: 'hbs',
+            },
+          ],
+        ];
 
-      let transformed = await transform(
-        `import { template } from '@ember/template-compiler'; 
+        let transformed = await transform(
+          `import { template } from '@ember/template-compiler'; 
         import SomeComponent from './elsewhere.js';
         export function exampleTest() {
           this.message = SomeComponent;
           render(template('<this.message />', { eval: function() { return eval(arguments[0]) } }))
         }
         `
-      );
+        );
 
-      expect(transformed).equalCode(`
+        expect(transformed).equalCode(`
         import SomeComponent from './elsewhere.js';
         import { precompileTemplate } from "@ember/template-compilation";
         import { setComponentTemplate } from "@ember/component";
@@ -2107,7 +2109,8 @@ describe('htmlbars-inline-precompile', function () {
           );
         }
       `);
-    });
+      }
+    );
 
     it('does not captures lexical "this" when template is used in class body', async function () {
       plugins = [
@@ -2412,7 +2415,7 @@ describe('htmlbars-inline-precompile', function () {
         `);
     });
 
-    it('expression form can capture lexical "this"', async function () {
+    it.skipIf(noLexicalThis)('expression form can capture lexical "this"', async function () {
       plugins = [
         [
           HTMLBarsInlinePrecompile,
