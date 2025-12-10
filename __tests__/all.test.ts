@@ -386,7 +386,7 @@ describe('htmlbars-inline-precompile', function () {
           */
           {
             id: "<id>",
-            block: "[[[8,[32,0],null,null,null]],[],[]]",
+            block: "<block>",
             moduleName: "<moduleName>",
             scope: () => [Setup],
             isStrictMode: true,
@@ -813,7 +813,7 @@ describe('htmlbars-inline-precompile', function () {
        */
       {
         id: "<id>",
-        block: '[[[8,[39,0],null,[["@text"],[[32,0]]],null]],[],["message"]]',
+        block: "<block>",
         moduleName: "<moduleName>",
         scope: () => [two],
         isStrictMode: false,
@@ -1705,7 +1705,7 @@ describe('htmlbars-inline-precompile', function () {
       */
         {
           id: "<id>",
-          block: "[[[8,[32,0],null,null,null]],[],[]]",
+          block: "<block>",
           moduleName: "<moduleName>",
           scope: () => [HelloWorld],
           isStrictMode: true,
@@ -1750,7 +1750,7 @@ describe('htmlbars-inline-precompile', function () {
           */
               {
                 id: "<id>",
-                block: "[[[8,[32,0],null,null,null]],[],[]]",
+                block: "<block>",
                 moduleName: "<moduleName>",
                 scope: () => [HelloWorld],
                 isStrictMode: true,
@@ -1829,7 +1829,7 @@ describe('htmlbars-inline-precompile', function () {
           */
           {
             id: "<id>",
-            block: "[[[8,[32,0],null,null,null],[8,[32,1],null,null,null]],[],[]]",
+            block: "<block>",
             moduleName: "<moduleName>",
             scope: () => [bar, MyButton],
             isStrictMode: false,
@@ -1893,7 +1893,7 @@ describe('htmlbars-inline-precompile', function () {
             */
             {
               id: "<id>",
-              block: '[[[1,[32,0,["message"]]]],[],[]]',
+              block: "<block>",
               moduleName: "<moduleName>",
               scope: () => [this],
               isStrictMode: false,
@@ -2255,7 +2255,7 @@ describe('htmlbars-inline-precompile', function () {
             */
             {
               id: "<id>",
-              block: "[[[8,[32,0],null,null,null]],[],[]]",
+              block: "<block>",
               moduleName: "<moduleName>",
               scope: () => [HelloWorld],
               isStrictMode: true,
@@ -2365,7 +2365,7 @@ describe('htmlbars-inline-precompile', function () {
        */
         {
           id: "<id>",
-          block: "[[[8,[32,0],null,null,null]],[],[]]",
+          block: "<block>",
           moduleName: "<moduleName>",
           scope: () => [HelloWorld],
           isStrictMode: true,
@@ -2517,5 +2517,6 @@ function normalizeWireFormat(src: string): string {
   return src
     .replace(/"moduleName":\s"[^"]+"/, '"moduleName": "<moduleName>"')
     .replace(/"id":\s"[^"]+"/, '"id": "<id>"')
-    .replace(`"id": null`, '"id": "<id>"');
+    .replace(`"id": null`, '"id": "<id>"')
+    .replace(/"block":.+,\n/, '"block": "<block>",');
 }
