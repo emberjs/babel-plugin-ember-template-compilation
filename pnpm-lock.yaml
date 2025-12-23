@@ -64,8 +64,8 @@ importers:
         specifier: ^1.8.0
         version: 1.8.2
       content-tag:
-        specifier: ^0.1.0
-        version: 0.1.0
+        specifier: ^4.1.0
+        version: 4.1.0
       cross-env:
         specifier: ^7.0.3
         version: 7.0.3
@@ -104,7 +104,7 @@ importers:
         version: 5.8.2
       vitest:
         specifier: ^4.0.15
-        version: 4.0.15(@types/node@20.17.27)(yaml@1.10.2)
+        version: 4.0.15(@types/node@20.17.27)(yaml@2.8.2)
 
 packages:
 
@@ -1876,8 +1876,8 @@ packages:
     resolution: {integrity: sha512-aMKprgk5YhBNyH25hj8wGt2+D52Sw1DRRIzqBwLp2Ya9mFmY8KPvvtvmna8SxVR9JMZ4kzMD68N22vlaRpkeFA==}
     engines: {node: '>=8'}
 
-  content-tag@0.1.0:
-    resolution: {integrity: sha512-r5cLLbScxVhXDyKu2ZJcGGueoU3D0qIDwFpiCOCiCTFpVKqwE6KSV0ZtQCKnuaw++oqFPiu1CsxHYt79kedAQg==}
+  content-tag@4.1.0:
+    resolution: {integrity: sha512-On6gUuvI1l5MScHO+Xbwjeq1Pk9H6HOipDWkzqGGUGmKpq6K5TRmQuCl1LGSHbdIo2l+lSsgLKrLgCl5kKYA+A==}
 
   convert-source-map@2.0.0:
     resolution: {integrity: sha512-Kvp459HrV2FEJ1CAsi1Ku+MY3kasH19TFykTz2xWmMeq6bk2NU3XXvfJ+Q61m0xktWwt+1HSYf3JZsTms3aRJg==}
@@ -4618,6 +4618,11 @@ packages:
     resolution: {integrity: sha512-r3vXyErRCYJ7wg28yvBY5VSoAF8ZvlcW9/BwUzEtUsjvX/DKs24dIkuwjtuprwJJHsbyUbLApepYTR1BN4uHrg==}
     engines: {node: '>= 6'}
 
+  yaml@2.8.2:
+    resolution: {integrity: sha512-mplynKqc1C2hTVYxd0PU2xQAc22TI1vShAYGksCCfxbn/dFwnHTNi1bvYsBTkhdUNtGIf5xNOg938rrSSYvS9A==}
+    engines: {node: '>= 14.6'}
+    hasBin: true
+
   yargs-parser@13.1.2:
     resolution: {integrity: sha512-3lbsNRf/j+A4QuSZfDRA7HRSfWrzO0YjqTJd5kjAq37Zep1CEgaYmrH9Q3GwPiB9cHyd1Y1UwggGhJGoxipbzg==}
 
@@ -6142,13 +6147,13 @@ snapshots:
       chai: 6.2.1
       tinyrainbow: 3.0.3
 
-  '@vitest/mocker@4.0.15(vite@7.2.6(@types/node@20.17.27)(yaml@1.10.2))':
+  '@vitest/mocker@4.0.15(vite@7.2.6(@types/node@20.17.27)(yaml@2.8.2))':
     dependencies:
       '@vitest/spy': 4.0.15
       estree-walker: 3.0.3
       magic-string: 0.30.21
     optionalDependencies:
-      vite: 7.2.6(@types/node@20.17.27)(yaml@1.10.2)
+      vite: 7.2.6(@types/node@20.17.27)(yaml@2.8.2)
 
   '@vitest/pretty-format@4.0.15':
     dependencies:
@@ -6750,7 +6755,7 @@ snapshots:
       write-file-atomic: 3.0.3
       xdg-basedir: 4.0.0
 
-  content-tag@0.1.0: {}
+  content-tag@4.1.0: {}
 
   convert-source-map@2.0.0: {}
 
@@ -9727,7 +9732,7 @@ snapshots:
       resolve-package-path: 3.1.0
       semver: 7.7.1
 
-  vite@7.2.6(@types/node@20.17.27)(yaml@1.10.2):
+  vite@7.2.6(@types/node@20.17.27)(yaml@2.8.2):
     dependencies:
       esbuild: 0.25.12
       fdir: 6.5.0(picomatch@4.0.3)
@@ -9738,12 +9743,12 @@ snapshots:
     optionalDependencies:
       '@types/node': 20.17.27
       fsevents: 2.3.3
-      yaml: 1.10.2
+      yaml: 2.8.2
 
-  vitest@4.0.15(@types/node@20.17.27)(yaml@1.10.2):
+  vitest@4.0.15(@types/node@20.17.27)(yaml@2.8.2):
     dependencies:
       '@vitest/expect': 4.0.15
-      '@vitest/mocker': 4.0.15(vite@7.2.6(@types/node@20.17.27)(yaml@1.10.2))
+      '@vitest/mocker': 4.0.15(vite@7.2.6(@types/node@20.17.27)(yaml@2.8.2))
       '@vitest/pretty-format': 4.0.15
       '@vitest/runner': 4.0.15
       '@vitest/snapshot': 4.0.15
@@ -9760,7 +9765,7 @@ snapshots:
       tinyexec: 1.0.2
       tinyglobby: 0.2.15
       tinyrainbow: 3.0.3
-      vite: 7.2.6(@types/node@20.17.27)(yaml@1.10.2)
+      vite: 7.2.6(@types/node@20.17.27)(yaml@2.8.2)
       why-is-node-running: 2.3.0
     optionalDependencies:
       '@types/node': 20.17.27
@@ -9919,6 +9924,9 @@ snapshots:
   yallist@4.0.0: {}
 
   yaml@1.10.2: {}
+
+  yaml@2.8.2:
+    optional: true
 
   yargs-parser@13.1.2:
     dependencies:
