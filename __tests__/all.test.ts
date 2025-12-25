@@ -2446,13 +2446,13 @@ describe('htmlbars-inline-precompile', function () {
 
       let p = new Preprocessor();
 
-      let transformed = await transform(
-        p.process(
-          `import HelloWorld from 'somewhere';
-           const MyComponent = <template><HelloWorld /></template>;
-          `
-        )
+      const { code: preTransformed } = p.process(
+        `import HelloWorld from 'somewhere';
+         const MyComponent = <template><HelloWorld /></template>;
+        `
       );
+
+      let transformed = await transform(preTransformed);
 
       expect(transformed).equalCode(`
           import HelloWorld from "somewhere";
@@ -2476,15 +2476,15 @@ describe('htmlbars-inline-precompile', function () {
 
       let p = new Preprocessor();
 
-      let transformed = await transform(
-        p.process(
-          `
-          export function example() {
-            return <template>{{this.message}}</template>;
-          }
-          `
-        )
+      const { code: preTransformed } = p.process(
+        `
+        export function example() {
+          return <template>{{this.message}}</template>;
+        }
+        `
       );
+
+      let transformed = await transform(preTransformed);
 
       expect(transformed).equalCode(`
           import { precompileTemplate } from "@ember/template-compilation";
@@ -2509,15 +2509,15 @@ describe('htmlbars-inline-precompile', function () {
 
       let p = new Preprocessor();
 
-      let transformed = await transform(
-        p.process(
-          `import HelloWorld from 'somewhere';
-           export default class {
-             <template><HelloWorld /></template>
-           }
-          `
-        )
+      const { code: preTransformed } = p.process(
+        `import HelloWorld from 'somewhere';
+         export default class {
+           <template><HelloWorld /></template>
+         }
+        `
       );
+
+      let transformed = await transform(preTransformed);
 
       expect(transformed).equalCode(`
           import HelloWorld from "somewhere";
@@ -2544,16 +2544,16 @@ describe('htmlbars-inline-precompile', function () {
 
       let p = new Preprocessor();
 
-      let transformed = await transform(
-        p.process(
-          `import HelloWorld from 'somewhere';
-           export default class {
-             h = HelloWorld;
-             <template><this.h /></template>
-           }
-          `
-        )
+      const { code: preTransformed } = p.process(
+        `import HelloWorld from 'somewhere';
+         export default class {
+           h = HelloWorld;
+           <template><this.h /></template>
+         }
+        `
       );
+
+      let transformed = await transform(preTransformed);
 
       expect(transformed).equalCode(`
           import HelloWorld from "somewhere";
