@@ -18,7 +18,7 @@ interface ModuleConfig {
   export: string;
   allowTemplateLiteral?: true;
   enableScope?: true;
-  rfc931Support?: 'polyfilled';
+  rfc931Support?: 'polyfilled' | 'native';
 }
 
 const INLINE_PRECOMPILE_MODULES: ModuleConfig[] = [
@@ -632,6 +632,11 @@ function updateCallForm<EnvSpecificOptions>(
     //
     target = target.get('arguments.0') as NodePath<t.CallExpression>;
   }
+
+  if (formatOptions.rfc931Support === 'native') {
+    // TODO: implement template()
+  }
+
   // We deliberately do updateScope at the end so that when it updates
   // references, those references will point to the accurate paths in the
   // final AST.
