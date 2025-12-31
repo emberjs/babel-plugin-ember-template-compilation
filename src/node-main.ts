@@ -57,7 +57,17 @@ async function handleNodeSpecificOptions(opts: Options): Promise<SharedOptions> 
     assertTemplateCompiler(opts.compiler);
     compiler = opts.compiler;
   } else if ((opts.targetFormat ?? 'wire') === 'wire') {
-    let mod: any = await cwdImport('ember-source/dist/ember-template-compiler.js');
+    let mod: any;
+    try {
+      // the newer path
+      mod = await cwdImport('ember-source/ember-template-compiler/index.js');
+    } catch (err: any) {
+      if (err.code !== 'ERR_MODULE_NOT_FOUND') {
+        throw err;
+      }
+      // the deprecated path
+      mod = await cwdImport('ember-source/dist/ember-template-compiler.js');
+    }
     assertTemplateCompiler(mod);
     compiler = mod;
   }
