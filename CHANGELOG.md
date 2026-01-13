@@ -1,5 +1,27 @@
 # Changelog
 
+## Release (2026-01-13)
+
+* babel-plugin-ember-template-compilation 4.0.0 (major)
+
+#### :boom: Breaking Change
+* `babel-plugin-ember-template-compilation`
+  * [#99](https://github.com/emberjs/babel-plugin-ember-template-compilation/pull/99) avoid leaking real filename path in output due to moduleName ([@void-mAlex](https://github.com/void-mAlex))
+
+#### :rocket: Enhancement
+* `babel-plugin-ember-template-compilation`
+  * [#106](https://github.com/emberjs/babel-plugin-ember-template-compilation/pull/106) Fix template compiler deprecation in Ember 6.8 betas ([@ef4](https://github.com/ef4))
+
+#### :house: Internal
+* `babel-plugin-ember-template-compilation`
+  * [#110](https://github.com/emberjs/babel-plugin-ember-template-compilation/pull/110) chore: bump `content-tag` ([@aklkv](https://github.com/aklkv))
+  * [#105](https://github.com/emberjs/babel-plugin-ember-template-compilation/pull/105) Switch to Vitest and build into a dist dir ([@ef4](https://github.com/ef4))
+
+#### Committers: 3
+- Alex ([@void-mAlex](https://github.com/void-mAlex))
+- Alexey Kulakov ([@aklkv](https://github.com/aklkv))
+- Edward Faulkner ([@ef4](https://github.com/ef4))
+
 ## Release (2025-08-24)
 
 * babel-plugin-ember-template-compilation 3.0.1 (patch)
