@@ -1,14 +1,14 @@
 {
   "solution": {
     "babel-plugin-ember-template-compilation": {
-      "impact": "patch",
-      "oldVersion": "3.0.0",
-      "newVersion": "3.0.1",
-      "tagName": "latest",
+      "impact": "minor",
+      "oldVersion": "3.0.1",
+      "newVersion": "3.1.0",
+      "tagName": "3-x",
       "constraints": [
         {
-          "impact": "patch",
-          "reason": "Appears in changelog section :bug: Bug Fix"
+          "impact": "minor",
+          "reason": "Appears in changelog section :rocket: Enhancement"
         },
         {
           "impact": "patch",
@@ -18,5 +18,5 @@
       "pkgJSONPath": "./package.json"
     }
   },
-  "description": "## Release (2025-08-24)\n\n* babel-plugin-ember-template-compilation 3.0.1 (patch)\n\n#### :bug: Bug Fix\n* `babel-plugin-ember-template-compilation`\n  * [#100](https://github.com/emberjs/babel-plugin-ember-template-compilation/pull/100) Add's URL to allowed globals list ([@evoactivity](https://github.com/evoactivity))\n\n#### :house: Internal\n* `babel-plugin-ember-template-compilation`\n  * [#95](https://github.com/emberjs/babel-plugin-ember-template-compilation/pull/95) releasing alpha->latest ([@ef4](https://github.com/ef4))\n\n#### Committers: 2\n- Edward Faulkner ([@ef4](https://github.com/ef4))\n- Liam Potter ([@evoactivity](https://github.com/evoactivity))\n"
+  "description": "## Release (2026-01-13)\n\n* babel-plugin-ember-template-compilation 3.1.0 (minor)\n\n#### :rocket: Enhancement\n* `babel-plugin-ember-template-compilation`\n  * [#113](https://github.com/emberjs/babel-plugin-ember-template-compilation/pull/113) [backport 3.x] Fix template compiler deprecation in Ember 6.8 betas ([@mansona](https://github.com/mansona))\n\n#### :house: Internal\n* `babel-plugin-ember-template-compilation`\n  * [#111](https://github.com/emberjs/babel-plugin-ember-template-compilation/pull/111) [3.x backport] switch to vitest and build into dist subdir ([@mansona](https://github.com/mansona))\n  * [#112](https://github.com/emberjs/babel-plugin-ember-template-compilation/pull/112) setup release-plan on 3.x branch ([@mansona](https://github.com/mansona))\n\n#### Committers: 1\n- Chris Manson ([@mansona](https://github.com/mansona))\n"
 }

@@ -1,5 +1,21 @@
 # Changelog
 
+## Release (2026-01-13)
+
+* babel-plugin-ember-template-compilation 3.1.0 (minor)
+
+#### :rocket: Enhancement
+* `babel-plugin-ember-template-compilation`
+  * [#113](https://github.com/emberjs/babel-plugin-ember-template-compilation/pull/113) [backport 3.x] Fix template compiler deprecation in Ember 6.8 betas ([@mansona](https://github.com/mansona))
+
+#### :house: Internal
+* `babel-plugin-ember-template-compilation`
+  * [#111](https://github.com/emberjs/babel-plugin-ember-template-compilation/pull/111) [3.x backport] switch to vitest and build into dist subdir ([@mansona](https://github.com/mansona))
+  * [#112](https://github.com/emberjs/babel-plugin-ember-template-compilation/pull/112) setup release-plan on 3.x branch ([@mansona](https://github.com/mansona))
+
+#### Committers: 1
+- Chris Manson ([@mansona](https://github.com/mansona))
+
 ## Release (2025-08-24)
 
 * babel-plugin-ember-template-compilation 3.0.1 (patch)
