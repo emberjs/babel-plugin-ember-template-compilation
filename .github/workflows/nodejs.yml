@@ -29,7 +29,8 @@ jobs:
   test:
     name: Tests
     runs-on: ubuntu-latest
-
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -38,13 +39,17 @@ jobs:
           cache: 'pnpm'
       - run: pnpm install
       - run: pnpm test
+      # For the Try Scenarios
+      - id: set-matrix
+        run: |
+          echo "matrix=$(pnpm -s dlx @embroider/try list)" >> $GITHUB_OUTPUT
 
   floating-test:
     name: Floating dependencies
+    needs: 'test'
     strategy:
-      matrix:
-        node: ['18', '20', '22']
-        os: ['ubuntu-latest', 'windows-latest']
+      fail-fast: false
+      matrix: ${{fromJson(needs.test.outputs.matrix)}}
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -53,5 +58,7 @@ jobs:
         with:
           cache: 'pnpm'
           node-version: ${{ matrix.node }}
+      - run: pnpm dlx @embroider/try apply ${{ matrix.name }}
       - run: pnpm install --no-lockfile
       - run: pnpm test
+        env: ${{ matrix.env }}

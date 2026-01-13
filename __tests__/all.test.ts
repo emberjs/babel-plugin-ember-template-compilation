@@ -1,3 +1,4 @@
+import './raise-on-deprecated-template-compiler.js';
 import path from 'path';
 import * as babel from '@babel/core';
 import HTMLBarsInlinePrecompile, { Options } from '../src/node-main.js';
@@ -8,24 +9,36 @@ import TransformUnicodeEscapes from '@babel/plugin-transform-unicode-escapes';
 import TransformTypescript from '@babel/plugin-transform-typescript';
 import { stripIndent } from 'common-tags';
 import { EmberTemplateCompiler } from '../src/ember-template-compiler.js';
-import sinon from 'sinon';
 import { ExtendedPluginBuilder } from '../src/js-utils.js';
 import { Preprocessor } from 'content-tag';
 import { ALLOWED_GLOBALS } from '../src/scope-locals.js';
 import { fileURLToPath } from 'url';
-import { describe, it, beforeEach, afterEach, expect, chai } from 'vitest';
-import { codeEquality } from 'code-equality-assertions/chai';
+import { describe, it, beforeEach, afterEach, expect, chai, vi, type Mock } from 'vitest';
+import { codeEquality, type CodeEqualityAssertions } from 'code-equality-assertions/chai';
+
 chai.use(codeEquality);
 
-// @ts-expect-error no upstream types
-import * as _compiler from 'ember-source/dist/ember-template-compiler.js';
+const noLexicalThis = process.env.NO_LEXICAL_THIS;
 
-const compiler: EmberTemplateCompiler = _compiler.default;
+let precompileSpy: Mock;
+
+async function mockTemplateCompiler(importOriginal: () => Promise<EmberTemplateCompiler>) {
+  const mod = await importOriginal();
+  precompileSpy = vi.fn(mod.precompile);
+  return {
+    // the plugin probes for the existence of this, and if we don't stick a key
+    // here Vitest injects a failure
+    default: null,
+    ...mod,
+    precompile: precompileSpy,
+  };
+}
+
+vi.mock('ember-source/ember-template-compiler/index.js', mockTemplateCompiler);
+vi.mock('ember-source/dist/ember-template-compiler.js', mockTemplateCompiler);
 
 declare module 'vitest' {
-  interface Assertion {
-    equalCode(expectedCode: string, message?: string): void;
-  }
+  interface Assertion extends CodeEqualityAssertions {}
 }
 
 describe('htmlbars-inline-precompile', function () {
@@ -40,17 +53,20 @@ describe('htmlbars-inline-precompile', function () {
   }
 
   beforeEach(function () {
-    plugins = [[HTMLBarsInlinePrecompile, { compiler }]];
+    plugins = [[HTMLBarsInlinePrecompile, {}]];
   });
 
   afterEach(function () {
-    sinon.restore();
+    vi.resetAllMocks();
   });
 
   it('supports compilation that returns a non-JSON.parseable object', async function () {
-    sinon.replace(compiler, 'precompile', (template) => {
-      return `function() { return "${template}"; }`;
-    });
+    plugins = [
+      [
+        HTMLBarsInlinePrecompile,
+        { compilerPath: fileURLToPath(new URL('./mock-precompile', import.meta.url)) },
+      ],
+    ];
 
     let transpiled = await transform(
       "import { precompileTemplate } from '@ember/template-compilation';\nvar compiled = precompileTemplate('hello');"
@@ -62,9 +78,8 @@ describe('htmlbars-inline-precompile', function () {
       /*
         hello
       */
-      function () {
-        return "hello";
-      });
+      precompiledFromPath(hello)
+    )
     `);
   });
 
@@ -92,35 +107,32 @@ describe('htmlbars-inline-precompile', function () {
 
   it('passes options when used as a call expression', async function () {
     let source = 'hello';
-    let spy = sinon.spy(compiler, 'precompile');
 
     await transform(
       `import { precompileTemplate } from '@ember/template-compilation';\nvar compiled = precompileTemplate('${source}');`
     );
 
-    expect(spy.firstCall.lastArg).toHaveProperty('contents', source);
+    expect(precompileSpy.mock.lastCall?.at(-1)).toHaveProperty('contents', source);
   });
 
   it('uses the user provided isProduction option if present', async function () {
     let source = 'hello';
-    let spy = sinon.spy(compiler, 'precompile');
 
     await transform(
       `import { precompileTemplate } from '@ember/template-compilation';\nvar compiled = precompileTemplate('${source}', { isProduction: true });`
     );
 
-    expect(spy.firstCall.lastArg).toHaveProperty('isProduction', true);
+    expect(precompileSpy.mock.lastCall?.at(-1)).toHaveProperty('isProduction', true);
   });
 
   it('allows a template string literal when used as a call expression', async function () {
     let source = 'hello';
-    let spy = sinon.spy(compiler, 'precompile');
 
     await transform(
       `import { precompileTemplate } from '@ember/template-compilation';\nvar compiled = precompileTemplate(\`${source}\`);`
     );
 
-    expect(spy.firstCall.lastArg).toHaveProperty('contents', source);
+    expect(precompileSpy.mock.lastCall?.at(-1)).toHaveProperty('contents', source);
   });
 
   it('errors when the template string contains placeholders', async function () {
@@ -136,7 +148,6 @@ describe('htmlbars-inline-precompile', function () {
       [
         HTMLBarsInlinePrecompile,
         {
-          compiler,
           enableLegacyModules: ['htmlbars-inline-precompile'],
         },
       ],
@@ -148,7 +159,6 @@ describe('htmlbars-inline-precompile', function () {
 
   it('allows static userland options when used as a call expression', async function () {
     let source = 'hello';
-    let spy = sinon.spy(compiler, 'precompile');
 
     await transform(
       `import { precompileTemplate } from '@ember/template-compilation';\nvar compiled = precompileTemplate('${source}', { parseOptions: { srcName: 'bar.hbs' }, moduleName: 'foo/bar.hbs', xyz: 123, qux: true, stringifiedThing: ${JSON.stringify(
@@ -156,39 +166,18 @@ describe('htmlbars-inline-precompile', function () {
       )}});`
     );
 
-    expect(spy.firstCall.lastArg).toHaveProperty('parseOptions', { srcName: 'bar.hbs' });
-    expect(spy.firstCall.lastArg).toHaveProperty('moduleName', 'foo/bar.hbs');
-    expect(spy.firstCall.lastArg).toHaveProperty('xyz', 123);
-    expect(spy.firstCall.lastArg).toHaveProperty('qux', true);
-    expect(spy.firstCall.lastArg).toHaveProperty('stringifiedThing', { foo: 'baz' });
-  });
-
-  it('adds a comment with the original template string', async function () {
-    sinon.replace(compiler, 'precompile', (template) => {
-      return `precompiled("${template}")`;
-    });
-
-    let transformed = await transform(stripIndent`
-      import { precompileTemplate } from '@ember/template-compilation';
-      if ('foo') {
-        const template = precompileTemplate('hello');
-      }
-    `);
-
-    expect(transformed).toEqual(stripIndent`
-      import { createTemplateFactory } from "@ember/template-factory";
-      if ('foo') {
-        const template = createTemplateFactory(
-        /*
-          hello
-        */
-        precompiled("hello"));
-      }
-    `);
+    let lastArg = precompileSpy.mock.lastCall?.at(-1);
+    expect(lastArg).toHaveProperty('parseOptions', { srcName: 'bar.hbs' });
+    expect(lastArg).toHaveProperty('moduleName', 'foo/bar.hbs');
+    expect(lastArg).toHaveProperty('xyz', 123);
+    expect(lastArg).toHaveProperty('qux', true);
+    expect(lastArg).toHaveProperty('stringifiedThing', { foo: 'baz' });
   });
 
   it('avoids a build time error when passed `insertRuntimeErrors`', async function () {
-    sinon.stub(compiler, 'precompile').throws(new Error('NOOOOOOOOOOOOOOOOOOOOOO'));
+    precompileSpy.mockImplementation(() => {
+      throw new Error('NOOOOOOOOOOOOOOOOOOOOOO');
+    });
 
     let transformed = await transform(
       `import { precompileTemplate } from '@ember/template-compilation';\nvar compiled = precompileTemplate('hello', { insertRuntimeErrors: true });`
@@ -202,11 +191,9 @@ describe('htmlbars-inline-precompile', function () {
   });
 
   it('escapes any */ included in the template string', async function () {
-    plugins = [
-      [HTMLBarsInlinePrecompile, { compiler, enableLegacyModules: ['htmlbars-inline-precompile'] }],
-    ];
+    plugins = [[HTMLBarsInlinePrecompile, { enableLegacyModules: ['htmlbars-inline-precompile'] }]];
 
-    sinon.replace(compiler, 'precompile', (template) => {
+    precompileSpy.mockImplementation((template) => {
       return `precompiled("${template}")`;
     });
 
@@ -231,18 +218,15 @@ describe('htmlbars-inline-precompile', function () {
   });
 
   it('passes options when used as a tagged template string', async function () {
-    plugins = [
-      [HTMLBarsInlinePrecompile, { compiler, enableLegacyModules: ['htmlbars-inline-precompile'] }],
-    ];
+    plugins = [[HTMLBarsInlinePrecompile, { enableLegacyModules: ['htmlbars-inline-precompile'] }]];
 
     let source = 'hello';
-    let spy = sinon.spy(compiler, 'precompile');
 
     await transform(
       `import hbs from 'htmlbars-inline-precompile';\nvar compiled = hbs\`${source}\`;`
     );
 
-    expect(spy.firstCall.lastArg).toHaveProperty('contents', source);
+    expect(precompileSpy.mock.lastCall?.at(-1)).toHaveProperty('contents', source);
   });
 
   it("strips import statement for '@ember/template-precompilation' module", async function () {
@@ -255,7 +239,7 @@ describe('htmlbars-inline-precompile', function () {
   });
 
   it('replaces tagged template expressions with precompiled version', async function () {
-    sinon.replace(compiler, 'precompile', (template) => {
+    precompileSpy.mockImplementation((template) => {
       return `precompiled("${template}")`;
     });
 
@@ -263,7 +247,6 @@ describe('htmlbars-inline-precompile', function () {
       [
         HTMLBarsInlinePrecompile,
         {
-          compiler,
           enableLegacyModules: ['htmlbars-inline-precompile'],
         },
       ],
@@ -283,7 +266,7 @@ describe('htmlbars-inline-precompile', function () {
   });
 
   it('replaces tagged template expressions with precompiled version when ember-cli-htmlbars is enabled', async function () {
-    sinon.replace(compiler, 'precompile', (template) => {
+    precompileSpy.mockImplementation((template) => {
       return `precompiled("${template}")`;
     });
 
@@ -291,7 +274,6 @@ describe('htmlbars-inline-precompile', function () {
       [
         HTMLBarsInlinePrecompile,
         {
-          compiler,
           enableLegacyModules: ['ember-cli-htmlbars'],
         },
       ],
@@ -328,7 +310,7 @@ describe('htmlbars-inline-precompile', function () {
   });
 
   it('works with multiple imports', async function () {
-    sinon.replace(compiler, 'precompile', (template) => {
+    precompileSpy.mockImplementation((template) => {
       return `precompiled("${template}")`;
     });
 
@@ -359,8 +341,6 @@ describe('htmlbars-inline-precompile', function () {
       [
         HTMLBarsInlinePrecompile,
         {
-          compiler,
-
           targetFormat: 'wire',
           enableLegacyModules: [
             'ember-cli-htmlbars',
@@ -409,7 +389,7 @@ describe('htmlbars-inline-precompile', function () {
           */
           {
             id: "<id>",
-            block: "[[[8,[32,0],null,null,null]],[],[]]",
+            block: "<block>",
             moduleName: "<moduleName>",
             scope: () => [Setup],
             isStrictMode: true,
@@ -440,7 +420,7 @@ describe('htmlbars-inline-precompile', function () {
   });
 
   it('works properly when used along with modules transform', async function () {
-    sinon.replace(compiler, 'precompile', (template) => {
+    precompileSpy.mockImplementation((template) => {
       return `precompiled("${template}")`;
     });
 
@@ -470,7 +450,7 @@ describe('htmlbars-inline-precompile', function () {
   });
 
   it('does not error when reusing a preexisting import', async function () {
-    sinon.replace(compiler, 'precompile', (template) => {
+    precompileSpy.mockImplementation((template) => {
       return `precompiled("${template}")`;
     });
 
@@ -493,7 +473,7 @@ describe('htmlbars-inline-precompile', function () {
   });
 
   it('works properly when used after modules transform', async function () {
-    sinon.replace(compiler, 'precompile', (template) => {
+    precompileSpy.mockImplementation((template) => {
       return `precompiled("${template}")`;
     });
 
@@ -516,7 +496,7 @@ describe('htmlbars-inline-precompile', function () {
   });
 
   it('works properly when used along with @babel/plugin-transform-unicode-escapes', async function () {
-    sinon.replace(compiler, 'precompile', (template) => {
+    precompileSpy.mockImplementation((template) => {
       return `precompiled("${template}")`;
     });
 
@@ -536,7 +516,7 @@ describe('htmlbars-inline-precompile', function () {
   });
 
   it('replaces tagged template expressions when before babel-plugin-transform-es2015-template-literals', async function () {
-    sinon.replace(compiler, 'precompile', (template) => {
+    precompileSpy.mockImplementation((template) => {
       return `precompiled("${template}")`;
     });
 
@@ -544,7 +524,6 @@ describe('htmlbars-inline-precompile', function () {
       [
         HTMLBarsInlinePrecompile,
         {
-          compiler,
           enableLegacyModules: ['htmlbars-inline-precompile'],
         },
       ],
@@ -570,7 +549,6 @@ describe('htmlbars-inline-precompile', function () {
       [
         HTMLBarsInlinePrecompile,
         {
-          compiler,
           enableLegacyModules: ['htmlbars-inline-precompile'],
         },
       ],
@@ -588,7 +566,6 @@ describe('htmlbars-inline-precompile', function () {
       [
         HTMLBarsInlinePrecompile,
         {
-          compiler,
           enableLegacyModules: ['htmlbars-inline-precompile'],
         },
       ],
@@ -601,7 +578,7 @@ describe('htmlbars-inline-precompile', function () {
   });
 
   it('works with glimmer modules', async function () {
-    sinon.replace(compiler, 'precompile', (template) => {
+    precompileSpy.mockImplementation((template) => {
       return `precompiled("${template}")`;
     });
 
@@ -609,7 +586,6 @@ describe('htmlbars-inline-precompile', function () {
       [
         HTMLBarsInlinePrecompile,
         {
-          compiler,
           outputModuleOverrides: {
             '@ember/template-factory': {
               createTemplateFactory: ['createTemplateFactory', '@glimmer/core'],
@@ -767,7 +743,6 @@ describe('htmlbars-inline-precompile', function () {
       [
         HTMLBarsInlinePrecompile,
         {
-          compiler,
           transforms: [expressionTransform],
         },
       ],
@@ -823,7 +798,7 @@ describe('htmlbars-inline-precompile', function () {
 
   it('JS import added by ast transform survives typescript interoperability, in wire targetFormat', async function () {
     plugins = [
-      [HTMLBarsInlinePrecompile, { targetFormat: 'wire', compiler, transforms: [importTransform] }],
+      [HTMLBarsInlinePrecompile, { targetFormat: 'wire', transforms: [importTransform] }],
       TransformTypescript,
     ];
 
@@ -841,7 +816,7 @@ describe('htmlbars-inline-precompile', function () {
        */
       {
         id: "<id>",
-        block: '[[[8,[39,0],null,[["@text"],[[32,0]]],null]],[],["message"]]',
+        block: "<block>",
         moduleName: "<moduleName>",
         scope: () => [two],
         isStrictMode: false,
@@ -1242,7 +1217,6 @@ describe('htmlbars-inline-precompile', function () {
         [
           HTMLBarsInlinePrecompile,
           {
-            compiler,
             targetFormat: 'hbs',
             transforms: [color],
             enableLegacyModules: ['ember-cli-htmlbars'],
@@ -1265,7 +1239,6 @@ describe('htmlbars-inline-precompile', function () {
         [
           HTMLBarsInlinePrecompile,
           {
-            compiler,
             targetFormat: 'hbs',
             transforms: [color],
             enableLegacyModules: ['ember-cli-htmlbars'],
@@ -1396,7 +1369,6 @@ describe('htmlbars-inline-precompile', function () {
         [
           HTMLBarsInlinePrecompile,
           {
-            compiler,
             targetFormat: 'hbs',
             transforms: [expressionTransform],
             enableLegacyModules: ['ember-cli-htmlbars'],
@@ -1425,7 +1397,6 @@ describe('htmlbars-inline-precompile', function () {
         [
           HTMLBarsInlinePrecompile,
           {
-            compiler,
             targetFormat: 'hbs',
             transforms: [expressionTransform],
             enableLegacyModules: ['ember-cli-htmlbars'],
@@ -1714,7 +1685,6 @@ describe('htmlbars-inline-precompile', function () {
       [
         HTMLBarsInlinePrecompile,
         {
-          compiler,
           targetFormat: 'wire',
           transforms: [],
         },
@@ -1738,7 +1708,7 @@ describe('htmlbars-inline-precompile', function () {
       */
         {
           id: "<id>",
-          block: "[[[8,[32,0],null,null,null]],[],[]]",
+          block: "<block>",
           moduleName: "<moduleName>",
           scope: () => [HelloWorld],
           isStrictMode: true,
@@ -1752,7 +1722,6 @@ describe('htmlbars-inline-precompile', function () {
       [
         HTMLBarsInlinePrecompile,
         {
-          compiler,
           targetFormat: 'wire',
           transforms: [],
         },
@@ -1784,7 +1753,7 @@ describe('htmlbars-inline-precompile', function () {
           */
               {
                 id: "<id>",
-                block: "[[[8,[32,0],null,null,null]],[],[]]",
+                block: "<block>",
                 moduleName: "<moduleName>",
                 scope: () => [HelloWorld],
                 isStrictMode: true,
@@ -1800,54 +1769,49 @@ describe('htmlbars-inline-precompile', function () {
   describe('scope', function () {
     it('correctly handles scope function (non-block arrow function)', async function () {
       let source = '<foo /><bar/>';
-      let spy = sinon.spy(compiler, 'precompile');
 
       await transform(
         `import { precompileTemplate } from '@ember/template-compilation';\nvar compiled = precompileTemplate('${source}', { scope: () => ({ foo, bar }) });`
       );
-      expect(spy.firstCall.lastArg).toHaveProperty('locals', ['foo', 'bar']);
+      expect(precompileSpy.mock.lastCall?.at(-1)).toHaveProperty('locals', ['foo', 'bar']);
     });
 
     it('correctly handles scope function (block arrow function)', async function () {
       let source = '<foo /><bar/>';
-      let spy = sinon.spy(compiler, 'precompile');
 
       await transform(
         `import { precompileTemplate } from '@ember/template-compilation';\nvar compiled = precompileTemplate('${source}', { scope: () => { return { foo, bar }; }});`
       );
 
-      expect(spy.firstCall.lastArg).toHaveProperty('locals', ['foo', 'bar']);
+      expect(precompileSpy.mock.lastCall?.at(-1)).toHaveProperty('locals', ['foo', 'bar']);
     });
 
     it('correctly handles scope function (normal function)', async function () {
       let source = '<foo /><bar/>';
-      let spy = sinon.spy(compiler, 'precompile');
 
       await transform(
         `import { precompileTemplate } from '@ember/template-compilation';\nvar compiled = precompileTemplate('${source}', { scope: function() { return { foo, bar }; }});`
       );
 
-      expect(spy.firstCall.lastArg).toHaveProperty('locals', ['foo', 'bar']);
+      expect(precompileSpy.mock.lastCall?.at(-1)).toHaveProperty('locals', ['foo', 'bar']);
     });
 
     it('correctly handles scope function (object method)', async function () {
       let source = '<foo /><bar/>';
-      let spy = sinon.spy(compiler, 'precompile');
 
       await transform(
         `import { precompileTemplate } from '@ember/template-compilation';\nvar compiled = precompileTemplate('${source}', { scope() { return { foo, bar }; }});`
       );
-      expect(spy.firstCall.lastArg).toHaveProperty('locals', ['foo', 'bar']);
+      expect(precompileSpy.mock.lastCall?.at(-1)).toHaveProperty('locals', ['foo', 'bar']);
     });
 
     it('correctly handles scope function with coverage', async function () {
       let source = '<foo /><bar/>';
-      let spy = sinon.spy(compiler, 'precompile');
 
       await transform(
         `import { precompileTemplate } from '@ember/template-compilation';\nvar compiled = precompileTemplate('${source}', { scope() { ++cov_2rkfh72wo; return { foo, bar }; }});`
       );
-      expect(spy.firstCall.lastArg).toHaveProperty('locals', ['foo', 'bar']);
+      expect(precompileSpy.mock.lastCall?.at(-1)).toHaveProperty('locals', ['foo', 'bar']);
     });
 
     it('correctly handles scope if it contains keys and values', async function () {
@@ -1868,7 +1832,7 @@ describe('htmlbars-inline-precompile', function () {
           */
           {
             id: "<id>",
-            block: "[[[8,[32,0],null,null,null],[8,[32,1],null,null,null]],[],[]]",
+            block: "<block>",
             moduleName: "<moduleName>",
             scope: () => [bar, MyButton],
             isStrictMode: false,
@@ -1898,34 +1862,31 @@ describe('htmlbars-inline-precompile', function () {
     });
 
     it('correctly removes not used scope', async function () {
-      let spy = sinon.spy(compiler, 'precompile');
       await transform(`
         import { precompileTemplate } from '@ember/template-compilation';
         let foo, bar;
         var compiled = precompileTemplate('<foo /><bar/>', { scope: () => ({ foo, bar, baz }) });
       `);
-      expect(spy.firstCall.lastArg).toHaveProperty('locals', ['foo', 'bar']);
+      expect(precompileSpy.mock.lastCall?.at(-1)).toHaveProperty('locals', ['foo', 'bar']);
     });
 
     it('does not automagically add to scope when not using implicit-scope-form', async function () {
-      let spy = sinon.spy(compiler, 'precompile');
       await transform(`
         import { precompileTemplate } from '@ember/template-compilation';
         let foo, bar;
         var compiled = precompileTemplate('<foo /><bar/>', { scope: () => ({ bar }) });
       `);
-      expect(spy.firstCall.lastArg).toHaveProperty('locals', ['bar']);
+      expect(precompileSpy.mock.lastCall?.at(-1)).toHaveProperty('locals', ['bar']);
     });
 
-    it('can pass lexically scoped "this"', async function () {
-      let spy = sinon.spy(compiler, 'precompile');
+    it.skipIf(noLexicalThis)('can pass lexically scoped "this"', async function () {
       let transformed = await transform(`
         import { precompileTemplate } from '@ember/template-compilation';
         export function example() {
           return precompileTemplate('{{this.message}}', { scope: () => ({ "this": this }) });
         }
       `);
-      expect(spy.firstCall.lastArg).toHaveProperty('locals', ['this']);
+      expect(precompileSpy.mock.lastCall?.at(-1)).toHaveProperty('locals', ['this']);
       expect(normalizeWireFormat(transformed)).equalCode(`
         import { createTemplateFactory } from "@ember/template-factory";
         export function example() {
@@ -1935,7 +1896,7 @@ describe('htmlbars-inline-precompile', function () {
             */
             {
               id: "<id>",
-              block: '[[[1,[32,0,["message"]]]],[],[]]',
+              block: "<block>",
               moduleName: "<moduleName>",
               scope: () => [this],
               isStrictMode: false,
@@ -1952,7 +1913,6 @@ describe('htmlbars-inline-precompile', function () {
         [
           HTMLBarsInlinePrecompile,
           {
-            compiler,
             targetFormat: 'hbs',
           },
         ],
@@ -1981,7 +1941,6 @@ describe('htmlbars-inline-precompile', function () {
             [
               HTMLBarsInlinePrecompile,
               {
-                compiler,
                 targetFormat: 'hbs',
               },
             ],
@@ -2014,7 +1973,6 @@ describe('htmlbars-inline-precompile', function () {
         [
           HTMLBarsInlinePrecompile,
           {
-            compiler,
             targetFormat: 'hbs',
           },
         ],
@@ -2041,7 +1999,6 @@ describe('htmlbars-inline-precompile', function () {
         [
           HTMLBarsInlinePrecompile,
           {
-            compiler,
             targetFormat: 'hbs',
           },
         ],
@@ -2063,28 +2020,29 @@ describe('htmlbars-inline-precompile', function () {
       `);
     });
 
-    it('captures lexical "this" in mustache when template is used as an expression', async function () {
-      plugins = [
-        [
-          HTMLBarsInlinePrecompile,
-          {
-            compiler,
-            targetFormat: 'hbs',
-          },
-        ],
-      ];
+    it.skipIf(noLexicalThis)(
+      'captures lexical "this" in mustache when template is used as an expression',
+      async function () {
+        plugins = [
+          [
+            HTMLBarsInlinePrecompile,
+            {
+              targetFormat: 'hbs',
+            },
+          ],
+        ];
 
-      let transformed = await transform(
-        `import { template } from '@ember/template-compiler'; 
+        let transformed = await transform(
+          `import { template } from '@ember/template-compiler'; 
         function upper(s) { return s.toUpperCase() }
         export function exampleTest() {
           this.message = "hello";
           render(template('{{upper this.message}}', { eval: function() { return eval(arguments[0]) } }))
         }
         `
-      );
+        );
 
-      expect(transformed).equalCode(`
+        expect(transformed).equalCode(`
         import { precompileTemplate } from "@ember/template-compilation";
         import { setComponentTemplate } from "@ember/component";
         import templateOnly from "@ember/component/template-only";
@@ -2107,30 +2065,32 @@ describe('htmlbars-inline-precompile', function () {
           );
         }
       `);
-    });
+      }
+    );
 
-    it('captures lexical "this" in Element when template is used as an expression', async function () {
-      plugins = [
-        [
-          HTMLBarsInlinePrecompile,
-          {
-            compiler,
-            targetFormat: 'hbs',
-          },
-        ],
-      ];
+    it.skipIf(noLexicalThis)(
+      'captures lexical "this" in Element when template is used as an expression',
+      async function () {
+        plugins = [
+          [
+            HTMLBarsInlinePrecompile,
+            {
+              targetFormat: 'hbs',
+            },
+          ],
+        ];
 
-      let transformed = await transform(
-        `import { template } from '@ember/template-compiler'; 
+        let transformed = await transform(
+          `import { template } from '@ember/template-compiler'; 
         import SomeComponent from './elsewhere.js';
         export function exampleTest() {
           this.message = SomeComponent;
           render(template('<this.message />', { eval: function() { return eval(arguments[0]) } }))
         }
         `
-      );
+        );
 
-      expect(transformed).equalCode(`
+        expect(transformed).equalCode(`
         import SomeComponent from './elsewhere.js';
         import { precompileTemplate } from "@ember/template-compilation";
         import { setComponentTemplate } from "@ember/component";
@@ -2150,14 +2110,14 @@ describe('htmlbars-inline-precompile', function () {
           );
         }
       `);
-    });
+      }
+    );
 
     it('does not captures lexical "this" when template is used in class body', async function () {
       plugins = [
         [
           HTMLBarsInlinePrecompile,
           {
-            compiler,
             targetFormat: 'hbs',
           },
         ],
@@ -2198,7 +2158,6 @@ describe('htmlbars-inline-precompile', function () {
         [
           HTMLBarsInlinePrecompile,
           {
-            compiler,
             targetFormat: 'hbs',
           },
         ],
@@ -2257,7 +2216,6 @@ describe('htmlbars-inline-precompile', function () {
         [
           HTMLBarsInlinePrecompile,
           {
-            compiler,
             targetFormat: 'hbs',
           },
         ],
@@ -2282,7 +2240,6 @@ describe('htmlbars-inline-precompile', function () {
         [
           HTMLBarsInlinePrecompile,
           {
-            compiler,
             targetFormat: 'wire',
           },
         ],
@@ -2307,7 +2264,7 @@ describe('htmlbars-inline-precompile', function () {
             */
             {
               id: "<id>",
-              block: "[[[8,[32,0],null,null,null]],[],[]]",
+              block: "<block>",
               moduleName: "<moduleName>",
               scope: () => [HelloWorld],
               isStrictMode: true,
@@ -2323,7 +2280,6 @@ describe('htmlbars-inline-precompile', function () {
         [
           HTMLBarsInlinePrecompile,
           {
-            compiler,
             targetFormat: 'hbs',
           },
         ],
@@ -2351,7 +2307,6 @@ describe('htmlbars-inline-precompile', function () {
         [
           HTMLBarsInlinePrecompile,
           {
-            compiler,
             targetFormat: 'hbs',
           },
         ],
@@ -2393,7 +2348,6 @@ describe('htmlbars-inline-precompile', function () {
         [
           HTMLBarsInlinePrecompile,
           {
-            compiler,
             targetFormat: 'wire',
           },
         ],
@@ -2420,7 +2374,7 @@ describe('htmlbars-inline-precompile', function () {
        */
         {
           id: "<id>",
-          block: "[[[8,[32,0],null,null,null]],[],[]]",
+          block: "<block>",
           moduleName: "<moduleName>",
           scope: () => [HelloWorld],
           isStrictMode: true,
@@ -2438,7 +2392,6 @@ describe('htmlbars-inline-precompile', function () {
         [
           HTMLBarsInlinePrecompile,
           {
-            compiler,
             targetFormat: 'hbs',
           },
         ],
@@ -2463,12 +2416,11 @@ describe('htmlbars-inline-precompile', function () {
         `);
     });
 
-    it('expression form can capture lexical "this"', async function () {
+    it.skipIf(noLexicalThis)('expression form can capture lexical "this"', async function () {
       plugins = [
         [
           HTMLBarsInlinePrecompile,
           {
-            compiler,
             targetFormat: 'hbs',
           },
         ],
@@ -2501,7 +2453,6 @@ describe('htmlbars-inline-precompile', function () {
         [
           HTMLBarsInlinePrecompile,
           {
-            compiler,
             targetFormat: 'hbs',
           },
         ],
@@ -2536,7 +2487,6 @@ describe('htmlbars-inline-precompile', function () {
         [
           HTMLBarsInlinePrecompile,
           {
-            compiler,
             targetFormat: 'hbs',
           },
         ],
@@ -2575,5 +2525,7 @@ describe('htmlbars-inline-precompile', function () {
 function normalizeWireFormat(src: string): string {
   return src
     .replace(/"moduleName":\s"[^"]+"/, '"moduleName": "<moduleName>"')
-    .replace(/"id":\s"[^"]+"/, '"id": "<id>"');
+    .replace(/"id":\s"[^"]+"/, '"id": "<id>"')
+    .replace(`"id": null`, '"id": "<id>"')
+    .replace(/"block":.+,\n/, '"block": "<block>",');
 }
