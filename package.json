@@ -77,5 +77,8 @@
   "volta": {
     "node": "18.20.2",
     "pnpm": "9.0.6"
+  },
+  "release-plan": {
+    "publishTag": "3-x"
   }
 }
