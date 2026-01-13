@@ -24,12 +24,13 @@ let precompileSpy: Mock;
 
 async function mockTemplateCompiler(importOriginal: () => Promise<EmberTemplateCompiler>) {
   const mod = await importOriginal();
-  precompileSpy = vi.spyOn(mod, 'precompile');
+  precompileSpy = vi.fn(mod.precompile);
   return {
     // the plugin probes for the existence of this, and if we don't stick a key
     // here Vitest injects a failure
     default: null,
     ...mod,
+    precompile: precompileSpy,
   };
 }
 
