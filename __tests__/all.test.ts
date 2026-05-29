@@ -2861,8 +2861,82 @@ describe('htmlbars-inline-precompile', function () {
           }
         `);
     });
+
+    it('preserves template() for expression form with rfc931: native and hbs target', async function () {
+      plugins = [
+        [
+          HTMLBarsInlinePrecompile,
+          {
+            targetFormat: 'hbs',
+            rfc931: 'native',
+          },
+        ],
+      ];
+
+      let p = new Preprocessor();
+
+      const { code: preTransformed } = p.process(
+        `import HelloWorld from 'somewhere';
+         const MyComponent = <template><HelloWorld /></template>;
+        `
+      );
+
+      let transformed = await transform(preTransformed);
+
+      // the gjs is preprocessed by content-tag into the implicit eval form,
+      // then this plugin keeps template() and converts eval -> scope. content-tag
+      // aliases the import to a unique name (`template as template_<hash>`) which
+      // we preserve; normalize it back to `template` for a stable assertion.
+      expect(normalizeContentTagImport(transformed)).equalCode(`
+          import { template } from "@ember/template-compiler";
+          import HelloWorld from "somewhere";
+          const MyComponent = template('<HelloWorld />', { scope: () => ({ HelloWorld }) });
+        `);
+    });
+
+    it('preserves template() for class member form with rfc931: native and hbs target', async function () {
+      plugins = [
+        [
+          HTMLBarsInlinePrecompile,
+          {
+            targetFormat: 'hbs',
+            rfc931: 'native',
+          },
+        ],
+      ];
+
+      let p = new Preprocessor();
+
+      const { code: preTransformed } = p.process(
+        `import HelloWorld from 'somewhere';
+         export default class {
+           <template><HelloWorld /></template>
+         }
+        `
+      );
+
+      let transformed = await transform(preTransformed);
+
+      expect(normalizeContentTagImport(transformed)).equalCode(`
+          import { template } from "@ember/template-compiler";
+          import HelloWorld from "somewhere";
+          export default class {
+            static {
+              template('<HelloWorld />', { component: this, scope: () => ({ HelloWorld }) });
+            }
+          }
+        `);
+    });
   });
 });
+
+// content-tag aliases its `template` import to a unique, hashed local name
+// (e.g. `template as template_abc123`). When we preserve the template() call
+// (rfc931: 'native'), that alias survives into the output. Normalize it back to
+// `template` so assertions don't depend on the specific hash.
+function normalizeContentTagImport(src: string): string {
+  return src.replace(/template_[0-9a-f]+/g, 'template');
+}
 
 // This takes out parts of ember's wire format that aren't our job and shouldn't
 // break our tests if they change.
