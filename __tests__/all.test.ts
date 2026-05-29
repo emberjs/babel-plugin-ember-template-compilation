@@ -2927,6 +2927,48 @@ describe('htmlbars-inline-precompile', function () {
           }
         `);
     });
+
+    it('compiles to wire format with targetFormat: wire', async function () {
+      plugins = [
+        [
+          HTMLBarsInlinePrecompile,
+          {
+            targetFormat: 'wire',
+          },
+        ],
+      ];
+
+      let p = new Preprocessor();
+
+      const { code: preTransformed } = p.process(
+        `import HelloWorld from 'somewhere';
+         const MyComponent = <template><HelloWorld /></template>;
+        `
+      );
+
+      let transformed = await transform(preTransformed);
+
+      // content-tag emits the implicit eval form; the default (polyfilled) wire
+      // path fully compiles it and drops the @ember/template-compiler import.
+      expect(normalizeWireFormat(transformed)).equalCode(`
+          import HelloWorld from "somewhere";
+          import { setComponentTemplate } from "@ember/component";
+          import { createTemplateFactory } from "@ember/template-factory";
+          import templateOnly from "@ember/component/template-only";
+          const MyComponent = setComponentTemplate(createTemplateFactory(
+            /*
+              <HelloWorld />
+          */
+            {
+              id: "<id>",
+              block: "<block>",
+              moduleName: "<moduleName>",
+              scope: () => [HelloWorld],
+              isStrictMode: true,
+            }
+          ), templateOnly());
+        `);
+    });
   });
 });
 
