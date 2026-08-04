@@ -8,6 +8,7 @@
 */
 
 import type { NodePath } from '@babel/traverse';
+import type { types as t } from '@babel/core';
 import type { ASTPluginEnvironment, NodeVisitor } from '@glimmer/syntax';
 import { astNodeHasBinding } from './hbs-utils.js';
 import { readOnlyArray } from './read-only-array.js';
@@ -103,12 +104,32 @@ type Params =
       mayUseLexicalThis: boolean;
     };
 
+// A negated or explicitly-signed number is a UnaryExpression rather than a
+// literal, but it's still a constant value with no dependency on any binding.
+export type SignedNumericLiteral = t.UnaryExpression & {
+  operator: '-' | '+';
+  argument: t.NumericLiteral | t.BigIntLiteral;
+};
+
+// The constant values a scope entry can hold. Regexes and template literals
+// are deliberately excluded: a regex literal would construct a new (stateful)
+// object on every call, and a template literal can contain expressions that
+// reference bindings we know nothing about.
+export type LiteralScopeValue =
+  | Exclude<t.Literal, t.RegExpLiteral | t.TemplateLiteral>
+  | SignedNumericLiteral;
+
+// Each hbs name in the template's scope maps to either the name of a JS
+// binding or, when a bundler's constant inlining has replaced the original
+// binding with its statically-known value, that value.
+export type ScopeValue = string | LiteralScopeValue;
+
 export class ScopeLocals {
   constructor(params: Params) {
     this.#params = params;
   }
 
-  #mapping: Record<string, string> = {};
+  #mapping: Record<string, ScopeValue> = {};
   #locals: string[] = [];
   #params: Params;
 
@@ -123,7 +144,7 @@ export class ScopeLocals {
     return key in this.#mapping;
   }
 
-  get(key: string): string {
+  get(key: string): ScopeValue {
     return this.#mapping[key];
   }
 
@@ -135,16 +156,20 @@ export class ScopeLocals {
     return Object.entries(this.#mapping);
   }
 
-  add(hbsName: string, jsName?: string) {
-    this.#mapping[hbsName] = jsName ?? hbsName;
+  add(hbsName: string, jsValue?: ScopeValue) {
+    this.#mapping[hbsName] = jsValue ?? hbsName;
     if (!this.#locals.includes(hbsName)) {
       this.#locals.push(hbsName);
     }
   }
 
   #isInJsScope(hbsName: string, jsPath: NodePath) {
-    let jsName = this.#mapping[hbsName] ?? hbsName;
-    return ALLOWED_GLOBALS.has(jsName) || jsPath.scope.getBinding(jsName);
+    let jsValue = this.#mapping[hbsName] ?? hbsName;
+    if (typeof jsValue !== 'string') {
+      // a constant value doesn't need any binding
+      return true;
+    }
+    return ALLOWED_GLOBALS.has(jsValue) || jsPath.scope.getBinding(jsValue);
   }
 
   // this AST transform discovers all possible upvars in HBS that refer to valid
