@@ -443,10 +443,18 @@ function remapAndBindIdentifiers(target: NodePath, babel: typeof Babel, scopeLoc
           // rewriting it there would drop the name the template refers to.
           return;
         }
+        let jsValue = scopeLocals.get(path.node.name);
+        if (typeof jsValue !== 'string') {
+          // this identifier's scope entry is a literal value (a bundler's
+          // constant inlining may produce those), so the template compiler
+          // output should contain the literal itself
+          path.replaceWith(babel.types.cloneNode(jsValue, true));
+          return;
+        }
         // this identifier has different names in hbs vs js, so we need to
         // replace the hbs name in the template compiler output with the js
         // name
-        path.replaceWith(babel.types.identifier(scopeLocals.get(path.node.name)));
+        path.replaceWith(babel.types.identifier(jsValue));
       }
       // this is where we tell babel's scope system about the new reference we
       // just introduced. @babel/plugin-transform-typescript in particular
@@ -662,8 +670,10 @@ function buildScope(babel: typeof Babel, locals: ScopeLocals) {
     t.objectExpression(
       locals
         .entries()
-        .map(([name, identifier]) =>
-          t.objectProperty(t.identifier(name), t.identifier(identifier), false, name !== 'this')
+        .map(([name, value]) =>
+          typeof value === 'string'
+            ? t.objectProperty(t.identifier(name), t.identifier(value), false, name !== 'this')
+            : t.objectProperty(t.identifier(name), t.cloneNode(value, true), false, false)
         )
     )
   );
