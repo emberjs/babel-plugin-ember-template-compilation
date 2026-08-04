@@ -59,7 +59,7 @@
     "release-it-lerna-changelog": "^3.1.0",
     "release-plan": "^0.16.0",
     "typescript": "^5.8.2",
-    "vitest": "^4.0.15"
+    "vitest": "~4.0.15"
   },
   "packageManager": "pnpm@9.0.6",
   "engines": {

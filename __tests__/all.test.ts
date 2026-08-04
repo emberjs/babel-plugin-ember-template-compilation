@@ -12,7 +12,8 @@ import { EmberTemplateCompiler } from '../src/ember-template-compiler.js';
 import { ExtendedPluginBuilder } from '../src/js-utils.js';
 import { Preprocessor } from 'content-tag';
 import { ALLOWED_GLOBALS } from '../src/scope-locals.js';
-import { fileURLToPath } from 'url';
+import { fileURLToPath, pathToFileURL } from 'url';
+import { resolve as importMetaResolve } from 'import-meta-resolve';
 import { describe, it, beforeEach, afterEach, expect, chai, vi, type Mock } from 'vitest';
 import { codeEquality, type CodeEqualityAssertions } from 'code-equality-assertions/chai';
 
@@ -34,8 +35,24 @@ async function mockTemplateCompiler(importOriginal: () => Promise<EmberTemplateC
   };
 }
 
-vi.mock('ember-source/ember-template-compiler/index.js', mockTemplateCompiler);
-vi.mock('ember-source/dist/ember-template-compiler.js', mockTemplateCompiler);
+// The plugin resolves the template compiler from the current working directory
+// with node's own resolution rules (see cwdImport in node-main.ts). A static
+// vi.mock on the bare specifier can land on a different file: ember-source 7
+// maps its subpaths through conditional exports, and Vitest resolves the
+// "development" condition while the plugin's import gets the "default" one. So
+// we mock the exact modules the plugin will import.
+for (const specifier of [
+  'ember-source/ember-template-compiler/index.js',
+  'ember-source/dist/ember-template-compiler.js',
+]) {
+  let target: string;
+  try {
+    target = importMetaResolve(specifier, pathToFileURL(process.cwd() + path.sep).href);
+  } catch {
+    continue;
+  }
+  vi.doMock(target, mockTemplateCompiler);
+}
 
 declare module 'vitest' {
   interface Assertion extends CodeEqualityAssertions {}
@@ -752,7 +769,7 @@ describe('htmlbars-inline-precompile', function () {
       import { precompileTemplate } from '@ember/template-compilation';
       const template = precompileTemplate('<Message @text={{onePlusOne}} />');
     `);
-    expect(transformed).toContain(`"scope": () => [two]`);
+    expect(normalizeWireFormat(transformed)).toContain(`"scope": () => [two]`);
   });
 
   it('allows AST transform to bind a JS import', async function () {
@@ -2523,9 +2540,49 @@ describe('htmlbars-inline-precompile', function () {
 // This takes out parts of ember's wire format that aren't our job and shouldn't
 // break our tests if they change.
 function normalizeWireFormat(src: string): string {
-  return src
+  return canonicalizeWireScope(src)
     .replace(/"moduleName":\s"[^"]+"/, '"moduleName": "<moduleName>"')
     .replace(/"id":\s"[^"]+"/, '"id": "<id>"')
     .replace(`"id": null`, '"id": "<id>"')
     .replace(/"block":.+,\n/, '"block": "<block>",');
+}
+
+// Ember 7's template compiler emits the wire-format scope as an object whose
+// values are consumed positionally (via Object.values) at runtime, where
+// earlier compilers emitted an array. Rewrite the object form to the array
+// form so our expected outputs are version-independent.
+function canonicalizeWireScope(src: string): string {
+  let sawObjectScope = false;
+  let result = babel.transformSync(src, {
+    configFile: false,
+    plugins: [
+      function canonicalScope({ types: t }: typeof babel): babel.PluginObj {
+        return {
+          visitor: {
+            ObjectProperty(path) {
+              let { key, value } = path.node;
+              let isScopeKey =
+                (t.isIdentifier(key) && key.name === 'scope') ||
+                (t.isStringLiteral(key) && key.value === 'scope');
+              if (
+                isScopeKey &&
+                t.isArrowFunctionExpression(value) &&
+                t.isObjectExpression(value.body)
+              ) {
+                sawObjectScope = true;
+                value.body = t.arrayExpression(
+                  value.body.properties.map(
+                    (prop) => (prop as babel.types.ObjectProperty).value as babel.types.Expression
+                  )
+                );
+              }
+            },
+          },
+        };
+      },
+    ],
+  });
+  // when there's nothing to rewrite, keep the input byte-for-byte so this
+  // helper stays inert on compiler versions that emit the array form
+  return sawObjectScope ? result!.code! : src;
 }
