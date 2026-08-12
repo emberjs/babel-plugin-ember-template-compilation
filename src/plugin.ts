@@ -18,7 +18,7 @@ interface ModuleConfig {
   export: string;
   allowTemplateLiteral?: true;
   enableScope?: true;
-  rfc931Support?: 'polyfilled';
+  rfc931Support?: 'polyfilled' | 'native';
 }
 
 const INLINE_PRECOMPILE_MODULES: ModuleConfig[] = [
@@ -92,6 +92,23 @@ export interface Options {
   // Optional list of custom transforms to apply to the handlebars AST before
   // compilation.
   transforms?: ExtendedPluginBuilder[];
+
+  // Controls how the RFC 931 `template()` API (imported from
+  // `@ember/template-compiler`) is emitted.
+  //
+  //  "polyfilled": The default. `template()` calls are lowered to the older,
+  //  widely-supported primitives (`precompileTemplate` / `createTemplateFactory`
+  //  plus `setComponentTemplate` and `templateOnly`). Use this to target Ember
+  //  versions that do not natively understand `template()`.
+  //
+  //  "native": `template()` calls are preserved in the output for runtimes that
+  //  implement `@ember/template-compiler` natively (Ember 6+). AST transforms
+  //  still run, and the implicit `eval` form is normalized into the explicit
+  //  `scope` form. This only affects `targetFormat: 'hbs'`; with
+  //  `targetFormat: 'wire'` the template is fully compiled to the standard wire
+  //  format (which already runs on native runtimes), so this option has no
+  //  effect there.
+  rfc931?: 'polyfilled' | 'native';
 }
 
 interface WireOpts {
@@ -100,6 +117,7 @@ interface WireOpts {
   outputModuleOverrides: Record<string, Record<string, [string, string]>>;
   enableLegacyModules: LegacyModuleName[];
   transforms: ExtendedPluginBuilder[];
+  rfc931: 'polyfilled' | 'native';
 }
 
 interface HbsOpts {
@@ -107,6 +125,7 @@ interface HbsOpts {
   outputModuleOverrides: Record<string, Record<string, [string, string]>>;
   enableLegacyModules: LegacyModuleName[];
   transforms: ExtendedPluginBuilder[];
+  rfc931: 'polyfilled' | 'native';
 }
 
 type NormalizedOpts = WireOpts | HbsOpts;
@@ -124,6 +143,7 @@ function normalizeOpts(options: Options): NormalizedOpts {
       ...options,
       targetFormat: 'wire',
       compiler,
+      rfc931: options.rfc931 ?? 'polyfilled',
     };
   } else {
     return {
@@ -132,6 +152,7 @@ function normalizeOpts(options: Options): NormalizedOpts {
       transforms: [],
       ...options,
       targetFormat: 'hbs',
+      rfc931: options.rfc931 ?? 'polyfilled',
     };
   }
 }
@@ -347,7 +368,14 @@ function* configuredModules(normalizedOpts: NormalizedOpts) {
     ) {
       continue;
     }
-    yield moduleConfig;
+    if (moduleConfig.rfc931Support) {
+      // The `@ember/template-compiler` `template()` config defaults to
+      // 'polyfilled'; the user's `rfc931` option decides whether we lower it to
+      // the legacy primitives or keep it native.
+      yield { ...moduleConfig, rfc931Support: normalizedOpts.rfc931 };
+    } else {
+      yield moduleConfig;
+    }
   }
 }
 
@@ -631,6 +659,15 @@ function updateCallForm<EnvSpecificOptions>(
     // precompileTemplate call for the final updateScope below.
     //
     target = target.get('arguments.0') as NodePath<t.CallExpression>;
+  } else if (formatOptions.rfc931Support === 'native') {
+    // Native mode: the runtime understands `template()` directly, so we keep
+    // the call (and its callee import) as-is. We only drop the implicit `eval`
+    // option, because its role is taken over by the explicit `scope` that
+    // updateScope appends below. The user's `component` and `strict` options
+    // are preserved untouched.
+    removeEval(target);
+    target.node.arguments = target.node.arguments.slice(0, 2);
+    state.recursionGuard.add(target.node);
   }
   // We deliberately do updateScope at the end so that when it updates
   // references, those references will point to the accurate paths in the
@@ -721,6 +758,23 @@ function removeEvalAndScope(target: NodePath<t.CallExpression>) {
     });
     if (componentProp) {
       componentProp.remove();
+    }
+  }
+}
+
+// Removes only the `eval` option from a template() call, leaving `component`,
+// `strict`, and any other options in place. Used in native rfc931 mode, where
+// the template() call is preserved and the implicit eval form is converted into
+// the explicit scope form (the scope is re-added by updateScope).
+function removeEval(target: NodePath<t.CallExpression>) {
+  let secondArg = target.get('arguments.1') as NodePath<t.ObjectExpression> | undefined;
+  if (secondArg) {
+    let evalProp = secondArg.get('properties').find((p) => {
+      let key = p.get('key') as NodePath<t.Node>;
+      return key.isIdentifier() && key.node.name === 'eval';
+    });
+    if (evalProp) {
+      evalProp.remove();
     }
   }
 }

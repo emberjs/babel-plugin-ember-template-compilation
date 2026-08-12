@@ -26,6 +26,19 @@ import hbs from 'ember-cli-htmlbars-inline-precompile';
 import hbs from 'htmlbars-inline-precompile';
 ```
 
+It also understands the `template()` API from [RFC 931](https://rfcs.emberjs.com/id/0931-template-compiler-api/):
+
+```js
+import { template } from '@ember/template-compiler';
+```
+
+By default, `template()` is **polyfilled**: it is lowered to the older
+`precompileTemplate` / `setComponentTemplate` / `templateOnly` primitives so the
+output runs on Ember versions that don't natively understand `template()`. If
+you are targeting a runtime that implements `@ember/template-compiler` natively
+(Ember 6+), pass `rfc931: 'native'` to keep the `template()` call in the output
+instead. See the `rfc931` option below.
+
 ## Common Options
 
 This package has both a Node implementation and a portable implementation that works in browsers.
@@ -86,6 +99,23 @@ interface Options {
   // Optional list of custom transforms to apply to the handlebars AST before
   // compilation. See `type Transform` below.
   transforms?: Transform[];
+
+  // Controls how the RFC 931 `template()` API (imported from
+  // `@ember/template-compiler`) is emitted.
+  //
+  //  "polyfilled": The default. `template()` calls are lowered to the older,
+  //  widely-supported primitives (`precompileTemplate` / `createTemplateFactory`
+  //  plus `setComponentTemplate` and `templateOnly`). Use this to target Ember
+  //  versions that do not natively understand `template()`.
+  //
+  //  "native": `template()` calls are preserved in the output for runtimes that
+  //  implement `@ember/template-compiler` natively (Ember 6+). AST transforms
+  //  still run, and the implicit `eval` form is normalized into the explicit
+  //  `scope` form. This only affects `targetFormat: 'hbs'`; with
+  //  `targetFormat: 'wire'` the template is fully compiled to the standard wire
+  //  format (which already runs on native runtimes), so this option has no
+  //  effect there.
+  rfc931?: 'polyfilled' | 'native';
 }
 
 // The legal legacy module names. These are the only ones that are supported,

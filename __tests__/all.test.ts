@@ -1571,10 +1571,354 @@ describe('htmlbars-inline-precompile', function () {
         export default class MyComponent {
         }
         setComponentTemplate(
-          precompileTemplate('<HelloWorld @color={{"#ff0000"}} />', { scope: () => ({ HelloWorld }), strictMode: true }), 
+          precompileTemplate('<HelloWorld @color={{"#ff0000"}} />', { scope: () => ({ HelloWorld }), strictMode: true }),
           MyComponent
         );
       `);
+    });
+
+    describe('native rfc931', function () {
+      it('preserves template() for a template-only component in hbs format', async function () {
+        plugins = [
+          [
+            HTMLBarsInlinePrecompile,
+            {
+              targetFormat: 'hbs',
+              transforms: [color],
+              rfc931: 'native',
+            },
+          ],
+        ];
+
+        let transformed = await transform(
+          `import { template } from '@ember/template-compiler';
+           import HelloWorld from 'somewhere';
+           export default template('<HelloWorld @color={{red}} />', { scope: () => ({ HelloWorld }) });`
+        );
+
+        // the template() call and its import are preserved; only the template
+        // body is transformed.
+        expect(transformed).equalCode(`
+          import { template } from '@ember/template-compiler';
+          import HelloWorld from "somewhere";
+          export default template('<HelloWorld @color={{"#ff0000"}} />', { scope: () => ({ HelloWorld }) });
+        `);
+      });
+
+      it('preserves template() for a class-backed component in hbs format', async function () {
+        plugins = [
+          [
+            HTMLBarsInlinePrecompile,
+            {
+              targetFormat: 'hbs',
+              transforms: [color],
+              rfc931: 'native',
+            },
+          ],
+        ];
+
+        let transformed = await transform(
+          `
+           import { template } from '@ember/template-compiler';
+           import HelloWorld from 'somewhere';
+           export default class MyComponent {
+             static {
+               template('<HelloWorld @color={{red}} />', { component: this, scope: () => ({ HelloWorld }) });
+             }
+           }
+          `
+        );
+
+        expect(transformed).equalCode(`
+          import { template } from '@ember/template-compiler';
+          import HelloWorld from "somewhere";
+          export default class MyComponent {
+            static {
+              template('<HelloWorld @color={{"#ff0000"}} />', { component: this, scope: () => ({ HelloWorld }) });
+            }
+          }
+        `);
+      });
+
+      it('preserves template() for a class-backed component declared outside the class in hbs format', async function () {
+        plugins = [
+          [
+            HTMLBarsInlinePrecompile,
+            {
+              targetFormat: 'hbs',
+              transforms: [color],
+              rfc931: 'native',
+            },
+          ],
+        ];
+
+        let transformed = await transform(
+          `
+           import { template } from '@ember/template-compiler';
+           import HelloWorld from 'somewhere';
+           export default class MyComponent {
+           }
+           template('<HelloWorld @color={{red}} />', { component: MyComponent, scope: () => ({ HelloWorld }) });
+          `
+        );
+
+        expect(transformed).equalCode(`
+          import { template } from '@ember/template-compiler';
+          import HelloWorld from "somewhere";
+          export default class MyComponent {
+          }
+          template('<HelloWorld @color={{"#ff0000"}} />', { component: MyComponent, scope: () => ({ HelloWorld }) });
+        `);
+      });
+
+      it('converts the implicit eval form into the explicit scope form in hbs format', async function () {
+        plugins = [
+          [
+            HTMLBarsInlinePrecompile,
+            {
+              targetFormat: 'hbs',
+              rfc931: 'native',
+            },
+          ],
+        ];
+
+        let transformed = await transform(
+          `import { template } from '@ember/template-compiler';
+           import HelloWorld from 'somewhere';
+           export default template('<HelloWorld />', { eval() { return eval(arguments[0]); } });`
+        );
+
+        expect(transformed).equalCode(`
+          import { template } from '@ember/template-compiler';
+          import HelloWorld from "somewhere";
+          export default template("<HelloWorld />", { scope: () => ({ HelloWorld }) });
+        `);
+      });
+
+      it('converts the implicit eval form into the explicit scope form for a class-backed component in hbs format', async function () {
+        plugins = [
+          [
+            HTMLBarsInlinePrecompile,
+            {
+              targetFormat: 'hbs',
+              rfc931: 'native',
+            },
+          ],
+        ];
+
+        let transformed = await transform(
+          `
+           import { template } from '@ember/template-compiler';
+           import Component from '@glimmer/component';
+           import HelloWorld from 'somewhere';
+           export default class MyComponent extends Component {
+             static {
+               template('<HelloWorld />', { component: this, eval() { return eval(arguments[0]); } });
+             }
+           }
+          `
+        );
+
+        expect(transformed).equalCode(`
+          import { template } from '@ember/template-compiler';
+          import Component from "@glimmer/component";
+          import HelloWorld from "somewhere";
+          export default class MyComponent extends Component {
+            static {
+              template("<HelloWorld />", { component: this, scope: () => ({ HelloWorld }) });
+            }
+          }
+        `);
+      });
+
+      it("preserves the user's strict option on template() in hbs format", async function () {
+        plugins = [
+          [
+            HTMLBarsInlinePrecompile,
+            {
+              targetFormat: 'hbs',
+              rfc931: 'native',
+            },
+          ],
+        ];
+
+        let transformed = await transform(
+          `import { template } from '@ember/template-compiler';
+           import HelloWorld from 'somewhere';
+           export default template('<HelloWorld />', { strict: false, scope: () => ({ HelloWorld }) });`
+        );
+
+        expect(transformed).equalCode(`
+          import { template } from '@ember/template-compiler';
+          import HelloWorld from "somewhere";
+          export default template('<HelloWorld />', { strict: false, scope: () => ({ HelloWorld }) });
+        `);
+      });
+
+      it('handles multiple templates in a module in hbs format', async function () {
+        plugins = [
+          [
+            HTMLBarsInlinePrecompile,
+            {
+              targetFormat: 'hbs',
+              rfc931: 'native',
+            },
+          ],
+        ];
+
+        let transformed = await transform(
+          `
+          import { template } from "@ember/template-compiler";
+          import Component from '@glimmer/component';
+          export default class Test extends Component {
+              foo = 1;
+              static{
+                  template("<Icon />", {
+                      component: this,
+                      eval () {
+                          return eval(arguments[0]);
+                      }
+                  });
+              }
+          }
+          const Icon = template("Icon", {
+              eval () {
+                  return eval(arguments[0]);
+              }
+          });
+          `
+        );
+
+        expect(transformed).equalCode(`
+          import { template } from "@ember/template-compiler";
+          import Component from "@glimmer/component";
+          export default class Test extends Component {
+            foo = 1;
+            static {
+              template("<Icon />", {
+                component: this,
+                scope: () => ({
+                  Icon,
+                }),
+              });
+            }
+          }
+          const Icon = template("Icon", {});
+        `);
+      });
+
+      it('preserves a template-only component with no options in hbs format', async function () {
+        plugins = [
+          [
+            HTMLBarsInlinePrecompile,
+            {
+              targetFormat: 'hbs',
+              rfc931: 'native',
+            },
+          ],
+        ];
+
+        let transformed = await transform(
+          `import { template } from '@ember/template-compiler';
+           export default template('<h1>Hello World</h1>');`
+        );
+
+        expect(transformed).equalCode(`
+          import { template } from '@ember/template-compiler';
+          export default template("<h1>Hello World</h1>");
+        `);
+      });
+
+      it('falls back to the standard wire format for a template-only component in wire format', async function () {
+        // In wire format the template is fully compiled, which already runs on
+        // native runtimes, so rfc931: 'native' produces the same output as the
+        // default (polyfilled) wire output.
+        plugins = [
+          [
+            HTMLBarsInlinePrecompile,
+            {
+              targetFormat: 'wire',
+              transforms: [],
+              rfc931: 'native',
+            },
+          ],
+        ];
+
+        let transformed = await transform(
+          `import { template } from '@ember/template-compiler';
+           import HelloWorld from 'somewhere';
+           export default template('<HelloWorld />', { scope: () => ({ HelloWorld }) });`
+        );
+
+        expect(normalizeWireFormat(transformed)).equalCode(`
+          import HelloWorld from "somewhere";
+          import { setComponentTemplate } from "@ember/component";
+          import { createTemplateFactory } from "@ember/template-factory";
+          import templateOnly from "@ember/component/template-only";
+          export default setComponentTemplate(createTemplateFactory(
+            /*
+              <HelloWorld />
+          */
+            {
+              id: "<id>",
+              block: "<block>",
+              moduleName: "<moduleName>",
+              scope: () => [HelloWorld],
+              isStrictMode: true,
+            }
+          ), templateOnly());
+        `);
+      });
+
+      it('falls back to the standard wire format for a class-backed component in wire format', async function () {
+        plugins = [
+          [
+            HTMLBarsInlinePrecompile,
+            {
+              targetFormat: 'wire',
+              transforms: [],
+              rfc931: 'native',
+            },
+          ],
+        ];
+
+        let transformed = await transform(
+          `
+           import { template } from '@ember/template-compiler';
+           import HelloWorld from 'somewhere';
+           export default class {
+             static {
+               template('<HelloWorld />', { component: this, scope: () => ({ HelloWorld }) });
+             }
+           }
+          `
+        );
+
+        expect(normalizeWireFormat(transformed)).equalCode(`
+          import HelloWorld from "somewhere";
+          import { setComponentTemplate } from "@ember/component";
+          import { createTemplateFactory } from "@ember/template-factory";
+          export default class {
+            static {
+              setComponentTemplate(
+                createTemplateFactory(
+                  /*
+                    <HelloWorld />
+              */
+                  {
+                    id: "<id>",
+                    block: "<block>",
+                    moduleName: "<moduleName>",
+                    scope: () => [HelloWorld],
+                    isStrictMode: true,
+                  }
+                ),
+                this
+              );
+            }
+          }
+        `);
+      });
     });
 
     it('cleans up leftover imports when there is more than one template', async function () {
@@ -2534,8 +2878,124 @@ describe('htmlbars-inline-precompile', function () {
           }
         `);
     });
+
+    it('preserves template() for expression form with rfc931: native and hbs target', async function () {
+      plugins = [
+        [
+          HTMLBarsInlinePrecompile,
+          {
+            targetFormat: 'hbs',
+            rfc931: 'native',
+          },
+        ],
+      ];
+
+      let p = new Preprocessor();
+
+      const { code: preTransformed } = p.process(
+        `import HelloWorld from 'somewhere';
+         const MyComponent = <template><HelloWorld /></template>;
+        `
+      );
+
+      let transformed = await transform(preTransformed);
+
+      // the gjs is preprocessed by content-tag into the implicit eval form,
+      // then this plugin keeps template() and converts eval -> scope. content-tag
+      // aliases the import to a unique name (`template as template_<hash>`) which
+      // we preserve; normalize it back to `template` for a stable assertion.
+      expect(normalizeContentTagImport(transformed)).equalCode(`
+          import { template } from "@ember/template-compiler";
+          import HelloWorld from "somewhere";
+          const MyComponent = template('<HelloWorld />', { scope: () => ({ HelloWorld }) });
+        `);
+    });
+
+    it('preserves template() for class member form with rfc931: native and hbs target', async function () {
+      plugins = [
+        [
+          HTMLBarsInlinePrecompile,
+          {
+            targetFormat: 'hbs',
+            rfc931: 'native',
+          },
+        ],
+      ];
+
+      let p = new Preprocessor();
+
+      const { code: preTransformed } = p.process(
+        `import HelloWorld from 'somewhere';
+         export default class {
+           <template><HelloWorld /></template>
+         }
+        `
+      );
+
+      let transformed = await transform(preTransformed);
+
+      expect(normalizeContentTagImport(transformed)).equalCode(`
+          import { template } from "@ember/template-compiler";
+          import HelloWorld from "somewhere";
+          export default class {
+            static {
+              template('<HelloWorld />', { component: this, scope: () => ({ HelloWorld }) });
+            }
+          }
+        `);
+    });
+
+    it('compiles to wire format with targetFormat: wire', async function () {
+      plugins = [
+        [
+          HTMLBarsInlinePrecompile,
+          {
+            targetFormat: 'wire',
+          },
+        ],
+      ];
+
+      let p = new Preprocessor();
+
+      const { code: preTransformed } = p.process(
+        `import HelloWorld from 'somewhere';
+         const MyComponent = <template><HelloWorld /></template>;
+        `
+      );
+
+      let transformed = await transform(preTransformed);
+
+      // content-tag emits the implicit eval form; the default (polyfilled) wire
+      // path fully compiles it and drops the @ember/template-compiler import.
+      expect(normalizeWireFormat(transformed)).equalCode(`
+          import HelloWorld from "somewhere";
+          import { setComponentTemplate } from "@ember/component";
+          import { createTemplateFactory } from "@ember/template-factory";
+          import templateOnly from "@ember/component/template-only";
+          const MyComponent = setComponentTemplate(createTemplateFactory(
+            /*
+              <HelloWorld />
+          */
+            {
+              id: "<id>",
+              block: "<block>",
+              moduleName: "<moduleName>",
+              scope: () => [HelloWorld],
+              isStrictMode: true,
+            }
+          ), templateOnly());
+        `);
+    });
   });
 });
+
+// content-tag aliases its `template` import to a unique, hashed local name
+// (e.g. `template as template_abc123`). When we preserve the template() call
+// (rfc931: 'native'), that alias survives into the output. Normalize it back to
+// `template` so assertions don't depend on the specific hash.
+function normalizeContentTagImport(src: string): string {
+  return src.replace(/template_[0-9a-f]+/g, 'template');
+}
 
 // This takes out parts of ember's wire format that aren't our job and shouldn't
 // break our tests if they change.
