@@ -18,7 +18,7 @@ interface ModuleConfig {
   export: string;
   allowTemplateLiteral?: true;
   enableScope?: true;
-  rfc931Support?: 'polyfilled';
+  rfc931Support?: 'polyfilled' | 'native';
 }
 
 const INLINE_PRECOMPILE_MODULES: ModuleConfig[] = [
@@ -92,6 +92,17 @@ export interface Options {
   // Optional list of custom transforms to apply to the handlebars AST before
   // compilation.
   transforms?: ExtendedPluginBuilder[];
+
+  // Controls how RFC 931's template() API is handled.
+  //
+  //  "polyfilled": The default. template() calls are converted to older APIs
+  //  (precompileTemplate, setComponentTemplate, templateOnly) for runtimes
+  //  that don't natively support template().
+  //
+  //  "native": template() calls are kept as-is (with scope and eval
+  //  normalization applied) for runtimes that natively support the
+  //  template() API from @ember/template-compiler.
+  rfc931?: 'polyfilled' | 'native';
 }
 
 interface WireOpts {
@@ -100,6 +111,7 @@ interface WireOpts {
   outputModuleOverrides: Record<string, Record<string, [string, string]>>;
   enableLegacyModules: LegacyModuleName[];
   transforms: ExtendedPluginBuilder[];
+  rfc931: 'polyfilled' | 'native';
 }
 
 interface HbsOpts {
@@ -107,6 +119,7 @@ interface HbsOpts {
   outputModuleOverrides: Record<string, Record<string, [string, string]>>;
   enableLegacyModules: LegacyModuleName[];
   transforms: ExtendedPluginBuilder[];
+  rfc931: 'polyfilled' | 'native';
 }
 
 type NormalizedOpts = WireOpts | HbsOpts;
@@ -124,6 +137,7 @@ function normalizeOpts(options: Options): NormalizedOpts {
       ...options,
       targetFormat: 'wire',
       compiler,
+      rfc931: options.rfc931 ?? 'polyfilled',
     };
   } else {
     return {
@@ -132,6 +146,7 @@ function normalizeOpts(options: Options): NormalizedOpts {
       transforms: [],
       ...options,
       targetFormat: 'hbs',
+      rfc931: options.rfc931 ?? 'polyfilled',
     };
   }
 }
@@ -168,7 +183,10 @@ export function makePlugin<EnvSpecificOptions>(
           },
           exit(_path: NodePath<t.Program>, state: State<EnvSpecificOptions>) {
             if (normalizedOpts.targetFormat === 'wire') {
-              for (let { moduleName, export: exportName } of configuredModules(normalizedOpts)) {
+              for (let { moduleName, export: exportName, rfc931Support } of configuredModules(normalizedOpts)) {
+                if (rfc931Support === 'native') {
+                  continue;
+                }
                 state.util.removeImport(moduleName, exportName);
               }
             }
@@ -347,7 +365,12 @@ function* configuredModules(normalizedOpts: NormalizedOpts) {
     ) {
       continue;
     }
-    yield moduleConfig;
+    // Override rfc931Support mode based on user option
+    if (moduleConfig.rfc931Support) {
+      yield { ...moduleConfig, rfc931Support: normalizedOpts.rfc931 };
+    } else {
+      yield moduleConfig;
+    }
   }
 }
 
@@ -503,7 +526,20 @@ function insertCompiledTemplate<EnvSpecificOptions>(
 
     let expression = t.callExpression(templateFactoryIdentifier, [templateExpression]);
 
-    if (config.rfc931Support) {
+    if (config.rfc931Support === 'native') {
+      let templateCallArgs: t.Expression[] = [expression];
+      if (backingClass) {
+        templateCallArgs.push(
+          t.objectExpression([
+            t.objectProperty(t.identifier('component'), backingClass.node as t.Expression),
+          ])
+        );
+      }
+      expression = t.callExpression(
+        i.import('@ember/template-compiler', 'template'),
+        templateCallArgs
+      );
+    } else if (config.rfc931Support === 'polyfilled') {
       expression = t.callExpression(i.import('@ember/component', 'setComponentTemplate'), [
         expression,
         backingClass?.node ??
@@ -515,6 +551,12 @@ function insertCompiledTemplate<EnvSpecificOptions>(
     }
     return expression;
   });
+
+  // In native mode, the output contains a template() call which the visitor
+  // would try to re-process. Mark it as already handled.
+  if (config.rfc931Support === 'native') {
+    state.recursionGuard.add(target.node);
+  }
 
   remapAndBindIdentifiers(target, babel, scopeLocals);
 }
@@ -632,6 +674,19 @@ function updateCallForm<EnvSpecificOptions>(
     //
     target = target.get('arguments.0') as NodePath<t.CallExpression>;
   }
+
+  if (formatOptions.rfc931Support === 'native') {
+    // In native mode, keep the template() call form but normalize:
+    // - Remove eval property (eval form has been converted to scope via buildScopeLocals)
+    // - Keep component property as-is
+    // - Keep strict property as-is (don't rename to strictMode)
+    // - Don't replace callee with precompileTemplate
+    // - Don't wrap in setComponentTemplate
+    removeEval(target);
+    target.node.arguments = target.node.arguments.slice(0, 2);
+    state.recursionGuard.add(target.node);
+  }
+
   // We deliberately do updateScope at the end so that when it updates
   // references, those references will point to the accurate paths in the
   // final AST.
@@ -721,6 +776,22 @@ function removeEvalAndScope(target: NodePath<t.CallExpression>) {
     });
     if (componentProp) {
       componentProp.remove();
+    }
+  }
+}
+
+// Removes only the eval property from template() options, keeping component
+// and other properties. Used in native rfc931 mode where the template() call
+// is preserved.
+function removeEval(target: NodePath<t.CallExpression>) {
+  let secondArg = target.get('arguments.1') as NodePath<t.ObjectExpression> | undefined;
+  if (secondArg) {
+    let evalProp = secondArg.get('properties').find((p) => {
+      let key = p.get('key') as NodePath<t.Node>;
+      return key.isIdentifier() && key.node.name === 'eval';
+    });
+    if (evalProp) {
+      evalProp.remove();
     }
   }
 }
