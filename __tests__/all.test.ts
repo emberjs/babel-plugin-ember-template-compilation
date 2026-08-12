@@ -435,6 +435,24 @@ describe('htmlbars-inline-precompile', function () {
     expect(wireScope(transformed)).toEqual({ Setup: 'Setup' });
   });
 
+  it('keeps the template-visible name for a renamed scope local', async function () {
+    let transformed = await transform(`
+      import { Setup } from './foo.js';
+      import { precompileTemplate } from '@ember/template-compilation';
+      import { setComponentTemplate } from '@ember/component';
+      import templateOnly from '@ember/component/template-only';
+
+      export default setComponentTemplate(precompileTemplate("<Foo />", {
+        strictMode: true,
+        scope: () => ({
+          Foo: Setup
+        })
+      }), templateOnly());
+    `);
+
+    expect(wireScope(transformed)).toEqual({ Foo: 'Setup' });
+  });
+
   it('does not fully remove imports that have other imports', async function () {
     let transformed = await transform(`
       import { precompileTemplate, compileTemplate } from '@ember/template-compilation';
