@@ -1,7 +1,7 @@
 import type { NodePath } from '@babel/traverse';
 import type * as Babel from '@babel/core';
 import type { types as t } from '@babel/core';
-import { ScopeLocals } from './scope-locals.js';
+import { ScopeLocals, type LiteralScopeValue, type SignedNumericLiteral } from './scope-locals.js';
 
 export class ExpressionParser {
   constructor(private babel: typeof Babel) {}
@@ -109,9 +109,18 @@ export class ExpressionParser {
             res.add(propName, 'this');
             break;
           default:
-            throw path.buildCodeFrameError(
-              `Scope objects for \`${invokedName}\` may only contain direct references to in-scope values, e.g. { ${propName} } or { ${propName}: ${propName} }. Found ${value.type}`
-            );
+            if (isLiteralScopeValue(this.t, value)) {
+              // A bundler's constant inlining can legally rewrite a reference
+              // to an imported constant into its literal value, turning
+              // `{ EMPTY }` into `{ EMPTY: "" }` before this plugin sees it.
+              // The literal still tells us everything we need: the
+              // template-visible name and the value it resolves to.
+              res.add(propName, value);
+            } else {
+              throw path.buildCodeFrameError(
+                `Scope objects for \`${invokedName}\` may only contain direct references to in-scope values, e.g. { ${propName} } or { ${propName}: ${propName} }, or literal values. Found ${value.type}`
+              );
+            }
         }
         return res;
       },
@@ -251,4 +260,21 @@ function name(node: t.StringLiteral | t.Identifier): string {
   } else {
     return node.name;
   }
+}
+
+function isSignedNumericLiteral(t: typeof Babel.types, node: t.Node): node is SignedNumericLiteral {
+  return (
+    t.isUnaryExpression(node) &&
+    (node.operator === '-' || node.operator === '+') &&
+    (t.isNumericLiteral(node.argument) || t.isBigIntLiteral(node.argument))
+  );
+}
+
+// the value shapes a bundler's constant inlining can substitute for a
+// reference to an imported constant
+function isLiteralScopeValue(t: typeof Babel.types, node: t.Node): node is LiteralScopeValue {
+  if (isSignedNumericLiteral(t, node)) {
+    return true;
+  }
+  return t.isLiteral(node) && !t.isRegExpLiteral(node) && !t.isTemplateLiteral(node);
 }

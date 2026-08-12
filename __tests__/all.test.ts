@@ -1904,14 +1904,97 @@ describe('htmlbars-inline-precompile', function () {
       );
     });
 
-    it('errors if scope contains any non-reference values', async function () {
+    it('errors if scope contains any non-reference, non-literal values', async function () {
       await expect(() =>
         transform(
-          "import { precompileTemplate } from '@ember/template-compilation';\nvar compiled = precompileTemplate('hello', { scope: () => ({ foo, bar: 123 }) });"
+          "import { precompileTemplate } from '@ember/template-compilation';\nvar compiled = precompileTemplate('hello', { scope: () => ({ foo, bar: foo() }) });"
         )
       ).rejects.toThrow(
-        /Scope objects for `precompileTemplate` may only contain direct references to in-scope values, e.g. { bar } or { bar: bar }/
+        /Scope objects for `precompileTemplate` may only contain direct references to in-scope values, e.g. { bar } or { bar: bar }, or literal values. Found CallExpression/
       );
+    });
+
+    it('errors if scope contains a template literal', async function () {
+      // a template literal can interpolate expressions that reference bindings
+      // we know nothing about, so it isn't a value we can inline
+      await expect(() =>
+        transform(
+          'import { precompileTemplate } from "@ember/template-compilation";\nvar compiled = precompileTemplate("hello", { scope: () => ({ bar: `hi` }) });'
+        )
+      ).rejects.toThrow(/or literal values. Found TemplateLiteral/);
+    });
+
+    it('errors if scope contains a regex literal', async function () {
+      // a regex literal would construct a new stateful object on every call
+      await expect(() =>
+        transform(
+          'import { precompileTemplate } from "@ember/template-compilation";\nvar compiled = precompileTemplate("hello", { scope: () => ({ bar: /hi/ }) });'
+        )
+      ).rejects.toThrow(/or literal values. Found RegExpLiteral/);
+    });
+
+    it('accepts literal scope values, as produced by a bundler inlining constants', async function () {
+      // e.g. rolldown's `optimization.inlineConst` rewrites
+      // `import { EMPTY } from './constants.js'; ... scope: () => ({ EMPTY })`
+      // into `scope: () => ({ EMPTY: "—" })` when the constant's value is
+      // statically known
+      let transformed = await transform(`
+        import { precompileTemplate } from '@ember/template-compilation';
+        import { setComponentTemplate } from '@ember/component';
+        import templateOnly from '@ember/component/template-only';
+        export default setComponentTemplate(precompileTemplate("<span>{{EMPTY}}{{COUNT}}{{FLAG}}{{NEGATIVE}}</span>", {
+          strictMode: true,
+          scope: () => ({ EMPTY: "—", COUNT: 3, FLAG: false, NEGATIVE: -1 }),
+        }), templateOnly());
+      `);
+
+      expect(normalizeWireFormat(transformed)).equalCode(`
+        import { setComponentTemplate } from "@ember/component";
+        import templateOnly from "@ember/component/template-only";
+        import { createTemplateFactory } from "@ember/template-factory";
+        export default setComponentTemplate(
+          createTemplateFactory(
+            /*
+              <span>{{EMPTY}}{{COUNT}}{{FLAG}}{{NEGATIVE}}</span>
+            */
+            {
+              id: "<id>",
+              block: "<block>",
+              moduleName: "<moduleName>",
+              scope: () => ["—", 3, false, -1],
+              isStrictMode: true,
+            }
+          ),
+          templateOnly()
+        );
+      `);
+    });
+
+    it('keeps literal scope values when emitting hbs target format', async function () {
+      plugins = [[HTMLBarsInlinePrecompile, { targetFormat: 'hbs' }]];
+
+      let transformed = await transform(`
+        import { precompileTemplate } from '@ember/template-compilation';
+        const template = precompileTemplate("<span>{{EMPTY}}</span>", {
+          strictMode: true,
+          scope: () => ({ EMPTY: "—" }),
+        });
+      `);
+
+      expect(transformed).equalCode(`
+        import { precompileTemplate } from '@ember/template-compilation';
+        const template = precompileTemplate("<span>{{EMPTY}}</span>", {
+          strictMode: true,
+          scope: () => ({ EMPTY: "—" }),
+        });
+      `);
+    });
+
+    it('prunes unused literal scope values', async function () {
+      await transform(
+        "import { precompileTemplate } from '@ember/template-compilation';\nvar compiled = precompileTemplate('{{foo}}', { scope: () => ({ foo, unused: 123 }) });"
+      );
+      expect(precompileSpy.mock.lastCall?.at(-1)).toHaveProperty('locals', ['foo']);
     });
 
     it('correctly removes not used scope', async function () {
