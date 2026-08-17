@@ -2555,11 +2555,6 @@ describe('htmlbars-inline-precompile', function () {
   });
 });
 
-// This takes out parts of ember's wire format that aren't our job and shouldn't
-// break our tests if they change.
-// Reads the compiled scope back out of the wire format as a mapping from the
-// name the template uses to the JS it resolves to.
-//
 // Older compilers emit the scope as an array (`scope: () => [Setup]`) and newer
 // ones as an object (`scope: () => ({ Foo: Setup })`). Both carry the same
 // information, but the array form leaves the names implicit: they're the
@@ -2611,6 +2606,10 @@ function wireScope(src: string): Record<string, string> {
   return found;
 }
 
+// This takes out parts of ember's wire format that aren't our job and shouldn't
+// break our tests if they change.
+// Reads the compiled scope back out of the wire format as a mapping from the
+// name the template uses to the JS it resolves to.
 function normalizeWireFormat(src: string): string {
   return canonicalizeWireScope(src)
     .replace(/"moduleName":\s"[^"]+"/, '"moduleName": "<moduleName>"')
