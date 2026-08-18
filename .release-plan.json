@@ -1,19 +1,11 @@
 {
   "solution": {
     "babel-plugin-ember-template-compilation": {
-      "impact": "major",
-      "oldVersion": "3.0.1",
-      "newVersion": "4.0.0",
+      "impact": "patch",
+      "oldVersion": "4.0.0",
+      "newVersion": "4.0.1",
       "tagName": "latest",
       "constraints": [
-        {
-          "impact": "major",
-          "reason": "Appears in changelog section :boom: Breaking Change"
-        },
-        {
-          "impact": "minor",
-          "reason": "Appears in changelog section :rocket: Enhancement"
-        },
         {
           "impact": "patch",
           "reason": "Appears in changelog section :house: Internal"
@@ -22,5 +14,5 @@
       "pkgJSONPath": "./package.json"
     }
   },
-  "description": "## Release (2026-01-13)\n\n* babel-plugin-ember-template-compilation 4.0.0 (major)\n\n#### :boom: Breaking Change\n* `babel-plugin-ember-template-compilation`\n  * [#99](https://github.com/emberjs/babel-plugin-ember-template-compilation/pull/99) avoid leaking real filename path in output due to moduleName ([@void-mAlex](https://github.com/void-mAlex))\n\n#### :rocket: Enhancement\n* `babel-plugin-ember-template-compilation`\n  * [#106](https://github.com/emberjs/babel-plugin-ember-template-compilation/pull/106) Fix template compiler deprecation in Ember 6.8 betas ([@ef4](https://github.com/ef4))\n\n#### :house: Internal\n* `babel-plugin-ember-template-compilation`\n  * [#110](https://github.com/emberjs/babel-plugin-ember-template-compilation/pull/110) chore: bump `content-tag` ([@aklkv](https://github.com/aklkv))\n  * [#105](https://github.com/emberjs/babel-plugin-ember-template-compilation/pull/105) Switch to Vitest and build into a dist dir ([@ef4](https://github.com/ef4))\n\n#### Committers: 3\n- Alex ([@void-mAlex](https://github.com/void-mAlex))\n- Alexey Kulakov ([@aklkv](https://github.com/aklkv))\n- Edward Faulkner ([@ef4](https://github.com/ef4))\n"
+  "description": "## Release (2026-08-18)\n\n* babel-plugin-ember-template-compilation 4.0.1 (patch)\n\n#### :house: Internal\n* `babel-plugin-ember-template-compilation`\n  * [#121](https://github.com/emberjs/babel-plugin-ember-template-compilation/pull/121) Assert the compiled scope independently of the wire format's shape ([@NullVoxPopuli](https://github.com/NullVoxPopuli))\n  * [#118](https://github.com/emberjs/babel-plugin-ember-template-compilation/pull/118) Fix floating-dependency CI ([@NullVoxPopuli-ai-agent](https://github.com/NullVoxPopuli-ai-agent))\n\n#### Committers: 2\n- @NullVoxPopuli's reduced-access machine account for AI usage ([@NullVoxPopuli-ai-agent](https://github.com/NullVoxPopuli-ai-agent))\n- [@NullVoxPopuli](https://github.com/NullVoxPopuli)\n"
 }

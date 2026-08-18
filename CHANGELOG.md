@@ -1,5 +1,18 @@
 # Changelog
 
+## Release (2026-08-18)
+
+* babel-plugin-ember-template-compilation 4.0.1 (patch)
+
+#### :house: Internal
+* `babel-plugin-ember-template-compilation`
+  * [#121](https://github.com/emberjs/babel-plugin-ember-template-compilation/pull/121) Assert the compiled scope independently of the wire format's shape ([@NullVoxPopuli](https://github.com/NullVoxPopuli))
+  * [#118](https://github.com/emberjs/babel-plugin-ember-template-compilation/pull/118) Fix floating-dependency CI ([@NullVoxPopuli-ai-agent](https://github.com/NullVoxPopuli-ai-agent))
+
+#### Committers: 2
+- @NullVoxPopuli's reduced-access machine account for AI usage ([@NullVoxPopuli-ai-agent](https://github.com/NullVoxPopuli-ai-agent))
+- [@NullVoxPopuli](https://github.com/NullVoxPopuli)
+
 ## Release (2026-01-13)
 
 * babel-plugin-ember-template-compilation 4.0.0 (major)
