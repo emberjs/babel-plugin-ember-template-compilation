@@ -417,6 +417,24 @@ describe('htmlbars-inline-precompile', function () {
     `);
   });
 
+  it('puts a scope local into the compiled scope', async function () {
+    let transformed = await transform(`
+      import { Setup } from './foo.js';
+      import { precompileTemplate } from '@ember/template-compilation';
+      import { setComponentTemplate } from '@ember/component';
+      import templateOnly from '@ember/component/template-only';
+
+      export default setComponentTemplate(precompileTemplate("<Setup />", {
+        strictMode: true,
+        scope: () => ({
+          Setup
+        })
+      }), templateOnly());
+    `);
+
+    expect(wireScope(transformed)).toEqual({ Setup: 'Setup' });
+  });
+
   it('does not fully remove imports that have other imports', async function () {
     let transformed = await transform(`
       import { precompileTemplate, compileTemplate } from '@ember/template-compilation';
@@ -2536,6 +2554,60 @@ describe('htmlbars-inline-precompile', function () {
     });
   });
 });
+
+// Reads the compiled scope back out of the wire format as a mapping from the
+// name the template uses to the JS it resolves to.
+//
+// Older compilers emit the scope as an array (`scope: () => [Setup]`) and newer
+// ones as an object (`scope: () => ({ Foo: Setup })`). Both carry the same
+// information, but the array form leaves the names implicit: they're the
+// `locals` we handed the compiler, in order. Reading those back off the
+// precompile call puts both shapes into the same form, so a test can assert on
+// the scope without caring which ember-source is installed.
+function wireScope(src: string): Record<string, string> {
+  let t = babel.types;
+  let found: Record<string, string> | undefined;
+
+  babel.traverse(babel.parse(src, { configFile: false, babelrc: false })!, {
+    ObjectProperty(path) {
+      let { key, value } = path.node;
+      let isScopeKey =
+        (t.isIdentifier(key) && key.name === 'scope') ||
+        (t.isStringLiteral(key) && key.value === 'scope');
+      if (!isScopeKey || !t.isArrowFunctionExpression(value)) {
+        return;
+      }
+
+      let source = (node: babel.types.Node) => src.slice(node.start!, node.end!);
+
+      if (t.isObjectExpression(value.body)) {
+        found = Object.fromEntries(
+          value.body.properties.map((prop) => {
+            if (!t.isObjectProperty(prop)) {
+              throw new Error(`unexpected scope entry: ${prop.type}`);
+            }
+            let name = t.isIdentifier(prop.key) ? prop.key.name : source(prop.key);
+            return [name, source(prop.value)];
+          })
+        );
+      } else if (t.isArrayExpression(value.body)) {
+        let locals = (precompileSpy.mock.lastCall?.at(-1) as { locals?: string[] })?.locals;
+        if (!locals) {
+          throw new Error('cannot name an array-form scope without the compiler options');
+        }
+        found = Object.fromEntries(
+          value.body.elements.map((element, index) => [locals[index], source(element!)])
+        );
+      }
+      path.stop();
+    },
+  });
+
+  if (!found) {
+    throw new Error(`no wire-format scope found in:\n${src}`);
+  }
+  return found;
+}
 
 // This takes out parts of ember's wire format that aren't our job and shouldn't
 // break our tests if they change.
