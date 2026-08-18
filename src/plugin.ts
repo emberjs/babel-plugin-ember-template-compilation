@@ -436,13 +436,6 @@ function remapAndBindIdentifiers(target: NodePath, babel: typeof Babel, scopeLoc
   target.traverse({
     Identifier(path: NodePath<t.Identifier>) {
       if (scopeLocals.has(path.node.name) && path.node.name !== scopeLocals.get(path.node.name)) {
-        if (!path.isReferencedIdentifier()) {
-          // only references get remapped. When the compiler emits the wire
-          // format's scope as an object (`scope: () => ({ foo })`) rather than
-          // an array, the local's name also appears as a property key, and
-          // rewriting it there would drop the name the template refers to.
-          return;
-        }
         // this identifier has different names in hbs vs js, so we need to
         // replace the hbs name in the template compiler output with the js
         // name
