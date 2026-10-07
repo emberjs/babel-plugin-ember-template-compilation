@@ -1,5 +1,25 @@
 # Changelog
 
+## Release (2026-10-07)
+
+* babel-plugin-ember-template-compilation 4.0.1 (patch)
+
+#### :bug: Bug Fix
+* `babel-plugin-ember-template-compilation`
+  * [#120](https://github.com/emberjs/babel-plugin-ember-template-compilation/pull/120) Don't remap scope locals in non-reference positions ([@NullVoxPopuli](https://github.com/NullVoxPopuli))
+
+#### :house: Internal
+* `babel-plugin-ember-template-compilation`
+  * [#123](https://github.com/emberjs/babel-plugin-ember-template-compilation/pull/123) Update release plan to latest setup ([@NullVoxPopuli](https://github.com/NullVoxPopuli))
+  * [#119](https://github.com/emberjs/babel-plugin-ember-template-compilation/pull/119) Prepare Release ([@github-actions[bot]](https://github.com/apps/github-actions))
+  * [#121](https://github.com/emberjs/babel-plugin-ember-template-compilation/pull/121) Assert the compiled scope independently of the wire format's shape ([@NullVoxPopuli](https://github.com/NullVoxPopuli))
+  * [#118](https://github.com/emberjs/babel-plugin-ember-template-compilation/pull/118) Fix floating-dependency CI ([@NullVoxPopuli-ai-agent](https://github.com/NullVoxPopuli-ai-agent))
+
+#### Committers: 3
+- @NullVoxPopuli's reduced-access machine account for AI usage ([@NullVoxPopuli-ai-agent](https://github.com/NullVoxPopuli-ai-agent))
+- GitHub Actions [Bot] ([@github-actions](https://github.com/apps/github-actions))
+- [@NullVoxPopuli](https://github.com/NullVoxPopuli)
+
 ## Release (2026-01-13)
 
 * babel-plugin-ember-template-compilation 4.0.0 (major)
