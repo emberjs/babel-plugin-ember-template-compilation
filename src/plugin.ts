@@ -371,17 +371,18 @@ function runtimeErrorIIFE(babel: typeof Babel, replacements: { ERROR_MESSAGE: st
 }
 
 function buildScopeLocals(
+  babel: typeof Babel,
   userTypedOptions: Record<string, unknown>,
   formatOptions: ModuleConfig,
   target: NodePath<t.Expression>,
   mayUseLexicalThis: boolean
 ): ScopeLocals {
   if (formatOptions.rfc931Support && userTypedOptions.eval) {
-    return new ScopeLocals({ mode: 'implicit', jsPath: target, mayUseLexicalThis });
+    return new ScopeLocals(babel, { mode: 'implicit', jsPath: target, mayUseLexicalThis });
   } else if (userTypedOptions.scope) {
     return userTypedOptions.scope as ScopeLocals;
   } else {
-    return new ScopeLocals({ mode: 'explicit' });
+    return new ScopeLocals(babel, { mode: 'explicit' });
   }
 }
 
@@ -443,18 +444,31 @@ function remapAndBindIdentifiers(target: NodePath, babel: typeof Babel, scopeLoc
         return;
       }
 
-      if (scopeLocals.has(path.node.name) && path.node.name !== scopeLocals.get(path.node.name)) {
-        // this identifier has different names in hbs vs js, so we need to
-        // replace the hbs name in the template compiler output with the js
-        // name
-        path.replaceWith(babel.types.identifier(scopeLocals.get(path.node.name)));
+      let jsValue = scopeLocals.get(path.node.name);
+      if (jsValue && !babel.types.isIdentifier(jsValue, { name: path.node.name })) {
+        let [replacement] = path.replaceWith(babel.types.cloneNode(jsValue, true));
+        /**
+         * The names inside the new expression are JS names, not hbs names,
+         * so they must not be remapped again. Without the skip:
+         *
+         *   `{ a: f(a) }`     loops forever
+         *   `{ a: b, b: c }`  a resolves to c
+         */
+        replacement.skip();
+        // this is where we tell babel's scope system about the new references
+        // we just introduced. @babel/plugin-transform-typescript in particular
+        // cares a lot about those references being present.
+        bindReference(replacement);
+        replacement.traverse({ ReferencedIdentifier: bindReference });
       }
-      // this is where we tell babel's scope system about the new reference we
-      // just introduced. @babel/plugin-transform-typescript in particular
-      // cares a lot about those references being present.
-      path.scope.getBinding(path.node.name)?.reference(path);
     },
   });
+}
+
+function bindReference(path: NodePath) {
+  if (path.isIdentifier() && path.isReferencedIdentifier()) {
+    path.scope.getBinding(path.node.name)?.reference(path);
+  }
 }
 
 function insertCompiledTemplate<EnvSpecificOptions>(
@@ -468,7 +482,7 @@ function insertCompiledTemplate<EnvSpecificOptions>(
   backingClass: NodePath<Parameters<typeof t.callExpression>[1][number]> | undefined
 ) {
   let t = babel.types;
-  let scopeLocals = buildScopeLocals(userTypedOptions, config, target, !backingClass);
+  let scopeLocals = buildScopeLocals(babel, userTypedOptions, config, target, !backingClass);
   let options = buildPrecompileOptions(
     babel,
     target,
@@ -538,7 +552,7 @@ function insertTransformedTemplate<EnvSpecificOptions>(
   backingClass: NodePath<Parameters<typeof t.callExpression>[1][number]> | undefined
 ) {
   let t = babel.types;
-  let scopeLocals = buildScopeLocals(userTypedOptions, formatOptions, target, !backingClass);
+  let scopeLocals = buildScopeLocals(babel, userTypedOptions, formatOptions, target, !backingClass);
   let options = buildPrecompileOptions(
     babel,
     target,
@@ -663,8 +677,13 @@ function buildScope(babel: typeof Babel, locals: ScopeLocals) {
     t.objectExpression(
       locals
         .entries()
-        .map(([name, identifier]) =>
-          t.objectProperty(t.identifier(name), t.identifier(identifier), false, name !== 'this')
+        .map(([name, value]) =>
+          t.objectProperty(
+            t.identifier(name),
+            t.cloneNode(value, true),
+            false,
+            t.isIdentifier(value, { name })
+          )
         )
     )
   );

@@ -1904,14 +1904,202 @@ describe('htmlbars-inline-precompile', function () {
       );
     });
 
-    it('errors if scope contains any non-reference values', async function () {
-      await expect(() =>
-        transform(
-          "import { precompileTemplate } from '@ember/template-compilation';\nvar compiled = precompileTemplate('hello', { scope: () => ({ foo, bar: 123 }) });"
-        )
-      ).rejects.toThrow(
-        /Scope objects for `precompileTemplate` may only contain direct references to in-scope values, e.g. { bar } or { bar: bar }/
+    it('accepts any expression as a scope value', async function () {
+      let transformed = await transform(`
+        import { precompileTemplate } from '@ember/template-compilation';
+        import { foo, name } from 'somewhere';
+        var compiled = precompileTemplate("{{call}}{{greeting}}{{pattern}}{{negated}}{{member}}", {
+          strictMode: true,
+          scope: () => ({ call: foo(), greeting: \`hi \${name}\`, pattern: /hi/, negated: -foo, member: foo.bar }),
+        });
+      `);
+
+      expect(wireScope(transformed)).toEqual({
+        call: 'foo()',
+        greeting: '`hi ${name}`',
+        pattern: '/hi/',
+        negated: '-foo',
+        member: 'foo.bar',
+      });
+    });
+
+    it('does not remap the names inside a scope expression', async function () {
+      /**
+       * `a` inside `f(a)` is the JS binding `a`,
+       * not the template name `a`.
+       */
+      let transformed = await transform(`
+        import { precompileTemplate } from '@ember/template-compilation';
+        import { a, f } from 'somewhere';
+        var compiled = precompileTemplate("{{a}}", {
+          strictMode: true,
+          scope: () => ({ a: f(a) }),
+        });
+      `);
+
+      expect(wireScope(transformed)).toEqual({ a: 'f(a)' });
+    });
+
+    it('keeps an import that only a scope expression uses, with @babel/plugin-transform-typescript', async function () {
+      plugins = [[HTMLBarsInlinePrecompile, { targetFormat: 'wire' }], TransformTypescript];
+
+      let transformed = await transform(`
+        import { template } from '@ember/template-compiler';
+        import helpers from 'helpers';
+        export default template("{{shout}}", {
+          scope: () => ({ shout: helpers.shout }),
+        });
+      `);
+
+      expect(transformed).toContain(`import helpers from 'helpers';`);
+      expect(wireScope(transformed)).toEqual({ shout: 'helpers.shout' });
+    });
+
+    it('drops a scope expression that the template does not use', async function () {
+      let transformed = await transform(`
+        import { precompileTemplate } from '@ember/template-compilation';
+        import { track } from 'somewhere';
+        var compiled = precompileTemplate("hello", {
+          strictMode: true,
+          scope: () => ({ unused: track() }),
+        });
+      `);
+
+      expect(transformed).not.toContain('track()');
+    });
+
+    it('accepts literal scope values, as produced by a bundler inlining constants', async function () {
+      // e.g. rolldown's `optimization.inlineConst` rewrites
+      // `import { EMPTY } from './constants.js'; ... scope: () => ({ EMPTY })`
+      // into `scope: () => ({ EMPTY: "—" })` when the constant's value is
+      // statically known
+      let transformed = await transform(`
+        import { precompileTemplate } from '@ember/template-compilation';
+        import { setComponentTemplate } from '@ember/component';
+        import templateOnly from '@ember/component/template-only';
+        export default setComponentTemplate(precompileTemplate("<span>{{EMPTY}}{{COUNT}}{{FLAG}}{{NEGATIVE}}</span>", {
+          strictMode: true,
+          scope: () => ({ EMPTY: "—", COUNT: 3, FLAG: false, NEGATIVE: -1 }),
+        }), templateOnly());
+      `);
+
+      expect(wireScope(transformed)).toEqual({
+        EMPTY: '"—"',
+        COUNT: '3',
+        FLAG: 'false',
+        NEGATIVE: '-1',
+      });
+    });
+
+    it('keeps literal scope values when emitting hbs target format', async function () {
+      plugins = [[HTMLBarsInlinePrecompile, { targetFormat: 'hbs' }]];
+
+      let transformed = await transform(`
+        import { precompileTemplate } from '@ember/template-compilation';
+        const template = precompileTemplate("<span>{{EMPTY}}</span>", {
+          strictMode: true,
+          scope: () => ({ EMPTY: "—" }),
+        });
+      `);
+
+      expect(transformed).equalCode(`
+        import { precompileTemplate } from '@ember/template-compilation';
+        const template = precompileTemplate("<span>{{EMPTY}}</span>", {
+          strictMode: true,
+          scope: () => ({ EMPTY: "—" }),
+        });
+      `);
+    });
+
+    it('prunes unused literal scope values', async function () {
+      let transformed = await transform(
+        "import { precompileTemplate } from '@ember/template-compilation';\nimport foo from 'foo';\nvar compiled = precompileTemplate('{{foo}}', { scope: () => ({ foo, unused: 123 }) });"
       );
+      expect(precompileSpy.mock.lastCall?.at(-1)).toHaveProperty('locals', ['foo']);
+      expect(wireScope(transformed)).toEqual({ foo: 'foo' });
+    });
+
+    it('accepts the other shapes that bundlers and minifiers give constants', async function () {
+      // rolldown inlines `undefined` as `void 0`. After minification, `true`
+      // and `false` become `!0` and `!1`, and strings can become template
+      // literals.
+      let transformed = await transform(`
+        import { precompileTemplate } from '@ember/template-compilation';
+        var compiled = precompileTemplate("{{U}}{{T}}{{F}}{{S}}{{NUL}}{{BIG}}{{NEG_BIG}}", {
+          strictMode: true,
+          scope: () => ({ U: void 0, T: !0, F: !1, S: \`—\`, NUL: null, BIG: 10n, NEG_BIG: -10n }),
+        });
+      `);
+
+      expect(wireScope(transformed)).toEqual({
+        U: 'void 0',
+        T: '!0',
+        F: '!1',
+        S: '`—`',
+        NUL: 'null',
+        BIG: '10n',
+        NEG_BIG: '-10n',
+      });
+    });
+
+    it('keeps each value with its name when references and literals mix', async function () {
+      // the wire format's scope is an array in older Ember versions, so each
+      // value must keep the position that the template refers to
+      let transformed = await transform(`
+        import { precompileTemplate } from '@ember/template-compilation';
+        import foo from 'foo';
+        var compiled = precompileTemplate("{{LAST}}{{foo}}{{FIRST}}", {
+          strictMode: true,
+          scope: () => ({ FIRST: "one", unused: 2, foo, LAST: 3 }),
+        });
+      `);
+
+      expect(wireScope(transformed)).toEqual({ FIRST: '"one"', foo: 'foo', LAST: '3' });
+    });
+
+    it('uses a literal scope value over a JS binding with the same name', async function () {
+      let transformed = await transform(`
+        import { precompileTemplate } from '@ember/template-compilation';
+        let foo = 1;
+        var compiled = precompileTemplate("{{foo}}", {
+          strictMode: true,
+          scope: () => ({ foo: "x" }),
+        });
+      `);
+
+      expect(wireScope(transformed)).toEqual({ foo: '"x"' });
+    });
+
+    it('accepts literal scope values in the explicit form of template()', async function () {
+      let transformed = await transform(`
+        import { template } from '@ember/template-compiler';
+        import shout from 'shout';
+        export default template("{{shout LABEL}}{{NOTHING}}", {
+          scope: () => ({ shout, LABEL: "hi", NOTHING: null }),
+        });
+      `);
+
+      expect(wireScope(transformed)).toEqual({ shout: 'shout', LABEL: '"hi"', NOTHING: 'null' });
+    });
+
+    it('keeps literal scope values in the explicit form of template() with hbs target format', async function () {
+      plugins = [[HTMLBarsInlinePrecompile, { targetFormat: 'hbs' }]];
+
+      let transformed = await transform(`
+        import { template } from '@ember/template-compiler';
+        import shout from 'shout';
+        export default template("{{shout LABEL}}", {
+          scope: () => ({ shout, LABEL: "hi", unused: 1 }),
+        });
+      `);
+
+      expect(transformed).equalCode(`
+        import shout from 'shout';
+        import { precompileTemplate } from "@ember/template-compilation";
+        import { setComponentTemplate } from "@ember/component";
+        import templateOnly from "@ember/component/template-only";
+        export default setComponentTemplate(precompileTemplate("{{shout LABEL}}", { scope: () => ({ shout, LABEL: "hi" }), strictMode: true }), templateOnly());
+      `);
     });
 
     it('correctly removes not used scope', async function () {
@@ -2578,10 +2766,12 @@ describe('htmlbars-inline-precompile', function () {
 //
 // Older compilers emit the scope as an array (`scope: () => [Setup]`) and newer
 // ones as an object (`scope: () => ({ Foo: Setup })`). Both carry the same
-// information, but the array form leaves the names implicit: they're the
-// `locals` we handed the compiler, in order. Reading those back off the
-// precompile call puts both shapes into the same form, so a test can assert on
-// the scope without caring which ember-source is installed.
+// information, but the array form leaves the names implicit. The compiler
+// orders the array by first use in the template, not by `locals`, and its own
+// output still has the template names (`scope: () => [Foo]`) before this
+// plugin rewrites them. Reading those back off the precompile call puts both
+// shapes into the same form, so a test can assert on the scope without caring
+// which ember-source is installed.
 function wireScope(src: string): Record<string, string> {
   let t = babel.types;
   let found: Record<string, string> | undefined;
@@ -2609,12 +2799,9 @@ function wireScope(src: string): Record<string, string> {
           })
         );
       } else if (t.isArrayExpression(value.body)) {
-        let locals = (precompileSpy.mock.lastCall?.at(-1) as { locals?: string[] })?.locals;
-        if (!locals) {
-          throw new Error('cannot name an array-form scope without the compiler options');
-        }
+        let names = compilerScopeNames();
         found = Object.fromEntries(
-          value.body.elements.map((element, index) => [locals[index], source(element!)])
+          value.body.elements.map((element, index) => [names[index], source(element!)])
         );
       }
       path.stop();
@@ -2625,6 +2812,41 @@ function wireScope(src: string): Record<string, string> {
     throw new Error(`no wire-format scope found in:\n${src}`);
   }
   return found;
+}
+
+// The template names of an array-form scope, in the order the compiler emitted
+// them, read from the compiler's output for the last precompile call.
+function compilerScopeNames(): string[] {
+  let t = babel.types;
+  let compiled = precompileSpy.mock.results.at(-1)?.value;
+  if (typeof compiled !== 'string') {
+    throw new Error('cannot name an array-form scope without the compiler output');
+  }
+  let statement = babel.parse(`(${compiled})`, { configFile: false, babelrc: false })!.program
+    .body[0];
+  let wire = t.isExpressionStatement(statement) ? statement.expression : undefined;
+  if (!t.isObjectExpression(wire)) {
+    throw new Error(`unexpected compiler output:\n${compiled}`);
+  }
+  for (let prop of wire.properties) {
+    if (
+      t.isObjectProperty(prop) &&
+      t.isStringLiteral(prop.key, { value: 'scope' }) &&
+      t.isArrowFunctionExpression(prop.value) &&
+      t.isArrayExpression(prop.value.body)
+    ) {
+      return prop.value.body.elements.map((element) => {
+        if (t.isIdentifier(element)) {
+          return element.name;
+        }
+        if (t.isThisExpression(element)) {
+          return 'this';
+        }
+        throw new Error(`unexpected scope entry in compiler output: ${element?.type}`);
+      });
+    }
+  }
+  throw new Error(`no array-form scope in compiler output:\n${compiled}`);
 }
 
 // This takes out parts of ember's wire format that aren't our job and shouldn't

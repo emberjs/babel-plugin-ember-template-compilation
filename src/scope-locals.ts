@@ -8,6 +8,8 @@
 */
 
 import type { NodePath } from '@babel/traverse';
+import type * as Babel from '@babel/core';
+import type { types as t } from '@babel/core';
 import type { ASTPluginEnvironment, NodeVisitor } from '@glimmer/syntax';
 import { astNodeHasBinding } from './hbs-utils.js';
 import { readOnlyArray } from './read-only-array.js';
@@ -104,13 +106,19 @@ type Params =
     };
 
 export class ScopeLocals {
-  constructor(params: Params) {
+  constructor(babel: typeof Babel, params: Params) {
+    this.#t = babel.types;
     this.#params = params;
   }
 
-  #mapping: Record<string, string> = {};
+  /**
+   * Each hbs name maps to the JS expression that it resolves to.
+   * A reference to a JS binding is an Identifier.
+   */
+  #mapping: Record<string, t.Expression> = {};
   #locals: string[] = [];
   #params: Params;
+  #t: typeof Babel.types;
 
   get locals() {
     return readOnlyArray(
@@ -119,11 +127,7 @@ export class ScopeLocals {
     );
   }
 
-  has(key: string): boolean {
-    return key in this.#mapping;
-  }
-
-  get(key: string): string {
+  get(key: string): t.Expression | undefined {
     return this.#mapping[key];
   }
 
@@ -135,16 +139,16 @@ export class ScopeLocals {
     return Object.entries(this.#mapping);
   }
 
-  add(hbsName: string, jsName?: string) {
-    this.#mapping[hbsName] = jsName ?? hbsName;
+  add(hbsName: string, jsValue?: t.Expression) {
+    this.#mapping[hbsName] =
+      jsValue ?? (hbsName === 'this' ? this.#t.thisExpression() : this.#t.identifier(hbsName));
     if (!this.#locals.includes(hbsName)) {
       this.#locals.push(hbsName);
     }
   }
 
   #isInJsScope(hbsName: string, jsPath: NodePath) {
-    let jsName = this.#mapping[hbsName] ?? hbsName;
-    return ALLOWED_GLOBALS.has(jsName) || jsPath.scope.getBinding(jsName);
+    return ALLOWED_GLOBALS.has(hbsName) || jsPath.scope.getBinding(hbsName);
   }
 
   // this AST transform discovers all possible upvars in HBS that refer to valid
