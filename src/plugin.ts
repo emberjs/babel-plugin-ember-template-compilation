@@ -448,6 +448,13 @@ function remapAndBindIdentifiers(target: NodePath, babel: typeof Babel, scopeLoc
         // replace the hbs name in the template compiler output with the js
         // name
         path.replaceWith(babel.types.identifier(scopeLocals.get(path.node.name)));
+        /**
+         * The new name is a JS name, not an hbs name, so it must not be remapped again.
+         *
+         *   `{ a: b, b: c }`  a must stay b, not become c
+         *   `{ a: b, b: a }`  a swap must not loop forever
+         */
+        path.skip();
       }
       // this is where we tell babel's scope system about the new reference we
       // just introduced. @babel/plugin-transform-typescript in particular

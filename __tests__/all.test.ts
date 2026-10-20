@@ -453,6 +453,34 @@ describe('htmlbars-inline-precompile', function () {
     expect(wireScope(transformed)).toEqual({ Foo: 'Setup' });
   });
 
+  it('does not chain renamed scope locals', async function () {
+    let transformed = await transform(`
+      import { b, c } from './foo.js';
+      import { precompileTemplate } from '@ember/template-compilation';
+
+      export default precompileTemplate("{{a}}{{b}}", {
+        strictMode: true,
+        scope: () => ({ a: b, b: c })
+      });
+    `);
+
+    expect(wireScope(transformed)).toEqual({ a: 'b', b: 'c' });
+  });
+
+  it('swaps the names of two scope locals', async function () {
+    let transformed = await transform(`
+      import { a, b } from './foo.js';
+      import { precompileTemplate } from '@ember/template-compilation';
+
+      export default precompileTemplate("{{a}}{{b}}", {
+        strictMode: true,
+        scope: () => ({ a: b, b: a })
+      });
+    `);
+
+    expect(wireScope(transformed)).toEqual({ a: 'b', b: 'a' });
+  });
+
   it('does not fully remove imports that have other imports', async function () {
     let transformed = await transform(`
       import { precompileTemplate, compileTemplate } from '@ember/template-compilation';
