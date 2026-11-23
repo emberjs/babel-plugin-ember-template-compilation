@@ -60,5 +60,6 @@ jobs:
           node-version: ${{ matrix.node }}
       - run: pnpm dlx @embroider/try apply ${{ matrix.name }}
       - run: pnpm install --no-lockfile
+        env: ${{ matrix.env }}
       - run: pnpm test
         env: ${{ matrix.env }}
