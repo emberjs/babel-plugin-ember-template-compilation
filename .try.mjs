@@ -91,6 +91,33 @@ scenarios.push({
   },
 });
 
+/**
+ * Babel 8 needs Node ^22.18.0 || >=24.11.0.
+ * `use-node-version` in .npmrc makes pnpm run
+ * scripts on Node 18, so the env overrides it.
+ * Babel 8 types do not match src yet, so the
+ * `prepare` script (tsc) is skipped on install.
+ */
+scenarios.push({
+  name: 'babel-8',
+  os: 'ubuntu-latest',
+  node: '24',
+  npm: {
+    devDependencies: {
+      '@babel/core': '^8.0.0',
+      '@babel/plugin-transform-modules-amd': '^8.0.0',
+      '@babel/plugin-transform-template-literals': '^8.0.0',
+      '@babel/plugin-transform-typescript': '^8.0.0',
+      '@babel/plugin-transform-unicode-escapes': '^8.0.0',
+      '@babel/traverse': '^8.0.0',
+    },
+  },
+  env: {
+    npm_config_use_node_version: '24.22.2',
+    npm_config_ignore_scripts: 'true',
+  },
+});
+
 export default {
   scenarios,
 };

@@ -2586,7 +2586,7 @@ function wireScope(src: string): Record<string, string> {
   let t = babel.types;
   let found: Record<string, string> | undefined;
 
-  babel.traverse(babel.parse(src, { configFile: false, babelrc: false })!, {
+  babel.traverse(babel.parseSync(src, { configFile: false, babelrc: false })!, {
     ObjectProperty(path) {
       let { key, value } = path.node;
       let isScopeKey =
