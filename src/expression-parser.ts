@@ -101,21 +101,15 @@ export class ExpressionParser {
 
         let propName = name(key);
 
-        switch (value.type) {
-          case 'Identifier':
-            res.add(propName, value.name);
-            break;
-          case 'ThisExpression':
-            res.add(propName, 'this');
-            break;
-          default:
-            throw path.buildCodeFrameError(
-              `Scope objects for \`${invokedName}\` may only contain direct references to in-scope values, e.g. { ${propName} } or { ${propName}: ${propName} }. Found ${value.type}`
-            );
+        if (!this.t.isExpression(value)) {
+          throw path.buildCodeFrameError(
+            `Scope objects for \`${invokedName}\` may only contain expressions. Found ${value.type}`
+          );
         }
+        res.add(propName, value);
         return res;
       },
-      new ScopeLocals({ mode: 'explicit' })
+      new ScopeLocals(this.babel, { mode: 'explicit' })
     );
   }
 
