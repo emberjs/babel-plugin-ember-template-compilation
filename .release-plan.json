@@ -2,8 +2,8 @@
   "solution": {
     "babel-plugin-ember-template-compilation": {
       "impact": "patch",
-      "oldVersion": "4.0.0",
-      "newVersion": "4.0.1",
+      "oldVersion": "4.0.1",
+      "newVersion": "4.0.2",
       "tagName": "latest",
       "constraints": [
         {
@@ -18,5 +18,5 @@
       "pkgJSONPath": "./package.json"
     }
   },
-  "description": "## Release (2026-10-07)\n\n* babel-plugin-ember-template-compilation 4.0.1 (patch)\n\n#### :bug: Bug Fix\n* `babel-plugin-ember-template-compilation`\n  * [#120](https://github.com/emberjs/babel-plugin-ember-template-compilation/pull/120) Don't remap scope locals in non-reference positions ([@NullVoxPopuli](https://github.com/NullVoxPopuli))\n\n#### :house: Internal\n* `babel-plugin-ember-template-compilation`\n  * [#123](https://github.com/emberjs/babel-plugin-ember-template-compilation/pull/123) Update release plan to latest setup ([@NullVoxPopuli](https://github.com/NullVoxPopuli))\n  * [#119](https://github.com/emberjs/babel-plugin-ember-template-compilation/pull/119) Prepare Release ([@github-actions[bot]](https://github.com/apps/github-actions))\n  * [#121](https://github.com/emberjs/babel-plugin-ember-template-compilation/pull/121) Assert the compiled scope independently of the wire format's shape ([@NullVoxPopuli](https://github.com/NullVoxPopuli))\n  * [#118](https://github.com/emberjs/babel-plugin-ember-template-compilation/pull/118) Fix floating-dependency CI ([@NullVoxPopuli-ai-agent](https://github.com/NullVoxPopuli-ai-agent))\n\n#### Committers: 3\n- @NullVoxPopuli's reduced-access machine account for AI usage ([@NullVoxPopuli-ai-agent](https://github.com/NullVoxPopuli-ai-agent))\n- GitHub Actions [Bot] ([@github-actions](https://github.com/apps/github-actions))\n- [@NullVoxPopuli](https://github.com/NullVoxPopuli)\n"
+  "description": "## Release (2026-11-24)\n\n* babel-plugin-ember-template-compilation 4.0.2 (patch)\n\n#### :bug: Bug Fix\n* `babel-plugin-ember-template-compilation`\n  * [#125](https://github.com/emberjs/babel-plugin-ember-template-compilation/pull/125) Accept any expression as a scope value ([@NullVoxPopuli-ai-agent](https://github.com/NullVoxPopuli-ai-agent))\n\n#### :house: Internal\n* `babel-plugin-ember-template-compilation`\n  * [#127](https://github.com/emberjs/babel-plugin-ember-template-compilation/pull/127) Run the tests on Babel 8 in CI ([@NullVoxPopuli-ai-agent](https://github.com/NullVoxPopuli-ai-agent))\n\n#### Committers: 1\n- @NullVoxPopuli's reduced-access machine account for AI usage ([@NullVoxPopuli-ai-agent](https://github.com/NullVoxPopuli-ai-agent))\n"
 }
