@@ -1,5 +1,20 @@
 # Changelog
 
+## Release (2026-11-24)
+
+* babel-plugin-ember-template-compilation 4.0.2 (patch)
+
+#### :bug: Bug Fix
+* `babel-plugin-ember-template-compilation`
+  * [#125](https://github.com/emberjs/babel-plugin-ember-template-compilation/pull/125) Accept any expression as a scope value ([@NullVoxPopuli-ai-agent](https://github.com/NullVoxPopuli-ai-agent))
+
+#### :house: Internal
+* `babel-plugin-ember-template-compilation`
+  * [#127](https://github.com/emberjs/babel-plugin-ember-template-compilation/pull/127) Run the tests on Babel 8 in CI ([@NullVoxPopuli-ai-agent](https://github.com/NullVoxPopuli-ai-agent))
+
+#### Committers: 1
+- @NullVoxPopuli's reduced-access machine account for AI usage ([@NullVoxPopuli-ai-agent](https://github.com/NullVoxPopuli-ai-agent))
+
 ## Release (2026-10-07)
 
 * babel-plugin-ember-template-compilation 4.0.1 (patch)
