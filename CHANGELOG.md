@@ -1,5 +1,16 @@
 # Changelog
 
+## Release (2026-11-26)
+
+* babel-plugin-ember-template-compilation 4.0.3 (patch)
+
+#### :house: Internal
+* `babel-plugin-ember-template-compilation`
+  * [#130](https://github.com/emberjs/babel-plugin-ember-template-compilation/pull/130) Use parseSync in the wire scope test helper ([@NullVoxPopuli-ai-agent](https://github.com/NullVoxPopuli-ai-agent))
+
+#### Committers: 1
+- @NullVoxPopuli's reduced-access machine account for AI usage ([@NullVoxPopuli-ai-agent](https://github.com/NullVoxPopuli-ai-agent))
+
 ## Release (2026-11-24)
 
 * babel-plugin-ember-template-compilation 4.0.2 (patch)
