@@ -2822,7 +2822,7 @@ function compilerScopeNames(): string[] {
   if (typeof compiled !== 'string') {
     throw new Error('cannot name an array-form scope without the compiler output');
   }
-  let statement = babel.parse(`(${compiled})`, { configFile: false, babelrc: false })!.program
+  let statement = babel.parseSync(`(${compiled})`, { configFile: false, babelrc: false })!.program
     .body[0];
   let wire = t.isExpressionStatement(statement) ? statement.expression : undefined;
   if (!t.isObjectExpression(wire)) {
