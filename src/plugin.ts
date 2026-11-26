@@ -414,6 +414,11 @@ function buildPrecompileOptions<EnvSpecificOptions>(
       // these plugins can access meta.jsutils.
       ast: [...normalizedOpts.transforms, scope.crawl()] as ASTPluginBuilder[],
     },
+
+    // Without this, the compiler hashes each template into an id whenever it
+    // finds a CommonJS `require` (for example in a babel worker thread), so the
+    // output depends on where babel runs. The runtime does not use the id.
+    id: () => null,
   };
 
   for (let [key, value] of Object.entries(userTypedOptions)) {

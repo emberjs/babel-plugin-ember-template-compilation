@@ -13,6 +13,7 @@ import { ExtendedPluginBuilder } from '../src/js-utils.js';
 import { Preprocessor } from 'content-tag';
 import { ALLOWED_GLOBALS } from '../src/scope-locals.js';
 import { fileURLToPath, pathToFileURL } from 'url';
+import { createRequire } from 'module';
 import { resolve as importMetaResolve } from 'import-meta-resolve';
 import { describe, it, beforeEach, afterEach, expect, chai, vi, type Mock } from 'vitest';
 import { codeEquality, type CodeEqualityAssertions } from 'code-equality-assertions/chai';
@@ -415,6 +416,26 @@ describe('htmlbars-inline-precompile', function () {
         templateOnly()
       );
     `);
+  });
+
+  it('emits a null template id when a CommonJS require is present', async function () {
+    // Babel worker threads (eval workers) have a global `require`. When the
+    // template compiler loads there, it hashes each template into an id.
+    let globals = globalThis as { require?: unknown };
+    let transformed: string;
+    globals.require = createRequire(import.meta.url);
+    try {
+      vi.resetModules();
+      let fresh = await import('../src/node-main.js');
+      plugins = [[fresh.default, {}]];
+      transformed = await transform(
+        `import { precompileTemplate } from '@ember/template-compilation';\nvar compiled = precompileTemplate('hello');`
+      );
+    } finally {
+      delete globals.require;
+    }
+
+    expect(transformed).toContain('"id": null');
   });
 
   it('puts a scope local into the compiled scope', async function () {
